@@ -56,7 +56,7 @@ def _get_soap_client() -> Client:
 
     session = Session()
     session.verify = True
-    # HTTP Basic Auth needed for SUNAT beta WSDL fetching
+    # HTTP Basic Auth needed for SUNAT WSDL fetching
     session.auth = (ws_user, sol_password)
     transport = Transport(session=session, timeout=30, operation_timeout=30)
 
@@ -65,6 +65,9 @@ def _get_soap_client() -> Client:
         wsse=UsernameToken(ws_user, sol_password),
         transport=transport,
     )
+
+    # Remove HTTP Basic Auth after WSDL loads — SOAP calls use WS-Security only
+    session.auth = None
 
     _cached_client = client
     _cached_env = env
