@@ -53,6 +53,8 @@ def _get_soap_client() -> Client:
 
     session = Session()
     session.verify = True
+    # HTTP Basic Auth needed for SUNAT beta WSDL fetching
+    session.auth = (ws_user, sol_password)
     transport = Transport(session=session, timeout=30, operation_timeout=30)
 
     client = Client(
