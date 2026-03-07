@@ -1,0 +1,111 @@
+from datetime import date, datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class DocumentSeriesOut(BaseModel):
+    id: int
+    doc_type: str
+    series: str
+    next_number: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentSeriesCreate(BaseModel):
+    doc_type: str
+    series: str
+
+
+class SaleItemIn(BaseModel):
+    product_id: int
+    quantity: int
+    unit_price: float
+    discount_pct: float = 0
+
+
+class SaleItemOut(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    unit_price: float
+    discount_pct: float
+    line_total: float
+    product_code: str
+    product_name: str
+    brand_name: str | None
+    presentation: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SaleCreate(BaseModel):
+    doc_type: str
+    series: str
+    client_id: int
+    warehouse_id: int
+    seller_id: int
+    payment_cond: str = "CONTADO"
+    payment_method: str = "EFECTIVO"
+    cash_received: float | None = None
+    cash_change: float | None = None
+    max_discount_pct: float = 0
+    issue_date: date | None = None
+    items: list[SaleItemIn]
+    notes: str | None = None
+
+
+class SaleOut(BaseModel):
+    id: int
+    doc_type: str
+    series: str
+    doc_number: int
+    client_id: int
+    client_name: str
+    warehouse_id: int
+    seller_id: int
+    seller_name: str
+    payment_cond: str
+    payment_method: str | None
+    cash_received: float | None
+    cash_change: float | None
+    max_discount_pct: float | None
+    subtotal: float
+    igv_amount: float
+    total: float
+    status: str
+    notes: str | None
+    issue_date: date
+    created_at: datetime
+    items: list[SaleItemOut]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SaleListOut(BaseModel):
+    id: int
+    doc_type: str
+    series: str
+    doc_number: int
+    client_id: int
+    client_name: str
+    warehouse_id: int
+    seller_id: int
+    seller_name: str
+    payment_cond: str
+    payment_method: str | None
+    subtotal: float
+    igv_amount: float
+    total: float
+    status: str
+    notes: str | None
+    issue_date: date
+    created_at: datetime
+    sunat_status: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class VoidRequest(BaseModel):
+    reason: str

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+seeds/
+sunat_files/
+certs/
+tests/
+.env
+.git

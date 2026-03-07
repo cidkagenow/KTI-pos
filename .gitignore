@@ -1,0 +1,10 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+*.egg-info/
+.DS_Store
+backend/sunat_files/
