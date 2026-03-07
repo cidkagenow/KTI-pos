@@ -481,6 +481,9 @@ def list_sunat_documents(
     )
     if doc_category:
         query = query.filter(SunatDocument.doc_category == doc_category)
+        # For RESUMEN/BAJA lists, only show master records (not per-boleta links)
+        if doc_category in ("RESUMEN", "BAJA"):
+            query = query.filter(SunatDocument.sale_id.is_(None))
     if sunat_status:
         query = query.filter(SunatDocument.sunat_status == sunat_status)
     if date_from:
