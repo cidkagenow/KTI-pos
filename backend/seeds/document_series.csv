@@ -1,0 +1,4 @@
+id,doc_type,series,next_number,is_active
+2,BOLETA,B005,1,t
+1,BOLETA,B001,2,t
+3,FACTURA,F001,3,t
