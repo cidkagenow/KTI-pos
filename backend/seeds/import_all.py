@@ -1,4 +1,9 @@
-"""Import all data from CSV exports into the database."""
+"""Import all data from CSV exports into the database.
+
+Usage:
+    python seeds/import_all.py          # Import (skip tables with data)
+    python seeds/import_all.py --reset  # Truncate all tables first, then import
+"""
 import sys
 import os
 import csv
@@ -23,7 +28,22 @@ TABLES = [
     "inventory",
 ]
 
+RESET_MODE = "--reset" in sys.argv
+
 db = SessionLocal()
+
+if RESET_MODE:
+    print("=== RESET MODE: truncating all tables ===")
+    # Truncate in reverse order (respect FK dependencies)
+    for table in reversed(TABLES):
+        try:
+            db.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
+            print(f"  TRUNCATED {table}")
+        except Exception as e:
+            db.rollback()
+            print(f"  WARN truncate {table}: {e}")
+    db.commit()
+    print()
 
 for table in TABLES:
     csv_path = SEEDS_DIR / f"{table}.csv"
@@ -59,16 +79,20 @@ for table in TABLES:
             clean[k] = None if v == "" else v
         clean_rows.append(clean)
 
-    db.execute(sql, clean_rows)
+    try:
+        db.execute(sql, clean_rows)
 
-    # Reset sequence to max id
-    if "id" in columns:
-        db.execute(text(
-            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
-            f"COALESCE((SELECT MAX(id) FROM {table}), 1))"
-        ))
+        # Reset sequence to max id
+        if "id" in columns:
+            db.execute(text(
+                f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM {table}), 1))"
+            ))
 
-    db.commit()
-    print(f"OK {table}: {len(rows)} rows imported")
+        db.commit()
+        print(f"OK {table}: {len(rows)} rows imported")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR {table}: {e}")
 
 print("\nListo! All data imported.")
