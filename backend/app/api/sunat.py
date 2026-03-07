@@ -357,6 +357,22 @@ def enviar_baja(
             "Solo facturas se pueden dar de baja. Las boletas se anulan via resumen diario.",
         )
 
+    # Check if baja was already sent and accepted/pending
+    existing_baja = (
+        db.query(SunatDocument)
+        .filter(
+            SunatDocument.sale_id == sale.id,
+            SunatDocument.doc_category == "BAJA",
+            SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
+        )
+        .first()
+    )
+    if existing_baja:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Ya se envio baja para esta venta (estado: {existing_baja.sunat_status})",
+        )
+
     # Check sale was previously accepted by SUNAT
     prev_doc = (
         db.query(SunatDocument)
