@@ -46,10 +46,7 @@ def _get_soap_client() -> Client:
     sol_user = settings.SUNAT_SOL_USER
     sol_password = settings.SUNAT_SOL_PASSWORD
 
-    # Beta: use YOUR RUC + MODDATOS/moddatos as SOL credentials
-    if env == "beta":
-        sol_user = "MODDATOS"
-        sol_password = "moddatos"
+    # Note: for beta, SUNAT_SOL_USER / SUNAT_SOL_PASSWORD from .env are used as-is
 
     # WS-Security username = RUC + SOL user
     ws_user = f"{ruc}{sol_user}"
