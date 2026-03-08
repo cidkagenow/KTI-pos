@@ -337,7 +337,7 @@ function ResumenBoletasTab() {
       dataIndex: 'reference_date',
       key: 'reference_date',
       width: 160,
-      render: (val: string | null) => (val ? dayjs(val).format('DD/MM/YYYY') : '-'),
+      render: (val: string | null) => (val ? dayjs(val.substring(0, 10)).format('DD/MM/YYYY') : '-'),
     },
     {
       title: 'Estado',

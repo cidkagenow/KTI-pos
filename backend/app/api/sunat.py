@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
@@ -306,7 +306,7 @@ def enviar_resumen_boletas(
     parsed = send_resumen_to_sunat(fecha, boletas, correlativo, condition_codes)
 
     now = datetime.now(timezone.utc)
-    ref_date = datetime.combine(fecha, datetime.min.time(), tzinfo=timezone.utc)
+    ref_date = datetime.combine(fecha, time(12, 0), tzinfo=timezone.utc)
     raw_resp = json.dumps(parsed, ensure_ascii=False)
     sunat_status = parsed.get("sunat_status", "ERROR")
     sunat_description = parsed.get("sunat_description")
