@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir --timeout=120 .
+RUN pip install --no-cache-dir --timeout=120 . pytest httpx
 
 COPY . .
 

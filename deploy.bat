@@ -14,28 +14,23 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo.
 
-:: Run tests
+:: Run tests inside docker
 echo [2/3] Running tests...
-cd backend
-.venv\Scripts\python -m pytest tests/ -v --tb=short
+docker compose run --rm --no-deps backend python -m pytest tests/ -v --tb=short
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ========================================
     echo  TESTS FAILED - DEPLOY ABORTED
     echo ========================================
     echo Fix the failing tests before deploying.
-    cd ..
     pause
     exit /b 1
 )
 echo.
 
-:: Restart the server
-echo [3/3] Restarting server...
-taskkill /F /IM uvicorn.exe 2>nul
-start /B .venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 8000
-cd ..
-
+:: Rebuild and restart
+echo [3/3] Rebuilding and restarting...
+docker compose up -d --build
 echo.
 echo ========================================
 echo  DEPLOY SUCCESS - All tests passed
