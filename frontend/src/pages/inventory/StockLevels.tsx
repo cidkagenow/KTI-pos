@@ -42,9 +42,12 @@ export default function StockLevels() {
 
   const adjustMutation = useMutation({
     mutationFn: adjustStock,
-    onSuccess: () => {
+    onSuccess: async () => {
       message.success('Stock ajustado correctamente');
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['inventory'] }),
+        queryClient.refetchQueries({ queryKey: ['products'] }),
+      ]);
       setAdjustModalOpen(false);
       form.resetFields();
     },
