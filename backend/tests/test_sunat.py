@@ -317,10 +317,9 @@ def test_enviar_baja_requires_factura(client, seed_all):
     assert "boletas" in r.json()["detail"].lower()
 
 
-def test_enviar_baja_requires_previous_acceptance(client, seed_all, db_session):
-    """Can't send baja if the factura was never accepted by SUNAT."""
+def test_enviar_baja_without_prior_sunat_send(client, seed_all, db_session):
+    """Baja should work even if factura was never sent to SUNAT."""
     s = seed_all
-    # Create and facturar (this creates an ACEPTADO sunat doc)
     sale_id = _create_and_facturar(client, s)
     # Delete the SUNAT document so there's no acceptance record
     db_session.query(SunatDocument).filter(SunatDocument.sale_id == sale_id).delete()
@@ -328,13 +327,19 @@ def test_enviar_baja_requires_previous_acceptance(client, seed_all, db_session):
 
     _anular_sale(client, s, sale_id)
 
-    # No ACEPTADO record exists — baja should fail
-    r = client.post("/api/v1/sunat/baja", headers=s["admin_headers"], json={
-        "sale_id": sale_id,
-        "motivo": "ANULACION",
-    })
-    assert r.status_code == 400
-    assert "aceptados" in r.json()["detail"].lower()
+    with patch("app.api.sunat.send_baja_to_sunat") as mock_s:
+        mock_s.return_value = {
+            "sunat_status": "PENDIENTE",
+            "sunat_description": "Baja enviada",
+            "ticket": "BAJA-NO-PREV",
+        }
+        r = client.post("/api/v1/sunat/baja", headers=s["admin_headers"], json={
+            "sale_id": sale_id,
+            "motivo": "ANULACION DE OPERACION",
+        })
+
+    assert r.status_code == 200
+    assert r.json()["sunat_status"] == "PENDIENTE"
 
 
 def test_enviar_baja_duplicate_blocked(client, seed_all):

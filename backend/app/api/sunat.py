@@ -393,22 +393,6 @@ def enviar_baja(
             f"Ya se envio baja para esta venta (estado: {existing_baja.sunat_status})",
         )
 
-    # Check sale was previously accepted by SUNAT
-    prev_doc = (
-        db.query(SunatDocument)
-        .filter(
-            SunatDocument.sale_id == sale.id,
-            SunatDocument.doc_category.in_(["FACTURA", "RESUMEN"]),
-            SunatDocument.sunat_status == "ACEPTADO",
-        )
-        .first()
-    )
-    if not prev_doc:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Solo se puede enviar baja de documentos aceptados por SUNAT",
-        )
-
     # Determine correlativo (count existing baja docs for today)
     today = date.today()
     existing_count = (
