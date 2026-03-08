@@ -10,6 +10,7 @@ import base64
 import io
 import logging
 import zipfile
+from pathlib import Path
 from lxml import etree
 
 from zeep import Client
@@ -21,10 +22,11 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# SUNAT endpoints
-SUNAT_URLS = {
-    "beta": "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService?wsdl",
-    "production": "https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService?wsdl",
+# Local WSDL files (avoids authentication issues fetching from SUNAT)
+WSDL_DIR = Path(__file__).parent / "wsdl"
+WSDL_FILES = {
+    "beta": WSDL_DIR / "billService-beta.wsdl",
+    "production": WSDL_DIR / "billService-prod.wsdl",
 }
 
 # Cache SOAP client
@@ -36,12 +38,11 @@ def _get_soap_client() -> Client:
     """Get or create zeep SOAP client with WS-Security."""
     global _cached_client, _cached_env
 
-    env = settings.SUNAT_ENV if settings.SUNAT_ENV in SUNAT_URLS else "beta"
+    env = settings.SUNAT_ENV if settings.SUNAT_ENV in WSDL_FILES else "beta"
 
     if _cached_client is not None and _cached_env == env:
         return _cached_client
 
-    wsdl_url = SUNAT_URLS[env]
     ruc = settings.EMPRESA_RUC
     sol_user = settings.SUNAT_SOL_USER
     sol_password = settings.SUNAT_SOL_PASSWORD
@@ -56,18 +57,17 @@ def _get_soap_client() -> Client:
 
     session = Session()
     session.verify = True
-    # HTTP Basic Auth needed for SUNAT WSDL fetching
-    session.auth = (ws_user, sol_password)
     transport = Transport(session=session, timeout=30, operation_timeout=30)
+
+    # Use local WSDL file (file:// URI)
+    wsdl_path = str(WSDL_FILES[env].resolve())
+    wsdl_url = f"file://{wsdl_path}"
 
     client = Client(
         wsdl_url,
         wsse=UsernameToken(ws_user, sol_password),
         transport=transport,
     )
-
-    # Remove HTTP Basic Auth after WSDL loads — SOAP calls use WS-Security only
-    session.auth = None
 
     _cached_client = client
     _cached_env = env
