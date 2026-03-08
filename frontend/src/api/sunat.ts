@@ -16,6 +16,11 @@ export async function enviarResumenBoletas(fecha: string): Promise<SunatDocument
   return data;
 }
 
+export async function getPendingBoletas(fecha: string): Promise<{ nuevas: number; anuladas: number; total: number }> {
+  const { data } = await api.get('/sunat/resumen-boletas/pendientes', { params: { fecha } });
+  return data;
+}
+
 export async function enviarBaja(saleId: number, motivo: string): Promise<SunatDocument> {
   const { data } = await api.post('/sunat/baja', { sale_id: saleId, motivo });
   return data;

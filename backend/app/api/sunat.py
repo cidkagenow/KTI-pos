@@ -177,18 +177,9 @@ def reenviar_factura(
     return _doc_to_out(doc)
 
 
-@router.post("/resumen-boletas", response_model=SunatDocumentOut)
-def enviar_resumen_boletas(
-    data: ResumenRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    try:
-        fecha = date.fromisoformat(data.fecha)
-    except ValueError:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Formato de fecha invalido (YYYY-MM-DD)")
-
-    # Get FACTURADO boletas (to add) and ANULADO boletas (to void) for the date
+def _get_pending_boletas(db: Session, fecha: date):
+    """Get boletas pending to send to SUNAT for a given date.
+    Returns (boletas_nuevas, boletas_anuladas) after filtering."""
     boletas_nuevas = (
         db.query(Sale)
         .options(joinedload(Sale.client))
@@ -226,11 +217,10 @@ def enviar_resumen_boletas(
         )
         boletas_nuevas = [b for b in boletas_nuevas if b.id not in accepted_nueva_ids]
 
-    # Filter anuladas: only include those previously accepted by SUNAT (need to notify SUNAT)
+    # Filter anuladas: only include those previously accepted by SUNAT
     # and not already voided via resumen
     if boletas_anuladas:
         anulada_ids = [b.id for b in boletas_anuladas]
-        # Must have been previously accepted
         accepted_anulada_ids = set(
             row[0] for row in
             db.query(SunatDocument.sale_id)
@@ -241,7 +231,6 @@ def enviar_resumen_boletas(
             )
             .all()
         )
-        # Must not already have a BAJA_RESUMEN accepted
         already_voided_ids = set(
             row[0] for row in
             db.query(SunatDocument.sale_id)
@@ -256,6 +245,37 @@ def enviar_resumen_boletas(
             b for b in boletas_anuladas
             if b.id in accepted_anulada_ids and b.id not in already_voided_ids
         ]
+
+    return boletas_nuevas, boletas_anuladas
+
+
+@router.get("/resumen-boletas/pendientes")
+def get_pending_boletas_count(
+    fecha: str = Query(...),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get count of boletas pending to send to SUNAT for a given date."""
+    try:
+        fecha_date = date.fromisoformat(fecha)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Formato de fecha invalido")
+    nuevas, anuladas = _get_pending_boletas(db, fecha_date)
+    return {"nuevas": len(nuevas), "anuladas": len(anuladas), "total": len(nuevas) + len(anuladas)}
+
+
+@router.post("/resumen-boletas", response_model=SunatDocumentOut)
+def enviar_resumen_boletas(
+    data: ResumenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    try:
+        fecha = date.fromisoformat(data.fecha)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Formato de fecha invalido (YYYY-MM-DD)")
+
+    boletas_nuevas, boletas_anuladas = _get_pending_boletas(db, fecha)
 
     # Combine all boletas with their condition codes
     boletas = boletas_nuevas + boletas_anuladas

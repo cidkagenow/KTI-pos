@@ -29,6 +29,7 @@ import {
   enviarResumenBoletas,
   enviarBaja,
   checkTicketStatus,
+  getPendingBoletas,
 } from '../../api/sunat';
 import { getSales } from '../../api/sales';
 import { formatCurrency, formatDateTime } from '../../utils/format';
@@ -247,6 +248,12 @@ function ResumenBoletasTab() {
       }),
   });
 
+  // Get pending boletas count from backend (filters already-sent ones)
+  const { data: pendingData } = useQuery({
+    queryKey: ['pending-boletas', fechaStr],
+    queryFn: () => getPendingBoletas(fechaStr),
+  });
+
   // Show existing resumen documents
   const { data: resumenDocs } = useQuery({
     queryKey: ['sunat-docs', 'RESUMEN', page],
@@ -284,6 +291,7 @@ function ResumenBoletasTab() {
         message.info(`Estado SUNAT: ${doc.sunat_status}`);
       }
       queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-boletas'] });
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.detail || 'Error al enviar resumen');
@@ -399,9 +407,9 @@ function ResumenBoletasTab() {
             icon={<SendOutlined />}
             onClick={() => resumenMut.mutate()}
             loading={resumenMut.isPending}
-            disabled={boletas.length === 0}
+            disabled={!pendingData || pendingData.total === 0}
           >
-            Enviar Resumen Diario ({boletas.length} boletas{boletas.filter((b: Sale) => b.status === 'ANULADO').length > 0 ? `, ${boletas.filter((b: Sale) => b.status === 'ANULADO').length} anuladas` : ''})
+            Enviar Resumen Diario ({pendingData?.nuevas ?? 0} boletas{(pendingData?.anuladas ?? 0) > 0 ? `, ${pendingData.anuladas} anuladas` : ''})
           </Button>
         </Col>
       </Row>
