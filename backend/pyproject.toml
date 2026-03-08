@@ -21,6 +21,9 @@ dependencies = [
     "google-genai>=1.0.0",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.0.0",
