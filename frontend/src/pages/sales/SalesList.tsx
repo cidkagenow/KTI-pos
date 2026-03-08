@@ -259,7 +259,7 @@ export default function SalesList() {
             type="link"
             size="small"
             icon={<PrinterOutlined />}
-            onClick={() => message.info('Funcion de impresion pendiente')}
+            onClick={() => window.open(`/sales/${record.id}/print`, '_blank')}
           />
         </Space>
       ),

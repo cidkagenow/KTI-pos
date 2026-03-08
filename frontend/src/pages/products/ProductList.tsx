@@ -43,12 +43,21 @@ export default function ProductList() {
   const adjustMutation = useMutation({
     mutationFn: (data: { product_id: number; new_quantity: number }) =>
       adjustStock({ product_id: data.product_id, warehouse_id: 1, new_quantity: data.new_quantity, notes: 'Ajuste desde lista de productos' }),
-    onSuccess: async () => {
-      message.success('Stock actualizado');
-      await queryClient.refetchQueries({ queryKey: ['products'] });
+    onMutate: (data) => {
+      // Optimistic update: immediately show new stock value
+      queryClient.setQueriesData<Product[]>({ queryKey: ['products'] }, (old) =>
+        old?.map((p) => (p.id === data.product_id ? { ...p, total_stock: data.new_quantity } : p)),
+      );
       setEditingStockId(null);
     },
-    onError: () => message.error('Error al ajustar stock'),
+    onSuccess: () => {
+      message.success('Stock actualizado');
+    },
+    onError: () => {
+      message.error('Error al ajustar stock');
+      // Revert on error by refetching
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
   });
 
   const { data: products, isLoading } = useQuery({

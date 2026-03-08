@@ -137,7 +137,70 @@ def list_products(
     if category_id is not None:
         query = query.filter(Product.category_id == category_id)
     products = query.order_by(Product.name).all()
-    return [_product_to_out(p, db) for p in products]
+    if not products:
+        return []
+
+    product_ids = [p.id for p in products]
+
+    # Batch: get total stock for all products in one query
+    stock_rows = (
+        db.query(
+            Inventory.product_id,
+            func.coalesce(func.sum(Inventory.quantity), 0).label("total"),
+        )
+        .filter(Inventory.product_id.in_(product_ids))
+        .group_by(Inventory.product_id)
+        .all()
+    )
+    stock_map = {row.product_id: int(row.total) for row in stock_rows}
+
+    # Batch: get pending order info for out-of-stock products in one query
+    oos_ids = [pid for pid in product_ids if stock_map.get(pid, 0) <= 0]
+    order_map: dict[int, tuple[int | None, date | None]] = {}
+    if oos_ids:
+        order_rows = (
+            db.query(
+                PurchaseOrderItem.product_id,
+                func.coalesce(func.sum(PurchaseOrderItem.quantity), 0).label("qty"),
+                func.min(PurchaseOrder.expected_delivery_date).label("eta"),
+            )
+            .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
+            .filter(
+                PurchaseOrderItem.product_id.in_(oos_ids),
+                PurchaseOrder.status == "DRAFT",
+            )
+            .group_by(PurchaseOrderItem.product_id)
+            .all()
+        )
+        for row in order_rows:
+            qty = int(row.qty)
+            if qty > 0:
+                order_map[row.product_id] = (qty, row.eta)
+
+    results = []
+    for p in products:
+        total_stock = stock_map.get(p.id, 0)
+        on_order_qty, on_order_eta = order_map.get(p.id, (None, None))
+        results.append(ProductOut(
+            id=p.id,
+            code=p.code,
+            name=p.name,
+            brand_id=p.brand_id,
+            category_id=p.category_id,
+            brand_name=p.brand.name if p.brand else None,
+            category_name=p.category.name if p.category else None,
+            presentation=p.presentation,
+            unit_price=float(p.unit_price),
+            wholesale_price=float(p.wholesale_price) if p.wholesale_price is not None else None,
+            cost_price=float(p.cost_price) if p.cost_price is not None else None,
+            min_stock=p.min_stock,
+            comentario=p.comentario,
+            total_stock=total_stock,
+            on_order_qty=on_order_qty,
+            on_order_eta=on_order_eta,
+            is_active=p.is_active,
+        ))
+    return results
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)

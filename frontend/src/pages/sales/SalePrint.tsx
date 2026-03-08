@@ -30,20 +30,25 @@ export default function SalePrint() {
           .no-print { display: none !important; }
           @page { size: 80mm auto; margin: 4mm; }
         }
-        body {
+        html, body {
           font-family: 'Courier New', monospace;
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.4;
-          color: #000;
-          background: #fff;
+          color: #000 !important;
+          background: #fff !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
+        .receipt, .receipt * {
+          font-weight: 600;
+        }
+        .bold { font-weight: 900 !important; }
         .receipt {
           max-width: 302px;
           margin: 0 auto;
           padding: 10px;
         }
         .center { text-align: center; }
-        .bold { font-weight: bold; }
         .divider {
           border: none;
           border-top: 1px dashed #000;
@@ -56,13 +61,13 @@ export default function SalePrint() {
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 11px;
+          font-size: 12px;
         }
         th {
           text-align: left;
           border-bottom: 1px solid #000;
           padding: 2px 0;
-          font-size: 10px;
+          font-size: 11px;
         }
         th:last-child, td:last-child { text-align: right; }
         th:nth-child(3), td:nth-child(3) { text-align: center; }
@@ -111,7 +116,7 @@ export default function SalePrint() {
 
       <div className="receipt">
         <div className="center" style={{ marginBottom: 6 }}>
-          <img src="/kti-logo.png" alt="KTI" style={{ height: 40, objectFit: 'contain' }} />
+          <img src="/kti-logo.png" alt="KTI" style={{ height: 110, objectFit: 'contain' }} />
         </div>
         <div className="center bold" style={{ fontSize: 13 }}>
           INVERSIONES KTI D & E E.I.R.L.

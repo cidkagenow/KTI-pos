@@ -12,6 +12,7 @@ from app.models.product import Brand, Category, Product
 from app.models.sale import Sale, SaleItem
 from app.models.user import User
 from app.models.warehouse import Warehouse
+from app.services.system_knowledge import build_knowledge_base
 
 logger = logging.getLogger(__name__)
 
@@ -19,20 +20,7 @@ SYSTEM_PROMPT = """\
 Eres el asistente virtual de KTI POS, un sistema de punto de venta. \
 Tu rol es ayudar a los usuarios a usar el sistema y consultar datos en tiempo real.
 
-FUNCIONALIDADES DEL SISTEMA:
-- Ventas: crear preventas, aprobar, facturar (boleta/factura), anular
-- Productos: gestionar productos con código, marca, categoría, precios, stock mínimo
-- Clientes: gestionar clientes con RUC/DNI, límite de crédito
-- Inventario: ver stock por almacén, ajustes, transferencias, alertas de stock bajo
-- Compras: órdenes de compra a proveedores
-- SUNAT: envío electrónico de facturas y boletas
-- Reportes: dashboard, ventas por período, productos top, rentabilidad (solo ADMIN)
-
-FLUJO DE VENTA:
-1. Crear preventa: seleccionar cliente, agregar productos, aplicar descuentos
-2. Aprobar: cambia estado a APROBADA, descuenta stock
-3. Facturar: genera boleta o factura electrónica
-4. Opcionalmente enviar a SUNAT
+{knowledge_base}
 
 REGLAS:
 - Responde SIEMPRE en español
@@ -536,7 +524,11 @@ def chat_with_gemini(
     role_instruction = (
         ADMIN_INSTRUCTION if user.role == "ADMIN" else VENTAS_INSTRUCTION
     )
-    system_text = SYSTEM_PROMPT.format(role_instruction=role_instruction)
+    knowledge_base = build_knowledge_base(user.role)
+    system_text = SYSTEM_PROMPT.format(
+        knowledge_base=knowledge_base,
+        role_instruction=role_instruction,
+    )
 
     client = genai.Client(api_key=api_key)
 
