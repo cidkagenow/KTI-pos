@@ -409,7 +409,7 @@ function ResumenBoletasTab() {
             loading={resumenMut.isPending}
             disabled={!pendingData || pendingData.total === 0}
           >
-            Enviar Resumen Diario ({pendingData?.nuevas ?? 0} boletas{(pendingData?.anuladas ?? 0) > 0 ? `, ${pendingData.anuladas} anuladas` : ''})
+            Enviar Resumen Diario ({pendingData?.nuevas ?? 0} boletas{(pendingData?.anuladas ?? 0) > 0 ? `, ${pendingData?.anuladas} anuladas` : ''})
           </Button>
         </Col>
       </Row>
