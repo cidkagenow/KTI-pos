@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getSales, anularSale, deleteSale, convertirSale } from '../../api/sales';
+import { getSales, anularSale, deleteSale, convertirSale, facturarSale } from '../../api/sales';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getUsers } from '../../api/users';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -319,7 +319,19 @@ export default function SalesList() {
             type="link"
             size="small"
             icon={<PrinterOutlined />}
-            onClick={() => window.open(`/sales/${record.id}/print`, '_blank')}
+            onClick={async () => {
+              if (record.status === 'PREVENTA') {
+                try {
+                  await facturarSale(record.id);
+                  message.success('Venta facturada');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al facturar');
+                  return;
+                }
+              }
+              window.open(`/sales/${record.id}/print`, '_blank');
+            }}
           />
         </Space>
       ),
