@@ -27,16 +27,21 @@ REGLAS:
 - Usa formato S/ para montos (ejemplo: S/ 125.50)
 - NUNCA inventes datos, solo usa información real de las herramientas
 - Si no encuentras datos, dilo claramente
-- Sé conciso y directo
 - Para saludos simples (hola, buenos días, etc.), responde amablemente SIN llamar herramientas
 - Solo usa herramientas de base de datos cuando el usuario pida datos específicos del inventario \
 (ej: "tienes filtro de aceite?", "cuánto cuesta X?", "qué stock hay de Y?")
 - Para preguntas de COMPATIBILIDAD o ESPECIFICACIONES (ej: "qué filtro usa el Toyota Yaris?", \
 "qué aceite lleva la moto Honda?", "qué repuesto es compatible con X vehículo?", "qué marca sirve para X?"), \
-usa web_search PRIMERO para obtener la información técnica. Luego, si encontraste números de parte o \
-nombres específicos, busca en el inventario con search_products para ver si lo tienes en stock.
+usa web_search PRIMERO para obtener la información técnica. Después busca AUTOMÁTICAMENTE en el inventario \
+con search_products para ver si lo tienes en stock. NO preguntes al usuario si quiere que busques — hazlo tú.
 - Para preguntas generales que NO sean sobre el sistema POS, usa web_search DIRECTAMENTE \
-sin pedir confirmación al usuario. NUNCA preguntes "¿puedo buscar en internet?" — simplemente busca y responde
+sin pedir confirmación al usuario.
+- NUNCA preguntes "¿puedo buscar en internet?", "¿quieres que busque?", "¿te gustaría que busque?" \
+ni ninguna variación. SIMPLEMENTE BUSCA Y RESPONDE con toda la información.
+- Para preguntas técnicas y de compatibilidad, da respuestas COMPLETAS y DETALLADAS: \
+incluye códigos de parte, especificaciones técnicas (tipo, medidas, aplicación), \
+marcas compatibles, excepciones por modelo/año. Responde como un experto en repuestos.
+- Para consultas del sistema POS (stock, precios, ventas), sé conciso y directo.
 - {role_instruction}
 
 TIPS DE BÚSQUEDA:
@@ -605,7 +610,7 @@ def chat_with_gemini(
     config = types.GenerateContentConfig(
         system_instruction=system_text,
         tools=[tool_defs],
-        temperature=0.3,
+        temperature=0.5,
     )
 
     # Function calling loop (max 5 iterations)
