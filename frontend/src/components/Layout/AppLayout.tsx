@@ -39,7 +39,7 @@ export default function AppLayout() {
       label: 'Dashboard',
     },
     {
-      key: '/sales',
+      key: isAdmin ? '/sales/list' : '/sales',
       icon: <ShoppingCartOutlined />,
       label: 'Ventas',
     },
@@ -100,7 +100,7 @@ export default function AppLayout() {
 
   const getSelectedKey = () => {
     const path = location.pathname;
-    if (path.startsWith('/sales')) return '/sales';
+    if (path.startsWith('/sales')) return isAdmin ? '/sales/list' : '/sales';
     if (path.startsWith('/products')) return '/products';
     if (path === '/inventory/movements') return '/inventory/movements';
     if (path === '/inventory/alerts') return '/inventory/alerts';
