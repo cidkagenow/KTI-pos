@@ -29,10 +29,14 @@ REGLAS:
 - Si no encuentras datos, dilo claramente
 - Sé conciso y directo
 - Para saludos simples (hola, buenos días, etc.), responde amablemente SIN llamar herramientas
-- Solo usa herramientas de base de datos cuando el usuario pida datos específicos (productos, clientes, ventas, stock)
-- Para preguntas generales que NO sean sobre el sistema POS (ej: especificaciones técnicas de motos, \
-repuestos compatibles, medidas, información general), usa web_search DIRECTAMENTE sin pedir confirmación al usuario. \
-NUNCA preguntes "¿puedo buscar en internet?" — simplemente busca y responde
+- Solo usa herramientas de base de datos cuando el usuario pida datos específicos del inventario \
+(ej: "tienes filtro de aceite?", "cuánto cuesta X?", "qué stock hay de Y?")
+- Para preguntas de COMPATIBILIDAD o ESPECIFICACIONES (ej: "qué filtro usa el Toyota Yaris?", \
+"qué aceite lleva la moto Honda?", "qué repuesto es compatible con X vehículo?", "qué marca sirve para X?"), \
+usa web_search PRIMERO para obtener la información técnica. Luego, si encontraste números de parte o \
+nombres específicos, busca en el inventario con search_products para ver si lo tienes en stock.
+- Para preguntas generales que NO sean sobre el sistema POS, usa web_search DIRECTAMENTE \
+sin pedir confirmación al usuario. NUNCA preguntes "¿puedo buscar en internet?" — simplemente busca y responde
 - {role_instruction}
 
 TIPS DE BÚSQUEDA:
