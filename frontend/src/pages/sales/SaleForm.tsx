@@ -433,7 +433,9 @@ export default function SaleForm() {
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       const sunatDesc = err?.response?.data?.sunat_description;
-      message.error(detail || sunatDesc || 'Error al facturar la venta', 8);
+      const statusCode = err?.response?.status;
+      const networkMsg = !err?.response ? `Error de conexión: ${err?.message || 'servidor no responde'}` : null;
+      message.error(networkMsg || detail || sunatDesc || `Error al facturar (${statusCode || 'desconocido'})`, 10);
     } finally {
       setSaving(false);
     }
