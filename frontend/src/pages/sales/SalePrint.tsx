@@ -26,7 +26,9 @@ export default function SalePrint() {
       : sale.doc_type === 'BOLETA'
         ? 'BOLETA DE VENTA'
         : 'FACTURA';
-  const docNumber = `${sale.series}-${String(sale.doc_number).padStart(7, '0')}`;
+  const docNumber = sale.doc_number
+    ? `${sale.series}-${String(sale.doc_number).padStart(7, '0')}`
+    : `PRE-${sale.id}`;
 
   return (
     <>

@@ -74,7 +74,7 @@ class SaleOut(BaseModel):
     id: int
     doc_type: str
     series: str
-    doc_number: int
+    doc_number: int | None = None
     client_id: int
     client_name: str
     warehouse_id: int
@@ -104,7 +104,7 @@ class SaleListOut(BaseModel):
     id: int
     doc_type: str
     series: str
-    doc_number: int
+    doc_number: int | None = None
     client_id: int
     client_name: str
     warehouse_id: int

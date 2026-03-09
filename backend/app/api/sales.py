@@ -200,7 +200,7 @@ def create_sale(
                    "Use boleta para clientes con DNI u otro documento.",
         )
 
-    # Get next doc number from series
+    # Validate series exists and is active (number assigned at facturación)
     doc_series = (
         db.query(DocumentSeries)
         .filter(
@@ -215,8 +215,6 @@ def create_sale(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Serie de documento no encontrada o inactiva",
         )
-    doc_number = doc_series.next_number
-    doc_series.next_number += 1
 
     # Build sale items and calculate totals
     sale_items = []
@@ -262,7 +260,7 @@ def create_sale(
     sale = Sale(
         doc_type=data.doc_type,
         series=data.series,
-        doc_number=doc_number,
+        doc_number=None,
         client_id=data.client_id,
         warehouse_id=data.warehouse_id,
         seller_id=data.seller_id,
@@ -308,7 +306,7 @@ def create_sale(
             quantity=-item.quantity,
             reference_type="SALE",
             reference_id=sale.id,
-            notes=f"Venta #{sale.series}-{sale.doc_number}",
+            notes=f"Venta #{sale.series}-{sale.doc_number or sale.id}",
             created_by=current_user.id,
         ))
 
@@ -411,13 +409,10 @@ def create_nota_credito(
             detail=f"No hay serie activa de NOTA_CREDITO que empiece con '{ref_prefix}' "
                    f"(requerido para {ref_sale.doc_type}). Cree una en Configuracion (ej: {ref_prefix}N01).",
         )
-    doc_number = doc_series.next_number
-    doc_series.next_number += 1
-
     nc = Sale(
         doc_type="NOTA_CREDITO",
         series=doc_series.series,
-        doc_number=doc_number,
+        doc_number=None,
         client_id=ref_sale.client_id,
         warehouse_id=ref_sale.warehouse_id,
         seller_id=ref_sale.seller_id,
@@ -606,6 +601,25 @@ def facturar_sale(
                    "Use boleta para clientes con DNI u otro documento.",
         )
 
+    # Assign real document number at facturación time
+    doc_series = (
+        db.query(DocumentSeries)
+        .filter(
+            DocumentSeries.doc_type == sale.doc_type,
+            DocumentSeries.series == sale.series,
+            DocumentSeries.is_active == True,
+        )
+        .with_for_update()
+        .first()
+    )
+    if doc_series is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Serie no encontrada o inactiva",
+        )
+    sale.doc_number = doc_series.next_number
+    doc_series.next_number += 1
+
     sale.status = "FACTURADO"
     sale.issue_date = date.today()
     db.flush()
@@ -627,7 +641,7 @@ def facturar_sale(
                 quantity=item.quantity,
                 reference_type="SALE",
                 reference_id=sale.id,
-                notes=f"Nota de Credito #{sale.series}-{sale.doc_number} (motivo {sale.nc_motivo_code})",
+                notes=f"Nota de Credito #{sale.series}-{sale.doc_number or sale.id} (motivo {sale.nc_motivo_code})",
                 created_by=_user.id,
             ))
         db.flush()
@@ -774,7 +788,7 @@ def void_sale(
                 quantity=item.quantity,
                 reference_type="SALE",
                 reference_id=sale.id,
-                notes=f"Anulación venta #{sale.series}-{sale.doc_number}",
+                notes=f"Anulación venta #{sale.series}-{sale.doc_number or sale.id}",
                 created_by=current_user.id,
             ))
 
@@ -827,7 +841,7 @@ def soft_delete_sale(
                 quantity=item.quantity,
                 reference_type="SALE",
                 reference_id=sale.id,
-                notes=f"Eliminación venta #{sale.series}-{sale.doc_number}",
+                notes=f"Eliminación venta #{sale.series}-{sale.doc_number or sale.id}",
                 created_by=_user.id,
             ))
 
@@ -907,7 +921,7 @@ def convertir_sale(
             )
 
     # Save original NV reference for audit
-    original_ref = f"NV {sale.series}-{sale.doc_number}"
+    original_ref = f"NV {sale.series}-{sale.doc_number or sale.id}"
     sale.notes = f"[Convertido de {original_ref}] {sale.notes or ''}".strip()
 
     # Assign new series/number

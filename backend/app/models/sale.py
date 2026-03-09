@@ -48,7 +48,7 @@ class Sale(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     doc_type: Mapped[str] = mapped_column(String(20), nullable=False)
     series: Mapped[str] = mapped_column(String(10), nullable=False)
-    doc_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    doc_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
     warehouse_id: Mapped[int] = mapped_column(
         ForeignKey("warehouses.id"), nullable=False

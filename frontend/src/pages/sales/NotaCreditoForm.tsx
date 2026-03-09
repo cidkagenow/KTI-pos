@@ -137,7 +137,7 @@ export default function NotaCreditoForm() {
     setSaving(true);
     try {
       const nc = await createMutation.mutateAsync(buildPayload());
-      message.success(`Nota de Credito ${nc.series}-${nc.doc_number} creada`);
+      message.success(`Nota de Credito ${nc.doc_number ? `${nc.series}-${nc.doc_number}` : `PRE-${nc.id}`} creada`);
       navigate('/sales/list');
     } catch (err: any) {
       message.error(err?.response?.data?.detail || 'Error al crear Nota de Credito');
@@ -251,7 +251,9 @@ export default function NotaCreditoForm() {
     },
   ];
 
-  const refDocNumber = `${refSale.doc_type}/${refSale.series}-${String(refSale.doc_number).padStart(7, '0')}`;
+  const refDocNumber = refSale.doc_number
+    ? `${refSale.doc_type}/${refSale.series}-${String(refSale.doc_number).padStart(7, '0')}`
+    : `PRE-${refSale.id}`;
 
   return (
     <div ref={enterNavRef}>

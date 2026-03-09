@@ -107,7 +107,7 @@ export interface Sale {
   id: number;
   doc_type: string;
   series: string;
-  doc_number: number;
+  doc_number: number | null;
   client_id: number;
   client_name: string;
   warehouse_id: number;

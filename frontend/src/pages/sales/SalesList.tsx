@@ -142,7 +142,7 @@ export default function SalesList() {
       title: 'Anular Venta',
       content: (
         <div>
-          <p>Esta seguro de anular la venta {sale.doc_type}/{sale.series}-{String(sale.doc_number).padStart(7, '0')}?</p>
+          <p>Esta seguro de anular la venta {sale.doc_number !== null ? `${sale.doc_type}/${sale.series}-${String(sale.doc_number).padStart(7, '0')}` : `PRE-${sale.id}`}?</p>
           <Input.TextArea
             placeholder="Motivo de anulacion"
             onChange={(e) => setVoidReason(e.target.value)}
@@ -160,7 +160,7 @@ export default function SalesList() {
   const handleDelete = (sale: Sale) => {
     Modal.confirm({
       title: 'Eliminar Venta',
-      content: `Esta seguro de eliminar la preventa ${sale.doc_type}/${sale.series}-${String(sale.doc_number).padStart(7, '0')}?`,
+      content: `Esta seguro de eliminar la preventa ${sale.doc_number !== null ? `${sale.doc_type}/${sale.series}-${String(sale.doc_number).padStart(7, '0')}` : `PRE-${sale.id}`}?`,
       okText: 'Eliminar',
       okType: 'danger',
       cancelText: 'Cancelar',
@@ -180,6 +180,9 @@ export default function SalesList() {
       title: 'Documento',
       key: 'documento',
       render: (_: unknown, record: Sale) => {
+        if (record.doc_number === null) {
+          return <><Tag color="orange">PREVENTA</Tag>PRE-{record.id}</>;
+        }
         const docNum = `${record.series}-${String(record.doc_number).padStart(7, '0')}`;
         if (record.doc_type === 'NOTA_CREDITO') {
           return <><Tag color="purple">N.CREDITO</Tag>{docNum}</>;
@@ -460,7 +463,7 @@ export default function SalesList() {
         {convertirSaleRecord && (
           <div ref={enterNavRef} style={{ marginTop: 16 }}>
             <p>
-              Convertir <strong>{convertirSaleRecord.series}-{String(convertirSaleRecord.doc_number).padStart(7, '0')}</strong> a:
+              Convertir <strong>{convertirSaleRecord.doc_number !== null ? `${convertirSaleRecord.series}-${String(convertirSaleRecord.doc_number).padStart(7, '0')}` : `PRE-${convertirSaleRecord.id}`}</strong> a:
             </p>
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', marginBottom: 4 }}>Tipo de documento:</label>
