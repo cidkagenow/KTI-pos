@@ -44,6 +44,8 @@ interface LineItem {
   presentation: string | null;
   quantity: number;
   unit_price: number;
+  wholesale_price: number | null;
+  cost_price: number | null;
   discount_pct: number;
   line_total: number;
   stock: number;
@@ -59,6 +61,8 @@ function newLineItem(): LineItem {
     presentation: null,
     quantity: 1,
     unit_price: 0,
+    wholesale_price: null,
+    cost_price: null,
     discount_pct: 0,
     line_total: 0,
     stock: 0,
@@ -119,6 +123,8 @@ export default function SaleForm() {
         presentation: item.presentation,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        wholesale_price: null,
+        cost_price: null,
         discount_pct: item.discount_pct,
         line_total: item.line_total,
         stock: 0,
@@ -134,7 +140,7 @@ export default function SaleForm() {
         setItems((prev) =>
           prev.map((lineItem) => {
             const found = results.flat().find((p) => p.id === lineItem.product_id);
-            return found ? { ...lineItem, stock: found.stock } : lineItem;
+            return found ? { ...lineItem, stock: found.stock, wholesale_price: found.wholesale_price, cost_price: found.cost_price } : lineItem;
           })
         );
       });
@@ -244,6 +250,8 @@ export default function SaleForm() {
         brand_name: p.brand_name,
         presentation: p.presentation,
         unit_price: p.unit_price,
+        wholesale_price: p.wholesale_price,
+        cost_price: p.cost_price,
         stock: p.stock,
         line_total: calcLineTotal(updated[idx].quantity, p.unit_price, updated[idx].discount_pct),
       };
@@ -466,19 +474,31 @@ export default function SaleForm() {
       },
     },
     {
-      title: 'Precio Unit.',
+      title: 'P.V.P',
       key: 'unit_price',
       width: 110,
-      render: (_: unknown, record: LineItem, idx: number) => (
-        <InputNumber
-          min={0}
-          step={0.01}
-          value={record.unit_price}
-          onChange={(val) => updateItem(idx, 'unit_price', val ?? 0)}
-          style={{ width: '100%' }}
-          prefix="S/"
-        />
-      ),
+      render: (_: unknown, record: LineItem, idx: number) => {
+        const belowCost = record.cost_price != null && record.unit_price < record.cost_price;
+        return (
+          <InputNumber
+            min={record.cost_price ?? 0}
+            step={0.01}
+            value={record.unit_price}
+            onChange={(val) => updateItem(idx, 'unit_price', val ?? 0)}
+            style={{ width: '100%' }}
+            prefix="S/"
+            status={belowCost ? 'error' : undefined}
+          />
+        );
+      },
+    },
+    {
+      title: 'P.May',
+      dataIndex: 'wholesale_price',
+      key: 'wholesale_price',
+      width: 90,
+      align: 'right' as const,
+      render: (val: number | null) => val != null ? `S/ ${val.toFixed(2)}` : '-',
     },
     {
       title: 'Desc.%',
