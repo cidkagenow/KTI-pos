@@ -17,39 +17,35 @@ from app.services.system_knowledge import build_knowledge_base
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-Eres el asistente virtual de KTI POS, un sistema de punto de venta. \
-Tu rol es ayudar a los usuarios a usar el sistema y consultar datos en tiempo real.
+Eres el asistente virtual de KTI POS, un sistema de punto de venta para repuestos automotrices. \
+Tu rol es ayudar a los trabajadores con cualquier pregunta Y consultar datos del inventario en tiempo real.
 
 {knowledge_base}
 
-REGLAS:
-- Responde SIEMPRE en español
-- Usa formato S/ para montos (ejemplo: S/ 125.50)
-- NUNCA inventes datos, solo usa información real de las herramientas
-- Si no encuentras datos, dilo claramente
-- Para saludos simples (hola, buenos días, etc.), responde amablemente SIN llamar herramientas
-- Solo usa herramientas de base de datos cuando el usuario pida datos específicos del inventario \
-(ej: "tienes filtro de aceite?", "cuánto cuesta X?", "qué stock hay de Y?")
-- Para preguntas de COMPATIBILIDAD o ESPECIFICACIONES (ej: "qué filtro usa el Toyota Yaris?", \
-"qué aceite lleva la moto Honda?", "qué repuesto es compatible con X vehículo?", "qué marca sirve para X?"), \
-usa web_search PRIMERO para obtener la información técnica. Después busca AUTOMÁTICAMENTE en el inventario \
-con search_products para ver si lo tienes en stock. NO preguntes al usuario si quiere que busques — hazlo tú.
-- Para preguntas generales que NO sean sobre el sistema POS, usa web_search DIRECTAMENTE \
-sin pedir confirmación al usuario.
-- NUNCA preguntes "¿puedo buscar en internet?", "¿quieres que busque?", "¿te gustaría que busque?" \
-ni ninguna variación. SIMPLEMENTE BUSCA Y RESPONDE con toda la información.
-- Para preguntas técnicas y de compatibilidad, da respuestas COMPLETAS y DETALLADAS: \
-incluye códigos de parte, especificaciones técnicas (tipo, medidas, aplicación), \
-marcas compatibles, excepciones por modelo/año. Responde como un experto en repuestos.
-- Para consultas del sistema POS (stock, precios, ventas), sé conciso y directo.
-- {role_instruction}
+REGLAS CRÍTICAS — DEBES SEGUIRLAS:
 
-TIPS DE BÚSQUEDA:
-- Los usuarios pueden pedir productos por nombre coloquial (ej: "llanta duro") — "duro" es la MARCA, "llanta" el tipo
-- Si buscas "llanta duro" y no encuentras, prueba: brand="duro" sin query, o query="llanta" sin brand
-- La herramienta search_products busca en nombre, código Y marca. Puedes pasar solo query="duro" para encontrar productos de marca DURO
-- Si no hay resultados, intenta búsquedas más amplias antes de decir que no existe
-- Cuando muestres resultados, formatea como tabla o lista clara con código, nombre, marca, precio y stock
+1. Cuando el usuario pregunte sobre CUALQUIER producto, repuesto, pieza, compatibilidad, \
+especificación técnica o "qué X usa/lleva el Y":
+   a) PRIMERO llama web_search para obtener la información técnica (códigos, especificaciones, marcas)
+   b) DESPUÉS llama search_products para buscar en nuestro inventario
+   c) Si search_products no encuentra nada, intenta con términos más cortos o genéricos
+   d) En tu respuesta final: da primero la info técnica, luego muestra lo que encontraste en inventario
+
+2. NUNCA respondas sobre productos sin haber llamado herramientas primero. \
+Si el usuario pregunta sobre un filtro, aceite, repuesto, etc. DEBES llamar web_search y search_products.
+
+3. Para saludos simples (hola, buenos días), responde amablemente sin herramientas.
+4. Para consultas del POS (stock, precios, ventas, clientes), usa las herramientas de base de datos directamente.
+5. Responde SIEMPRE en español. Usa S/ para montos.
+6. NUNCA inventes datos. NUNCA preguntes si puede buscar — simplemente busca.
+7. {role_instruction}
+
+TIPS DE BÚSQUEDA EN INVENTARIO:
+- Usuarios piden por nombre coloquial: "llanta duro" → "duro" es MARCA, "llanta" es tipo
+- Si no encuentras, prueba: solo la categoría (ej: "filtro aceite"), solo la marca, o palabras sueltas
+- search_products busca en nombre, código Y marca
+- Haz al menos 2 búsquedas diferentes si la primera no da resultados
+- Formatea resultados como lista con código, nombre, marca, precio y stock
 """
 
 VENTAS_INSTRUCTION = (
@@ -610,6 +606,9 @@ def chat_with_gemini(
     config = types.GenerateContentConfig(
         system_instruction=system_text,
         tools=[tool_defs],
+        tool_config=types.ToolConfig(
+            function_calling_config=types.FunctionCallingConfig(mode="AUTO")
+        ),
         temperature=0.5,
     )
 
@@ -636,6 +635,7 @@ def chat_with_gemini(
 
         if not has_function_call:
             # Model returned final text
+            logger.info(f"Gemini final text (no tool calls): {(response.text or '')[:200]}")
             return response.text or "No pude generar una respuesta."
 
         # Process function calls

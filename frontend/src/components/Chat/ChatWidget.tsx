@@ -22,6 +22,7 @@ export default function ChatWidget() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sessionIdRef = useRef(crypto.randomUUID());
   const { token: t } = theme.useToken();
 
   const scrollToBottom = useCallback(() => {
@@ -34,7 +35,7 @@ export default function ChatWidget() {
 
   useEffect(() => {
     if (open && !historyLoaded) {
-      getChatHistory()
+      getChatHistory(sessionIdRef.current)
         .then((msgs) => {
           setMessages(msgs);
           setHistoryLoaded(true);
@@ -62,7 +63,7 @@ export default function ChatWidget() {
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(text);
+      const res = await sendChatMessage(text, sessionIdRef.current);
       setMessages(res.messages);
     } catch {
       setMessages((prev) => [

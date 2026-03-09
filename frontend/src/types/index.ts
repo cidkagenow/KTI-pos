@@ -110,6 +110,9 @@ export interface Sale {
   doc_number: number | null;
   client_id: number;
   client_name: string;
+  client_doc_type: string | null;
+  client_doc_number: string | null;
+  client_address: string | null;
   warehouse_id: number;
   seller_id: number;
   seller_name: string;
@@ -128,6 +131,7 @@ export interface Sale {
   items: SaleItem[];
   sunat_status?: string | null;
   sunat_description?: string | null;
+  sunat_hash?: string | null;
   ref_sale_id?: number | null;
   nc_motivo_code?: string | null;
   nc_motivo_text?: string | null;

@@ -87,6 +87,9 @@ def _sale_to_out(sale: Sale) -> SaleOut:
         doc_number=sale.doc_number,
         client_id=sale.client_id,
         client_name=sale.client.business_name if sale.client else "",
+        client_doc_type=sale.client.doc_type if sale.client else None,
+        client_doc_number=sale.client.doc_number if sale.client else None,
+        client_address=sale.client.address if sale.client else None,
         warehouse_id=sale.warehouse_id,
         seller_id=sale.seller_id,
         seller_name=sale.seller.full_name if sale.seller else "",
@@ -454,7 +457,17 @@ def get_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    return _sale_to_out(sale)
+    out = _sale_to_out(sale)
+    # Fetch sunat_hash from latest SunatDocument
+    sunat_doc = (
+        db.query(SunatDocument)
+        .filter(SunatDocument.sale_id == sale.id)
+        .order_by(SunatDocument.id.desc())
+        .first()
+    )
+    if sunat_doc and sunat_doc.sunat_hash:
+        out.sunat_hash = sunat_doc.sunat_hash
+    return out
 
 
 @router.put("/{sale_id}", response_model=SaleOut)
@@ -646,9 +659,10 @@ def facturar_sale(
             ))
         db.flush()
 
-    # Auto-send to SUNAT
+    # Auto-send/sign for SUNAT
     sunat_status = None
     sunat_description = None
+    sunat_hash = None
     if sale.doc_type == "FACTURA":
         try:
             from app.services.sunat_service import send_factura_to_sunat
@@ -679,6 +693,7 @@ def facturar_sale(
 
             sunat_status = doc.sunat_status
             sunat_description = doc.sunat_description
+            sunat_hash = doc.sunat_hash
 
             # Auto-email if accepted
             if doc.sunat_status == "ACEPTADO" and sale.client.email:
@@ -728,9 +743,47 @@ def facturar_sale(
 
             sunat_status = doc.sunat_status
             sunat_description = doc.sunat_description
+            sunat_hash = doc.sunat_hash
 
         except Exception as e:
             logger.error("SUNAT NC send failed for sale %s: %s", sale.id, str(e))
+            sunat_status = "ERROR"
+            sunat_description = str(e)
+
+    elif sale.doc_type == "BOLETA":
+        # Sign XML to get hash for printed receipt (sent later in Resumen Diario)
+        try:
+            from app.services.sunat_service import sign_document
+
+            parsed = sign_document(sale)
+
+            now = datetime.now(timezone.utc)
+            doc = SunatDocument(
+                sale_id=sale.id,
+                doc_category="BOLETA",
+                reference_date=now,
+                sunat_status=parsed.get("sunat_status", "PENDIENTE"),
+                sunat_description=parsed.get("sunat_description"),
+                sunat_hash=parsed.get("sunat_hash"),
+                sunat_cdr_url="",
+                sunat_xml_url=parsed.get("sunat_xml_url"),
+                sunat_pdf_url="",
+                ticket="",
+                raw_request="",
+                raw_response="",
+                attempt_count=0,
+                last_attempt_at=now,
+                sent_by=_user.id,
+            )
+            db.add(doc)
+            db.flush()
+
+            sunat_status = doc.sunat_status
+            sunat_description = doc.sunat_description
+            sunat_hash = doc.sunat_hash
+
+        except Exception as e:
+            logger.error("XML signing failed for boleta %s: %s", sale.id, str(e))
             sunat_status = "ERROR"
             sunat_description = str(e)
 
@@ -740,6 +793,7 @@ def facturar_sale(
     result = _sale_to_out(sale).model_dump()
     result["sunat_status"] = sunat_status
     result["sunat_description"] = sunat_description
+    result["sunat_hash"] = sunat_hash
     return result
 
 

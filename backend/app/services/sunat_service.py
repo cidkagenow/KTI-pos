@@ -107,6 +107,31 @@ def process_sunat_response(soap_result: dict, filename: str, signed_xml: bytes) 
     }
 
 
+def sign_document(sale: Sale) -> dict:
+    """
+    Sign invoice/boleta XML without sending to SUNAT.
+    Used for boletas (printed before sending in Resumen Diario).
+    Returns dict with sunat_hash and sunat_xml_url.
+    """
+    filename = get_invoice_filename(sale)
+    logger.info("Signing document XML (no send): %s", filename)
+
+    xml_bytes = build_invoice_xml(sale)
+    signed_xml = sign_xml(xml_bytes)
+    xml_path = _save_xml(filename, signed_xml)
+    xml_hash = _xml_hash(signed_xml)
+
+    return {
+        "sunat_status": "PENDIENTE",
+        "sunat_description": "Firmado, pendiente de envio",
+        "sunat_hash": xml_hash,
+        "sunat_xml_url": xml_path,
+        "sunat_cdr_url": "",
+        "sunat_pdf_url": "",
+        "ticket": "",
+    }
+
+
 def send_factura_to_sunat(sale: Sale) -> dict:
     """
     Send a single factura or boleta to SUNAT via sendBill (synchronous).

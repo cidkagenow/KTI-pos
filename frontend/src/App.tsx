@@ -21,6 +21,7 @@ import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
+import ChatHistory from './pages/chat/ChatHistory';
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />
         <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
+        <Route path="chat-history" element={<AdminRoute><ChatHistory /></AdminRoute>} />
       </Route>
     </Routes>
   );

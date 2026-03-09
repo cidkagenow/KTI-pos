@@ -77,6 +77,9 @@ class SaleOut(BaseModel):
     doc_number: int | None = None
     client_id: int
     client_name: str
+    client_doc_type: str | None = None
+    client_doc_number: str | None = None
+    client_address: str | None = None
     warehouse_id: int
     seller_id: int
     seller_name: str
@@ -96,6 +99,7 @@ class SaleOut(BaseModel):
     ref_sale_id: int | None = None
     nc_motivo_code: str | None = None
     nc_motivo_text: str | None = None
+    sunat_hash: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

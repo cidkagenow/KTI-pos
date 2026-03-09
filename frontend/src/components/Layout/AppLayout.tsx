@@ -16,6 +16,7 @@ import {
   SunOutlined,
   MoonOutlined,
   CloudUploadOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -90,6 +91,11 @@ export default function AppLayout() {
             label: 'Usuarios',
           },
           {
+            key: '/chat-history',
+            icon: <MessageOutlined />,
+            label: 'Historial Chat',
+          },
+          {
             key: '/settings',
             icon: <SettingOutlined />,
             label: 'Configuracion',
@@ -109,6 +115,7 @@ export default function AppLayout() {
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
     if (path.startsWith('/sunat')) return '/sunat';
     if (path.startsWith('/users')) return '/users';
+    if (path.startsWith('/chat-history')) return '/chat-history';
     if (path.startsWith('/settings')) return '/settings';
     if (path.startsWith('/reports')) return '/reports';
     return '/';
