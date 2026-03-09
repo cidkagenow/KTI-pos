@@ -6,7 +6,6 @@ Replaces the previous APISUNAT Lucode REST integration.
 """
 import hashlib
 import logging
-import os
 from datetime import date
 from pathlib import Path
 
@@ -14,9 +13,11 @@ from app.config import settings
 from app.models.sale import Sale
 from app.services.sunat_xml import (
     build_invoice_xml,
+    build_credit_note_xml,
     build_summary_xml,
     build_voided_xml,
     get_invoice_filename,
+    get_credit_note_filename,
     get_summary_filename,
     get_voided_filename,
 )
@@ -115,6 +116,21 @@ def send_factura_to_sunat(sale: Sale) -> dict:
     logger.info("Building invoice XML: %s", filename)
 
     xml_bytes = build_invoice_xml(sale)
+    signed_xml = sign_xml(xml_bytes)
+    soap_result = send_bill(signed_xml, filename)
+
+    return process_sunat_response(soap_result, filename, signed_xml)
+
+
+def send_nota_credito_to_sunat(sale: Sale) -> dict:
+    """
+    Send a credit note to SUNAT via sendBill (synchronous, like facturas).
+    Returns normalized response dict.
+    """
+    filename = get_credit_note_filename(sale)
+    logger.info("Building credit note XML: %s", filename)
+
+    xml_bytes = build_credit_note_xml(sale)
     signed_xml = sign_xml(xml_bytes)
     soap_result = send_bill(signed_xml, filename)
 

@@ -40,6 +40,7 @@ import {
   deleteSupplier,
 } from '../../api/catalogs';
 import { lookupRUC } from '../../api/clients';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 import type { Brand, Category, Warehouse, DocumentSeries, Supplier } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -75,6 +76,7 @@ function CrudTab<T extends { id: number; is_active?: boolean }>({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation();
 
   const { data, isLoading } = useQuery({ queryKey: [queryKey], queryFn: fetchFn });
 
@@ -152,9 +154,11 @@ function CrudTab<T extends { id: number; is_active?: boolean }>({
         confirmLoading={createMut.isPending || updateMut.isPending}
         width={450}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           {formFields}
         </Form>
+        </div>
       </Modal>
     </div>
   );
@@ -169,6 +173,7 @@ function SupplierTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation();
 
   const rucValue: string | undefined = Form.useWatch('ruc', form);
   const canLookup = rucValue?.length === 11;
@@ -274,6 +279,7 @@ function SupplierTab() {
         confirmLoading={createMut.isPending || updateMut.isPending}
         width={450}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="ruc" label="RUC">
             <Input />
@@ -306,6 +312,7 @@ function SupplierTab() {
             <Input />
           </Form.Item>
         </Form>
+        </div>
       </Modal>
     </div>
   );
@@ -462,6 +469,8 @@ export default function Settings() {
                   options={[
                     { value: 'BOLETA', label: 'Boleta' },
                     { value: 'FACTURA', label: 'Factura' },
+                    { value: 'NOTA_CREDITO', label: 'Nota de Crédito' },
+                    { value: 'NOTA_VENTA', label: 'Nota de Venta' },
                   ]}
                 />
               </Form.Item>

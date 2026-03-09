@@ -251,6 +251,26 @@ def seed_doc_series_boleta(db_session):
     return ds
 
 
+@pytest.fixture()
+def seed_doc_series_nc(db_session):
+    """NC series for FACTURA (starts with F) and BOLETA (starts with B)."""
+    ds_f = DocumentSeries(doc_type="NOTA_CREDITO", series="FN01", next_number=1)
+    ds_b = DocumentSeries(doc_type="NOTA_CREDITO", series="BN01", next_number=1)
+    db_session.add_all([ds_f, ds_b])
+    db_session.commit()
+    db_session.refresh(ds_f)
+    return ds_f
+
+
+@pytest.fixture()
+def seed_doc_series_nv(db_session):
+    ds = DocumentSeries(doc_type="NOTA_VENTA", series="NV01", next_number=1)
+    db_session.add(ds)
+    db_session.commit()
+    db_session.refresh(ds)
+    return ds
+
+
 # ---------------------------------------------------------------------------
 # Suppliers
 # ---------------------------------------------------------------------------
@@ -287,6 +307,8 @@ def seed_all(
     seed_dni_client,
     seed_doc_series_factura,
     seed_doc_series_boleta,
+    seed_doc_series_nc,
+    seed_doc_series_nv,
     seed_supplier,
 ):
     return {
@@ -303,5 +325,7 @@ def seed_all(
         "dni_client": seed_dni_client,
         "doc_series_factura": seed_doc_series_factura,
         "doc_series_boleta": seed_doc_series_boleta,
+        "doc_series_nc": seed_doc_series_nc,
+        "doc_series_nv": seed_doc_series_nv,
         "supplier": seed_supplier,
     }

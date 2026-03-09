@@ -20,6 +20,8 @@ from app.schemas.sale import (
     SaleListOut,
     SaleItemOut,
     VoidRequest,
+    NotaCreditoCreate,
+    ConvertirRequest,
 )
 from app.utils.igv import calc_igv, calc_line_total
 from app.api.deps import get_current_user, require_admin
@@ -57,6 +59,8 @@ def _sale_to_list_out(sale: Sale, sunat_status: str | None = None) -> SaleListOu
         issue_date=sale.issue_date,
         created_at=sale.created_at,
         sunat_status=sunat_status,
+        ref_sale_id=sale.ref_sale_id,
+        nc_motivo_code=sale.nc_motivo_code,
     )
 
 
@@ -99,6 +103,9 @@ def _sale_to_out(sale: Sale) -> SaleOut:
         issue_date=sale.issue_date,
         created_at=sale.created_at,
         items=items,
+        ref_sale_id=sale.ref_sale_id,
+        nc_motivo_code=sale.nc_motivo_code,
+        nc_motivo_text=sale.nc_motivo_text,
     )
 
 
@@ -221,12 +228,13 @@ def create_sale(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Producto con ID {item_in.product_id} no encontrado",
             )
-        total_stock = _get_total_stock(db, product.id)
-        if total_stock <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Producto '{product.name}' sin stock disponible (stock: {total_stock})",
-            )
+        if data.doc_type != "NOTA_VENTA":
+            total_stock = _get_total_stock(db, product.id)
+            if total_stock <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Producto '{product.name}' sin stock disponible (stock: {total_stock})",
+                )
         line_total = calc_line_total(
             item_in.quantity,
             Decimal(str(item_in.unit_price)),
@@ -276,7 +284,12 @@ def create_sale(
     db.add(sale)
     db.flush()
 
-    # Deduct stock for each item
+    # Deduct stock for each item (skip for NOTA_VENTA — no stock reservation)
+    if data.doc_type == "NOTA_VENTA":
+        db.commit()
+        db.refresh(sale)
+        return _sale_to_out(sale)
+
     for item in sale.items:
         inv = (
             db.query(Inventory)
@@ -302,6 +315,131 @@ def create_sale(
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)
+
+
+# Motivos that return stock to warehouse
+NC_STOCK_RETURN_MOTIVOS = {"01", "04"}
+
+
+@router.post("/nota-credito", response_model=SaleOut, status_code=status.HTTP_201_CREATED)
+def create_nota_credito(
+    data: NotaCreditoCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Create a Nota de Credito referencing an existing FACTURADO sale."""
+    # Validate original sale
+    ref_sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .filter(Sale.id == data.ref_sale_id)
+        .first()
+    )
+    if ref_sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Venta original no encontrada",
+        )
+    if ref_sale.status != "FACTURADO":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden crear notas de credito para ventas FACTURADAS",
+        )
+
+    # Build a map of original items: product_id -> max quantity
+    orig_items = {item.product_id: item for item in ref_sale.items}
+
+    # Validate NC items are subset of original
+    if not data.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nota de credito debe tener al menos un item",
+        )
+
+    sale_items = []
+    grand_total = Decimal("0")
+    for idx, nc_item in enumerate(data.items):
+        orig = orig_items.get(nc_item.product_id)
+        if orig is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Producto ID {nc_item.product_id} no existe en la venta original",
+            )
+        if nc_item.quantity > orig.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cantidad ({nc_item.quantity}) excede la cantidad original ({orig.quantity}) para producto {orig.product_name}",
+            )
+        line_total = calc_line_total(
+            nc_item.quantity,
+            Decimal(str(nc_item.unit_price)),
+            Decimal(str(nc_item.discount_pct)),
+        )
+        grand_total += line_total
+        product = db.query(Product).filter(Product.id == nc_item.product_id).first()
+        sale_items.append(
+            SaleItem(
+                product_id=nc_item.product_id,
+                quantity=nc_item.quantity,
+                unit_price=Decimal(str(nc_item.unit_price)),
+                discount_pct=Decimal(str(nc_item.discount_pct)),
+                line_total=line_total,
+                sort_order=idx,
+                product_code=orig.product_code,
+                product_name=orig.product_name,
+                brand_name=orig.brand_name,
+                presentation=orig.presentation,
+            )
+        )
+
+    subtotal, igv_amount, total = calc_igv(grand_total)
+
+    # Get NC series — must start with "F" for facturas or "B" for boletas (SUNAT rule)
+    ref_prefix = "F" if ref_sale.doc_type == "FACTURA" else "B"
+    doc_series = (
+        db.query(DocumentSeries)
+        .filter(
+            DocumentSeries.doc_type == "NOTA_CREDITO",
+            DocumentSeries.is_active == True,
+            DocumentSeries.series.like(f"{ref_prefix}%"),
+        )
+        .first()
+    )
+    if doc_series is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No hay serie activa de NOTA_CREDITO que empiece con '{ref_prefix}' "
+                   f"(requerido para {ref_sale.doc_type}). Cree una en Configuracion (ej: {ref_prefix}N01).",
+        )
+    doc_number = doc_series.next_number
+    doc_series.next_number += 1
+
+    nc = Sale(
+        doc_type="NOTA_CREDITO",
+        series=doc_series.series,
+        doc_number=doc_number,
+        client_id=ref_sale.client_id,
+        warehouse_id=ref_sale.warehouse_id,
+        seller_id=ref_sale.seller_id,
+        created_by=current_user.id,
+        payment_cond=ref_sale.payment_cond,
+        payment_method=ref_sale.payment_method,
+        subtotal=subtotal,
+        igv_amount=igv_amount,
+        total=total,
+        status="PREVENTA",
+        notes=f"NC motivo: {data.nc_motivo_code} - {data.nc_motivo_text}",
+        issue_date=date.today(),
+        ref_sale_id=ref_sale.id,
+        nc_motivo_code=data.nc_motivo_code,
+        nc_motivo_text=data.nc_motivo_text,
+        items=sale_items,
+    )
+
+    db.add(nc)
+    db.commit()
+    db.refresh(nc)
+    return _sale_to_out(nc)
 
 
 @router.get("/{sale_id}", response_model=SaleOut)
@@ -370,12 +508,13 @@ def update_sale(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Producto con ID {item_in.product_id} no encontrado",
             )
-        total_stock = _get_total_stock(db, product.id)
-        if total_stock <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Producto '{product.name}' sin stock disponible (stock: {total_stock})",
-            )
+        if sale.doc_type != "NOTA_VENTA":
+            total_stock = _get_total_stock(db, product.id)
+            if total_stock <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Producto '{product.name}' sin stock disponible (stock: {total_stock})",
+                )
         line_total = calc_line_total(
             item_in.quantity,
             Decimal(str(item_in.unit_price)),
@@ -444,6 +583,21 @@ def facturar_sale(
             detail="Solo se pueden facturar ventas en estado PREVENTA",
         )
 
+    if sale.doc_type == "NOTA_VENTA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Las Notas de Venta no se pueden facturar directamente. Use 'Convertir' para cambiarla a Boleta o Factura primero.",
+        )
+
+    # For NC: eagerly load the referenced sale (needed for SUNAT XML)
+    if sale.doc_type == "NOTA_CREDITO" and sale.ref_sale_id:
+        sale.ref_sale = (
+            db.query(Sale)
+            .options(joinedload(Sale.client))
+            .filter(Sale.id == sale.ref_sale_id)
+            .first()
+        )
+
     # SUNAT rule: facturas require client with RUC
     if sale.doc_type == "FACTURA" and sale.client.doc_type != "RUC":
         raise HTTPException(
@@ -456,7 +610,29 @@ def facturar_sale(
     sale.issue_date = date.today()
     db.flush()
 
-    # Auto-send factura to SUNAT (boletas go via resumen diario)
+    # If this is a NOTA_CREDITO with stock-return motivo, return stock
+    if sale.doc_type == "NOTA_CREDITO" and sale.nc_motivo_code in NC_STOCK_RETURN_MOTIVOS:
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity += item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="NC_RETURN",
+                quantity=item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Nota de Credito #{sale.series}-{sale.doc_number} (motivo {sale.nc_motivo_code})",
+                created_by=_user.id,
+            ))
+        db.flush()
+
+    # Auto-send to SUNAT
     sunat_status = None
     sunat_description = None
     if sale.doc_type == "FACTURA":
@@ -509,6 +685,41 @@ def facturar_sale(
             sunat_status = "ERROR"
             sunat_description = str(e)
 
+    elif sale.doc_type == "NOTA_CREDITO":
+        try:
+            from app.services.sunat_service import send_nota_credito_to_sunat
+
+            parsed = send_nota_credito_to_sunat(sale)
+
+            now = datetime.now(timezone.utc)
+            doc = SunatDocument(
+                sale_id=sale.id,
+                doc_category="NOTA_CREDITO",
+                reference_date=now,
+                sunat_status=parsed.get("sunat_status", "ERROR"),
+                sunat_description=parsed.get("sunat_description"),
+                sunat_hash=parsed.get("sunat_hash"),
+                sunat_cdr_url=parsed.get("sunat_cdr_url"),
+                sunat_xml_url=parsed.get("sunat_xml_url"),
+                sunat_pdf_url=parsed.get("sunat_pdf_url"),
+                ticket=parsed.get("ticket"),
+                raw_request="",
+                raw_response=json.dumps(parsed, ensure_ascii=False),
+                attempt_count=1,
+                last_attempt_at=now,
+                sent_by=_user.id,
+            )
+            db.add(doc)
+            db.flush()
+
+            sunat_status = doc.sunat_status
+            sunat_description = doc.sunat_description
+
+        except Exception as e:
+            logger.error("SUNAT NC send failed for sale %s: %s", sale.id, str(e))
+            sunat_status = "ERROR"
+            sunat_description = str(e)
+
     db.commit()
     db.refresh(sale)
 
@@ -546,25 +757,26 @@ def void_sale(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La venta está eliminada",
         )
-    # Return stock for each item
-    for item in sale.items:
-        inv = (
-            db.query(Inventory)
-            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
-            .first()
-        )
-        if inv:
-            inv.quantity += item.quantity
-        db.add(InventoryMovement(
-            product_id=item.product_id,
-            warehouse_id=sale.warehouse_id,
-            movement_type="VOID_RETURN",
-            quantity=item.quantity,
-            reference_type="SALE",
-            reference_id=sale.id,
-            notes=f"Anulación venta #{sale.series}-{sale.doc_number}",
-            created_by=current_user.id,
-        ))
+    # Return stock for each item (skip for NOTA_VENTA — no stock was deducted)
+    if sale.doc_type != "NOTA_VENTA":
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity += item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="VOID_RETURN",
+                quantity=item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Anulación venta #{sale.series}-{sale.doc_number}",
+                created_by=current_user.id,
+            ))
 
     sale.status = "ANULADO"
     sale.voided_reason = data.reason
@@ -598,27 +810,136 @@ def soft_delete_sale(
             detail="Solo se pueden eliminar ventas en estado PREVENTA",
         )
 
-    # Return stock for each item
+    # Return stock for each item (skip for NOTA_VENTA — no stock was deducted)
+    if sale.doc_type != "NOTA_VENTA":
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity += item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="VOID_RETURN",
+                quantity=item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Eliminación venta #{sale.series}-{sale.doc_number}",
+                created_by=_user.id,
+            ))
+
+    sale.status = "ELIMINADO"
+    db.commit()
+    db.refresh(sale)
+    return _sale_to_out(sale)
+
+
+@router.post("/{sale_id}/convertir", response_model=SaleOut)
+def convertir_sale(
+    sale_id: int,
+    data: ConvertirRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Convert a NOTA_VENTA to BOLETA or FACTURA. Stock is deducted at this point."""
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Venta no encontrada",
+        )
+    if sale.doc_type != "NOTA_VENTA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden convertir Notas de Venta",
+        )
+    if sale.status != "PREVENTA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden convertir ventas en estado PREVENTA",
+        )
+    if data.target_doc_type not in ("BOLETA", "FACTURA"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de documento destino debe ser BOLETA o FACTURA",
+        )
+
+    # SUNAT rule: facturas require client with RUC
+    if data.target_doc_type == "FACTURA" and sale.client.doc_type != "RUC":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Las facturas solo se pueden emitir a clientes con RUC. "
+                   "Use boleta para clientes con DNI u otro documento.",
+        )
+
+    # Get target series
+    doc_series = (
+        db.query(DocumentSeries)
+        .filter(
+            DocumentSeries.doc_type == data.target_doc_type,
+            DocumentSeries.series == data.target_series,
+            DocumentSeries.is_active == True,
+        )
+        .first()
+    )
+    if doc_series is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Serie {data.target_series} no encontrada o inactiva para {data.target_doc_type}",
+        )
+
+    # Validate stock for all items before deducting
+    for item in sale.items:
+        total_stock = _get_total_stock(db, item.product_id)
+        if total_stock < item.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Producto '{item.product_name}' sin stock suficiente "
+                       f"(disponible: {total_stock}, requerido: {item.quantity})",
+            )
+
+    # Save original NV reference for audit
+    original_ref = f"NV {sale.series}-{sale.doc_number}"
+    sale.notes = f"[Convertido de {original_ref}] {sale.notes or ''}".strip()
+
+    # Assign new series/number
+    new_doc_number = doc_series.next_number
+    doc_series.next_number += 1
+    sale.doc_type = data.target_doc_type
+    sale.series = data.target_series
+    sale.doc_number = new_doc_number
+
+    # Deduct stock for each item
     for item in sale.items:
         inv = (
             db.query(Inventory)
             .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
             .first()
         )
-        if inv:
-            inv.quantity += item.quantity
+        if inv is None:
+            inv = Inventory(product_id=item.product_id, warehouse_id=sale.warehouse_id, quantity=0)
+            db.add(inv)
+            db.flush()
+        inv.quantity -= item.quantity
         db.add(InventoryMovement(
             product_id=item.product_id,
             warehouse_id=sale.warehouse_id,
-            movement_type="VOID_RETURN",
-            quantity=item.quantity,
+            movement_type="SALE",
+            quantity=-item.quantity,
             reference_type="SALE",
             reference_id=sale.id,
-            notes=f"Eliminación venta #{sale.series}-{sale.doc_number}",
-            created_by=_user.id,
+            notes=f"Conversión {original_ref} → {data.target_doc_type}/{data.target_series}-{new_doc_number}",
+            created_by=current_user.id,
         ))
 
-    sale.status = "ELIMINADO"
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)

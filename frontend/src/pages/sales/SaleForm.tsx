@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Form,
   Select,
@@ -30,6 +30,7 @@ import { getUsers } from '../../api/users';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
 import type { ProductSearch, Client } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -70,6 +71,8 @@ export default function SaleForm() {
   const isEditing = Boolean(id);
   const { isAdmin } = useAuth();
   const [form] = Form.useForm();
+  const facturarRef = useRef<HTMLButtonElement>(null);
+  const enterNavRef = useEnterNavigation(() => facturarRef.current?.focus());
 
   const [items, setItems] = useState<LineItem[]>([newLineItem()]);
   const [productOptions, setProductOptions] = useState<{ value: string; label: string; product: ProductSearch; disabled?: boolean }[]>([]);
@@ -137,6 +140,42 @@ export default function SaleForm() {
       });
     }
   }, [existingSale, form]);
+
+  // Set defaults for new sales
+  useEffect(() => {
+    if (isEditing) return;
+    if (!docSeries || !warehouses) return;
+
+    // Serie: first active BOLETA series
+    const boletaSeries = docSeries.filter((s) => s.is_active && s.doc_type === 'BOLETA');
+    if (boletaSeries.length > 0) {
+      form.setFieldValue('doc_type_series', `${boletaSeries[0].doc_type}|${boletaSeries[0].series}`);
+    }
+
+    // Almacen: first warehouse matching "principal", else first
+    if (warehouses.length > 0) {
+      const principal = warehouses.find((w) => w.name.toLowerCase().includes('principal'));
+      form.setFieldValue('warehouse_id', principal ? principal.id : warehouses[0].id);
+    }
+
+    // Condicion de pago: CONTADO
+    form.setFieldValue('payment_cond', 'CONTADO');
+  }, [isEditing, docSeries, warehouses, form]);
+
+  // Auto-search and pre-select "CLIENTES VARIOS" for new sales
+  useEffect(() => {
+    if (isEditing) return;
+    searchClients('CLIENTES VARIOS').then((results) => {
+      if (results.length > 0) {
+        const c = results[0];
+        setClientOptions([{
+          value: c.id,
+          label: `${c.doc_number ? c.doc_number + ' - ' : ''}${c.business_name}`,
+        }]);
+        form.setFieldValue('client_id', c.id);
+      }
+    }).catch(() => {});
+  }, [isEditing, form]);
 
   const handleProductSearch = useCallback(async (searchText: string) => {
     if (searchText.length < 2) {
@@ -283,7 +322,7 @@ export default function SaleForm() {
         await createSale(payload);
         message.success('Preventa creada');
       }
-      navigate('/sales');
+      navigate('/sales/list');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       message.error(detail || 'Error al guardar la venta');
@@ -334,7 +373,7 @@ export default function SaleForm() {
       }
       if (!saleId) message.success('Venta facturada');
       window.open(`/sales/${saleId}/print`, '_blank');
-      navigate('/sales');
+      navigate('/sales/list');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       message.error(detail || 'Error al facturar la venta');
@@ -344,13 +383,15 @@ export default function SaleForm() {
   };
 
   const seriesOptions = (docSeries ?? [])
-    .filter((s) => s.is_active)
+    .filter((s) => s.is_active && s.doc_type !== 'NOTA_CREDITO')
     .map((s) => ({
       value: `${s.doc_type}|${s.series}`,
-      label: `${s.doc_type === 'BOLETA' ? 'BV' : 'FT'} / ${s.series}`,
+      label: `${{ BOLETA: 'BV', FACTURA: 'FT', NOTA_CREDITO: 'NC', NOTA_VENTA: 'NV' }[s.doc_type] || s.doc_type} / ${s.series}`,
     }));
 
   const maxDiscountPct = Form.useWatch('max_discount_pct', form) ?? 0;
+  const docTypeSeries = Form.useWatch('doc_type_series', form) ?? '';
+  const currentDocType = docTypeSeries.split('|')[0];
 
   const itemColumns = [
     {
@@ -489,7 +530,7 @@ export default function SaleForm() {
   }
 
   return (
-    <div>
+    <div ref={enterNavRef}>
       <Title level={3}>{isEditing ? 'Editar Venta' : 'NUEVA PRE-VENTA'}</Title>
 
       <Form form={form} layout="vertical" initialValues={{ max_discount_pct: 0 }}>
@@ -500,7 +541,10 @@ export default function SaleForm() {
               label="Tipo / Serie"
               rules={[{ required: true, message: 'Requerido' }]}
             >
-              <Select placeholder="Seleccionar" options={seriesOptions} />
+              <Select
+                placeholder="Seleccionar"
+                options={seriesOptions}
+              />
             </Form.Item>
           </Col>
           <Col xs={24} sm={8} md={5}>
@@ -543,7 +587,7 @@ export default function SaleForm() {
               />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8} md={4}>
+          <Col xs={24} sm={8} md={4} data-enter-skip>
             <Form.Item
               name="payment_cond"
               label="Condicion de Pago"
@@ -559,7 +603,7 @@ export default function SaleForm() {
               />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8} md={2}>
+          <Col xs={24} sm={8} md={2} data-enter-skip>
             <Form.Item
               name="max_discount_pct"
               label="Max Dcto %"
@@ -567,7 +611,7 @@ export default function SaleForm() {
               <InputNumber min={0} max={100} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8} md={3}>
+          <Col xs={24} sm={8} md={3} data-enter-skip>
             <Form.Item
               name="issue_date"
               label="Fecha"
@@ -581,7 +625,7 @@ export default function SaleForm() {
               />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8} md={2}>
+          <Col xs={24} sm={8} md={2} data-enter-skip>
             <Form.Item label="Pago">
               <Radio.Group
                 value={paymentMethod}
@@ -693,8 +737,9 @@ export default function SaleForm() {
               >
                 Guardar como PreVenta
               </Button>
-              {isAdmin && (
+              {isAdmin && currentDocType !== 'NOTA_VENTA' && (
                 <Button
+                  ref={facturarRef}
                   type="primary"
                   icon={<CheckOutlined />}
                   onClick={handleFacturar}
@@ -705,7 +750,7 @@ export default function SaleForm() {
                   Facturar
                 </Button>
               )}
-              <Button onClick={() => navigate('/sales')} block>
+              <Button onClick={() => navigate('/sales/list')} block>
                 Cancelar
               </Button>
             </Space>

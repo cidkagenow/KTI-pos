@@ -23,6 +23,7 @@ import { getBrands, getCategories } from '../../api/catalogs';
 import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 import type { Product } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -37,6 +38,7 @@ export default function ProductList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation();
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [editingStockValue, setEditingStockValue] = useState<number>(0);
 
@@ -324,6 +326,7 @@ export default function ProductList() {
         confirmLoading={createMutation.isPending || updateMutation.isPending}
         width={700}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col span={8}>
@@ -398,6 +401,7 @@ export default function ProductList() {
             </Col>
           </Row>
         </Form>
+        </div>
       </Modal>
     </div>
   );

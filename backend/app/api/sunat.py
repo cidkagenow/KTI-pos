@@ -17,6 +17,7 @@ from app.schemas.sunat import (
 )
 from app.services.sunat_service import (
     send_factura_to_sunat,
+    send_nota_credito_to_sunat,
     send_resumen_to_sunat,
     send_baja_to_sunat,
     check_ticket_status,
@@ -172,6 +173,85 @@ def reenviar_factura(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "La factura ya fue aceptada por SUNAT")
 
     doc = _send_and_record_factura(sale, current_user, db)
+    db.commit()
+    db.refresh(doc)
+    return _doc_to_out(doc)
+
+
+def _send_and_record_nc(sale: Sale, user: User, db: Session) -> SunatDocument:
+    """Send a nota de credito to SUNAT and record the result."""
+    parsed = send_nota_credito_to_sunat(sale)
+
+    existing = (
+        db.query(SunatDocument)
+        .filter(SunatDocument.sale_id == sale.id, SunatDocument.doc_category == "NOTA_CREDITO")
+        .first()
+    )
+
+    now = datetime.now(timezone.utc)
+
+    if existing:
+        existing.sunat_status = parsed.get("sunat_status", "ERROR")
+        existing.sunat_description = parsed.get("sunat_description")
+        existing.sunat_hash = parsed.get("sunat_hash")
+        existing.sunat_cdr_url = parsed.get("sunat_cdr_url")
+        existing.sunat_xml_url = parsed.get("sunat_xml_url")
+        existing.sunat_pdf_url = parsed.get("sunat_pdf_url")
+        existing.ticket = parsed.get("ticket")
+        existing.raw_response = json.dumps(parsed, ensure_ascii=False)
+        existing.attempt_count += 1
+        existing.last_attempt_at = now
+        existing.sent_by = user.id
+        doc = existing
+    else:
+        doc = SunatDocument(
+            sale_id=sale.id,
+            doc_category="NOTA_CREDITO",
+            reference_date=now,
+            sunat_status=parsed.get("sunat_status", "ERROR"),
+            sunat_description=parsed.get("sunat_description"),
+            sunat_hash=parsed.get("sunat_hash"),
+            sunat_cdr_url=parsed.get("sunat_cdr_url"),
+            sunat_xml_url=parsed.get("sunat_xml_url"),
+            sunat_pdf_url=parsed.get("sunat_pdf_url"),
+            ticket=parsed.get("ticket"),
+            raw_request="",
+            raw_response=json.dumps(parsed, ensure_ascii=False),
+            attempt_count=1,
+            last_attempt_at=now,
+            sent_by=user.id,
+        )
+        db.add(doc)
+
+    db.flush()
+    return doc
+
+
+@router.post("/nota-credito/{sale_id}/enviar", response_model=SunatDocumentOut)
+def enviar_nota_credito(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Send a nota de credito to SUNAT."""
+    sale = (
+        db.query(Sale)
+        .options(
+            joinedload(Sale.items),
+            joinedload(Sale.client),
+            joinedload(Sale.ref_sale),
+        )
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if not sale:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nota de credito no encontrada")
+    if sale.doc_type != "NOTA_CREDITO":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La venta no es una nota de credito")
+    if sale.status != "FACTURADO":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La nota de credito debe estar FACTURADA")
+
+    doc = _send_and_record_nc(sale, current_user, db)
     db.commit()
     db.refresh(doc)
     return _doc_to_out(doc)

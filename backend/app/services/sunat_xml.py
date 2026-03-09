@@ -289,6 +289,238 @@ def build_invoice_xml(sale: Sale) -> bytes:
     return xml_bytes
 
 
+NS_CREDIT_NOTE = {
+    "": "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2",
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    "ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2",
+    "ds": "http://www.w3.org/2000/09/xmldsig#",
+    "sac": "urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1",
+}
+
+
+def build_credit_note_xml(sale: Sale) -> bytes:
+    """
+    Build UBL 2.1 CreditNote XML for SUNAT (document type 07).
+    The sale must have ref_sale loaded with its client.
+    Returns XML bytes.
+    """
+    ruc, razon_social, direccion = _empresa()
+    issue = sale.issue_date or date.today()
+    client = sale.client
+    ref_sale = sale.ref_sale
+
+    nsmap = {None: NS_CREDIT_NOTE[""]}
+    for k, v in NS_CREDIT_NOTE.items():
+        if k:
+            nsmap[k] = v
+
+    root = etree.Element(_tag("", "CreditNote", NS_CREDIT_NOTE), nsmap=nsmap)
+
+    # UBLExtensions (placeholder for signature)
+    extensions = _sub(root, "ext", "UBLExtensions", ns_map=NS_CREDIT_NOTE)
+    extension = _sub(extensions, "ext", "UBLExtension", ns_map=NS_CREDIT_NOTE)
+    _sub(extension, "ext", "ExtensionContent", ns_map=NS_CREDIT_NOTE)
+
+    # Header
+    _sub(root, "cbc", "UBLVersionID", "2.1", ns_map=NS_CREDIT_NOTE)
+    _sub(root, "cbc", "CustomizationID", "2.0", ns_map=NS_CREDIT_NOTE)
+    _sub(root, "cbc", "ID", f"{sale.series}-{int(sale.doc_number):08d}", ns_map=NS_CREDIT_NOTE)
+    _sub(root, "cbc", "IssueDate", issue.isoformat(), ns_map=NS_CREDIT_NOTE)
+    _sub(root, "cbc", "IssueTime", "00:00:00", ns_map=NS_CREDIT_NOTE)
+    _sub(root, "cbc", "DocumentCurrencyCode", "PEN",
+         listID="ISO 4217 Alpha", listName="Currency",
+         listAgencyName="United Nations Economic Commission for Europe",
+         ns_map=NS_CREDIT_NOTE)
+
+    # DiscrepancyResponse — reason for the credit note
+    discrepancy = _sub(root, "cac", "DiscrepancyResponse", ns_map=NS_CREDIT_NOTE)
+    # Reference to original document
+    ref_doc_type = _doc_type_code(ref_sale.doc_type) if ref_sale else "01"
+    ref_doc_id = f"{ref_sale.series}-{ref_sale.doc_number}" if ref_sale else ""
+    _sub(discrepancy, "cbc", "ReferenceID", ref_doc_id, ns_map=NS_CREDIT_NOTE)
+    _sub(discrepancy, "cbc", "ResponseCode", sale.nc_motivo_code or "01",
+         listAgencyName="PE:SUNAT",
+         listName="Tipo de nota de credito",
+         listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo09",
+         ns_map=NS_CREDIT_NOTE)
+    _sub(discrepancy, "cbc", "Description", sale.nc_motivo_text or "Anulacion de la operacion",
+         ns_map=NS_CREDIT_NOTE)
+
+    # BillingReference — original document
+    billing_ref = _sub(root, "cac", "BillingReference", ns_map=NS_CREDIT_NOTE)
+    invoice_doc_ref = _sub(billing_ref, "cac", "InvoiceDocumentReference", ns_map=NS_CREDIT_NOTE)
+    _sub(invoice_doc_ref, "cbc", "ID", ref_doc_id, ns_map=NS_CREDIT_NOTE)
+    _sub(invoice_doc_ref, "cbc", "DocumentTypeCode", ref_doc_type,
+         listAgencyName="PE:SUNAT",
+         listName="Tipo de Documento",
+         listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01",
+         ns_map=NS_CREDIT_NOTE)
+
+    # Signature reference
+    sig_ref = _sub(root, "cac", "Signature", ns_map=NS_CREDIT_NOTE)
+    _sub(sig_ref, "cbc", "ID", f"IDSign{ruc}", ns_map=NS_CREDIT_NOTE)
+    sig_party = _sub(sig_ref, "cac", "SignatoryParty", ns_map=NS_CREDIT_NOTE)
+    sig_party_id = _sub(sig_party, "cac", "PartyIdentification", ns_map=NS_CREDIT_NOTE)
+    _sub(sig_party_id, "cbc", "ID", ruc, ns_map=NS_CREDIT_NOTE)
+    sig_party_name = _sub(sig_party, "cac", "PartyName", ns_map=NS_CREDIT_NOTE)
+    _sub(sig_party_name, "cbc", "Name", razon_social, ns_map=NS_CREDIT_NOTE)
+    sig_attach = _sub(sig_ref, "cac", "DigitalSignatureAttachment", ns_map=NS_CREDIT_NOTE)
+    sig_ext_ref = _sub(sig_attach, "cac", "ExternalReference", ns_map=NS_CREDIT_NOTE)
+    _sub(sig_ext_ref, "cbc", "URI", f"#SignatureValue-{ruc}", ns_map=NS_CREDIT_NOTE)
+
+    # Supplier (AccountingSupplierParty)
+    supplier = _sub(root, "cac", "AccountingSupplierParty", ns_map=NS_CREDIT_NOTE)
+    supplier_party = _sub(supplier, "cac", "Party", ns_map=NS_CREDIT_NOTE)
+    supplier_id = _sub(supplier_party, "cac", "PartyIdentification", ns_map=NS_CREDIT_NOTE)
+    _sub(supplier_id, "cbc", "ID", ruc,
+         schemeID="6", schemeName="Documento de Identidad",
+         schemeAgencyName="PE:SUNAT",
+         schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06",
+         ns_map=NS_CREDIT_NOTE)
+    supplier_name = _sub(supplier_party, "cac", "PartyName", ns_map=NS_CREDIT_NOTE)
+    _sub(supplier_name, "cbc", "Name", razon_social, ns_map=NS_CREDIT_NOTE)
+    supplier_legal = _sub(supplier_party, "cac", "PartyLegalEntity", ns_map=NS_CREDIT_NOTE)
+    _sub(supplier_legal, "cbc", "RegistrationName", razon_social, ns_map=NS_CREDIT_NOTE)
+    supplier_addr = _sub(supplier_legal, "cac", "RegistrationAddress", ns_map=NS_CREDIT_NOTE)
+    _sub(supplier_addr, "cbc", "AddressTypeCode", "0000", ns_map=NS_CREDIT_NOTE)
+    addr_line = _sub(supplier_addr, "cac", "AddressLine", ns_map=NS_CREDIT_NOTE)
+    _sub(addr_line, "cbc", "Line", direccion, ns_map=NS_CREDIT_NOTE)
+
+    # Customer (AccountingCustomerParty)
+    customer = _sub(root, "cac", "AccountingCustomerParty", ns_map=NS_CREDIT_NOTE)
+    customer_party = _sub(customer, "cac", "Party", ns_map=NS_CREDIT_NOTE)
+    customer_id = _sub(customer_party, "cac", "PartyIdentification", ns_map=NS_CREDIT_NOTE)
+    client_doc_type = _client_doc_type(client.doc_type)
+    _sub(customer_id, "cbc", "ID", client.doc_number or "00000000",
+         schemeID=client_doc_type, schemeName="Documento de Identidad",
+         schemeAgencyName="PE:SUNAT",
+         schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06",
+         ns_map=NS_CREDIT_NOTE)
+    customer_legal = _sub(customer_party, "cac", "PartyLegalEntity", ns_map=NS_CREDIT_NOTE)
+    _sub(customer_legal, "cbc", "RegistrationName", client.business_name, ns_map=NS_CREDIT_NOTE)
+
+    # Calculate totals
+    total_gravada = Decimal("0")
+    total_igv = Decimal("0")
+    line_items_data = []
+
+    for item in sale.items:
+        qty = Decimal(str(item.quantity))
+        price_with_igv = Decimal(str(item.unit_price))
+        discount_factor = Decimal("1") - (Decimal(str(item.discount_pct)) / Decimal("100"))
+        precio_unitario = (price_with_igv * discount_factor).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        valor_unitario = (precio_unitario / IGV_FACTOR).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        line_gravada = (valor_unitario * qty).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        line_igv = (line_gravada * IGV_RATE).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+
+        total_gravada += line_gravada
+        total_igv += line_igv
+        line_items_data.append({
+            "qty": qty,
+            "precio_unitario": precio_unitario,
+            "valor_unitario": valor_unitario,
+            "line_gravada": line_gravada,
+            "line_igv": line_igv,
+            "description": item.product_name or "PRODUCTO",
+        })
+
+    total = total_gravada + total_igv
+
+    # TaxTotal
+    tax_total = _sub(root, "cac", "TaxTotal", ns_map=NS_CREDIT_NOTE)
+    _sub(tax_total, "cbc", "TaxAmount", _dec(total_igv), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+    tax_subtotal = _sub(tax_total, "cac", "TaxSubtotal", ns_map=NS_CREDIT_NOTE)
+    _sub(tax_subtotal, "cbc", "TaxableAmount", _dec(total_gravada), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+    _sub(tax_subtotal, "cbc", "TaxAmount", _dec(total_igv), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+    tax_category = _sub(tax_subtotal, "cac", "TaxCategory", ns_map=NS_CREDIT_NOTE)
+    tax_scheme = _sub(tax_category, "cac", "TaxScheme", ns_map=NS_CREDIT_NOTE)
+    _sub(tax_scheme, "cbc", "ID", "1000",
+         schemeName="Codigo de tributos", schemeAgencyName="PE:SUNAT",
+         schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05",
+         ns_map=NS_CREDIT_NOTE)
+    _sub(tax_scheme, "cbc", "Name", "IGV", ns_map=NS_CREDIT_NOTE)
+    _sub(tax_scheme, "cbc", "TaxTypeCode", "VAT", ns_map=NS_CREDIT_NOTE)
+
+    # LegalMonetaryTotal
+    monetary = _sub(root, "cac", "LegalMonetaryTotal", ns_map=NS_CREDIT_NOTE)
+    _sub(monetary, "cbc", "LineExtensionAmount", _dec(total_gravada), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+    _sub(monetary, "cbc", "TaxInclusiveAmount", _dec(total), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+    _sub(monetary, "cbc", "PayableAmount", _dec(total), currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+
+    # CreditNoteLines
+    for idx, item_data in enumerate(line_items_data, start=1):
+        line = _sub(root, "cac", "CreditNoteLine", ns_map=NS_CREDIT_NOTE)
+        _sub(line, "cbc", "ID", str(idx), ns_map=NS_CREDIT_NOTE)
+        _sub(line, "cbc", "CreditedQuantity", str(item_data["qty"]),
+             unitCode="NIU", unitCodeListID="UN/ECE rec 20",
+             unitCodeListAgencyName="United Nations Economic Commission for Europe",
+             ns_map=NS_CREDIT_NOTE)
+        _sub(line, "cbc", "LineExtensionAmount", _dec(item_data["line_gravada"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+
+        # PricingReference (price WITH IGV)
+        pricing_ref = _sub(line, "cac", "PricingReference", ns_map=NS_CREDIT_NOTE)
+        alt_price = _sub(pricing_ref, "cac", "AlternativeConditionPrice", ns_map=NS_CREDIT_NOTE)
+        _sub(alt_price, "cbc", "PriceAmount", _dec(item_data["precio_unitario"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+        _sub(alt_price, "cbc", "PriceTypeCode", "01",
+             listName="Tipo de Precio", listAgencyName="PE:SUNAT",
+             listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16",
+             ns_map=NS_CREDIT_NOTE)
+
+        # TaxTotal per line
+        line_tax = _sub(line, "cac", "TaxTotal", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax, "cbc", "TaxAmount", _dec(item_data["line_igv"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+        line_tax_sub = _sub(line_tax, "cac", "TaxSubtotal", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_sub, "cbc", "TaxableAmount", _dec(item_data["line_gravada"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_sub, "cbc", "TaxAmount", _dec(item_data["line_igv"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+        line_tax_cat = _sub(line_tax_sub, "cac", "TaxCategory", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_cat, "cbc", "Percent", "18.00", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_cat, "cbc", "TaxExemptionReasonCode", "10",
+             listAgencyName="PE:SUNAT",
+             listName="Afectacion del IGV",
+             listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07",
+             ns_map=NS_CREDIT_NOTE)
+        line_tax_scheme = _sub(line_tax_cat, "cac", "TaxScheme", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_scheme, "cbc", "ID", "1000",
+             schemeName="Codigo de tributos", schemeAgencyName="PE:SUNAT",
+             schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05",
+             ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_scheme, "cbc", "Name", "IGV", ns_map=NS_CREDIT_NOTE)
+        _sub(line_tax_scheme, "cbc", "TaxTypeCode", "VAT", ns_map=NS_CREDIT_NOTE)
+
+        # Item description
+        line_item = _sub(line, "cac", "Item", ns_map=NS_CREDIT_NOTE)
+        _sub(line_item, "cbc", "Description", item_data["description"], ns_map=NS_CREDIT_NOTE)
+
+        # Price (unit value WITHOUT IGV)
+        price = _sub(line, "cac", "Price", ns_map=NS_CREDIT_NOTE)
+        _sub(price, "cbc", "PriceAmount", _dec(item_data["valor_unitario"]),
+             currencyID="PEN", ns_map=NS_CREDIT_NOTE)
+
+    xml_bytes = etree.tostring(root, xml_declaration=True, encoding="UTF-8",
+                               pretty_print=True)
+    return xml_bytes
+
+
+def get_credit_note_filename(sale: Sale) -> str:
+    """Get SUNAT standard filename for a credit note (tipo 07)."""
+    ruc, _, _ = _empresa()
+    return f"{ruc}-07-{sale.series}-{int(sale.doc_number):08d}"
+
+
 def build_summary_xml(fecha: date, sales: list[Sale], correlativo: int = 1,
                       condition_codes: dict[int, str] | None = None) -> bytes:
     """

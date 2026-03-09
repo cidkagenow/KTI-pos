@@ -19,7 +19,13 @@ export default function SalePrint() {
 
   if (!sale) return <div style={{ padding: 40, textAlign: 'center' }}>Cargando...</div>;
 
-  const docLabel = sale.doc_type === 'BOLETA' ? 'BOLETA DE VENTA' : 'FACTURA';
+  const docLabel = sale.doc_type === 'NOTA_CREDITO'
+    ? 'NOTA DE CREDITO'
+    : sale.doc_type === 'NOTA_VENTA'
+      ? 'NOTA DE VENTA'
+      : sale.doc_type === 'BOLETA'
+        ? 'BOLETA DE VENTA'
+        : 'FACTURA';
   const docNumber = `${sale.series}-${String(sale.doc_number).padStart(7, '0')}`;
 
   return (
@@ -121,12 +127,16 @@ export default function SalePrint() {
         <div className="center bold" style={{ fontSize: 13 }}>
           INVERSIONES KTI D & E E.I.R.L.
         </div>
-        <div className="center" style={{ fontSize: 10, marginTop: 4 }}>
-          RUC: 20XXXXXXXXX
-        </div>
-        <div className="center" style={{ fontSize: 10 }}>
-          Direccion de la empresa
-        </div>
+        {sale.doc_type !== 'NOTA_VENTA' && (
+          <>
+            <div className="center" style={{ fontSize: 10, marginTop: 4 }}>
+              RUC: 20XXXXXXXXX
+            </div>
+            <div className="center" style={{ fontSize: 10 }}>
+              Direccion de la empresa
+            </div>
+          </>
+        )}
 
         <hr className="divider" />
 
@@ -134,6 +144,25 @@ export default function SalePrint() {
           {docLabel}
         </div>
         <div className="center bold">{docNumber}</div>
+
+        {sale.doc_type === 'NOTA_VENTA' && (
+          <div className="center" style={{ fontSize: 9, marginTop: 4, border: '1px dashed #000', padding: '2px 4px' }}>
+            DOCUMENTO NO FISCAL
+          </div>
+        )}
+
+        {sale.doc_type === 'NOTA_CREDITO' && (
+          <>
+            <div className="center" style={{ fontSize: 10, marginTop: 4 }}>
+              Motivo: {sale.nc_motivo_code} - {sale.nc_motivo_text}
+            </div>
+            {sale.ref_sale_id && (
+              <div className="center" style={{ fontSize: 10 }}>
+                Ref: Documento original #{sale.ref_sale_id}
+              </div>
+            )}
+          </>
+        )}
 
         <hr className="divider" />
 
@@ -186,14 +215,18 @@ export default function SalePrint() {
 
         <div className="total-section">
           <hr className="divider" />
-          <div className="total-row">
-            <span>SubTotal:</span>
-            <span>{formatCurrency(sale.subtotal)}</span>
-          </div>
-          <div className="total-row">
-            <span>IGV (18%):</span>
-            <span>{formatCurrency(sale.igv_amount)}</span>
-          </div>
+          {sale.doc_type !== 'NOTA_VENTA' && (
+            <>
+              <div className="total-row">
+                <span>SubTotal:</span>
+                <span>{formatCurrency(sale.subtotal)}</span>
+              </div>
+              <div className="total-row">
+                <span>IGV (18%):</span>
+                <span>{formatCurrency(sale.igv_amount)}</span>
+              </div>
+            </>
+          )}
           <div className="total-row grand-total">
             <span>TOTAL:</span>
             <span>{formatCurrency(sale.total)}</span>
@@ -202,12 +235,25 @@ export default function SalePrint() {
 
         <hr className="divider" />
 
-        <div className="center" style={{ fontSize: 10, marginTop: 6 }}>
-          Gracias por su compra!
-        </div>
-        <div className="center" style={{ fontSize: 9, marginTop: 2 }}>
-          {sale.items.length} articulo(s)
-        </div>
+        {sale.doc_type === 'NOTA_VENTA' ? (
+          <>
+            <div className="center" style={{ fontSize: 9, marginTop: 6 }}>
+              Este documento no es comprobante de pago
+            </div>
+            <div className="center" style={{ fontSize: 9, marginTop: 2 }}>
+              {sale.items.length} articulo(s)
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="center" style={{ fontSize: 10, marginTop: 6 }}>
+              Gracias por su compra!
+            </div>
+            <div className="center" style={{ fontSize: 9, marginTop: 2 }}>
+              {sale.items.length} articulo(s)
+            </div>
+          </>
+        )}
       </div>
     </>
   );

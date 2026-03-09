@@ -128,6 +128,16 @@ export interface Sale {
   items: SaleItem[];
   sunat_status?: string | null;
   sunat_description?: string | null;
+  ref_sale_id?: number | null;
+  nc_motivo_code?: string | null;
+  nc_motivo_text?: string | null;
+}
+
+export interface NotaCreditoCreate {
+  ref_sale_id: number;
+  nc_motivo_code: string;
+  nc_motivo_text: string;
+  items: { product_id: number; quantity: number; unit_price: number; discount_pct: number }[];
 }
 
 export interface SunatDocument {

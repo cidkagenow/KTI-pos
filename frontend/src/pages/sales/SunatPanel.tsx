@@ -30,6 +30,7 @@ import {
   enviarBaja,
   checkTicketStatus,
   getPendingBoletas,
+  enviarNotaCredito,
 } from '../../api/sunat';
 import { getSales } from '../../api/sales';
 import { formatCurrency, formatDateTime } from '../../utils/format';
@@ -657,6 +658,188 @@ function BajasTab() {
   );
 }
 
+function NotasCreditoTab() {
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['sunat-docs', 'NOTA_CREDITO', statusFilter, page],
+    queryFn: () =>
+      getSunatDocumentos({
+        doc_category: 'NOTA_CREDITO',
+        sunat_status: statusFilter,
+        page,
+        limit: 20,
+      }),
+  });
+
+  const enviarMut = useMutation({
+    mutationFn: (saleId: number) => enviarNotaCredito(saleId),
+    onSuccess: (doc) => {
+      if (doc.sunat_status === 'ACEPTADO') {
+        message.success('Nota de Credito aceptada por SUNAT');
+      } else if (doc.sunat_status === 'ERROR' || doc.sunat_status === 'RECHAZADO') {
+        message.error(`SUNAT: ${doc.sunat_description || 'Error'}`);
+      } else {
+        message.info(`Estado SUNAT: ${doc.sunat_status}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.detail || 'Error al enviar nota de credito');
+    },
+  });
+
+  const columns: ColumnsType<SunatDocument> = [
+    {
+      title: 'Documento',
+      key: 'doc',
+      width: 200,
+      render: (_: unknown, r: SunatDocument) =>
+        r.series && r.doc_number
+          ? `N.CREDITO/${r.series}-${String(r.doc_number).padStart(7, '0')}`
+          : '-',
+    },
+    {
+      title: 'Cliente',
+      dataIndex: 'client_name',
+      key: 'client_name',
+      ellipsis: true,
+    },
+    {
+      title: 'Total',
+      dataIndex: 'total',
+      key: 'total',
+      width: 110,
+      align: 'right',
+      render: (val: number | null) => (val != null ? formatCurrency(val) : '-'),
+    },
+    {
+      title: 'Estado SUNAT',
+      dataIndex: 'sunat_status',
+      key: 'sunat_status',
+      width: 130,
+      render: (status: string) => (
+        <Tag color={SUNAT_STATUS_COLORS[status] || 'default'}>{status}</Tag>
+      ),
+    },
+    {
+      title: 'Descripcion',
+      dataIndex: 'sunat_description',
+      key: 'sunat_description',
+      ellipsis: true,
+      width: 200,
+    },
+    {
+      title: 'Intentos',
+      dataIndex: 'attempt_count',
+      key: 'attempt_count',
+      width: 80,
+      align: 'center',
+    },
+    {
+      title: 'Ultimo Envio',
+      dataIndex: 'last_attempt_at',
+      key: 'last_attempt_at',
+      width: 160,
+      render: (val: string | null) => (val ? formatDateTime(val) : '-'),
+    },
+    {
+      title: 'Acciones',
+      key: 'actions',
+      width: 200,
+      render: (_: unknown, record: SunatDocument) => (
+        <Space size="small">
+          {record.sunat_status !== 'ACEPTADO' && record.sale_id && (
+            <Button
+              type="link"
+              size="small"
+              icon={<ReloadOutlined />}
+              loading={enviarMut.isPending}
+              onClick={() => enviarMut.mutate(record.sale_id!)}
+            >
+              Reenviar
+            </Button>
+          )}
+          {record.sunat_pdf_url && (
+            <Button
+              type="link"
+              size="small"
+              icon={<FilePdfOutlined />}
+              href={record.sunat_pdf_url}
+              target="_blank"
+            >
+              PDF
+            </Button>
+          )}
+          {record.sunat_xml_url && (
+            <Button
+              type="link"
+              size="small"
+              icon={<FileTextOutlined />}
+              href={record.sunat_xml_url}
+              target="_blank"
+            >
+              XML
+            </Button>
+          )}
+          {record.sunat_cdr_url && (
+            <Button
+              type="link"
+              size="small"
+              icon={<SafetyCertificateOutlined />}
+              href={record.sunat_cdr_url}
+              target="_blank"
+            >
+              CDR
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <Row gutter={12} style={{ marginBottom: 16 }}>
+        <Col>
+          <Select
+            allowClear
+            placeholder="Estado SUNAT"
+            style={{ width: 160 }}
+            onChange={(val) => {
+              setStatusFilter(val);
+              setPage(1);
+            }}
+            options={[
+              { value: 'ACEPTADO', label: 'Aceptado' },
+              { value: 'PENDIENTE', label: 'Pendiente' },
+              { value: 'ERROR', label: 'Error' },
+              { value: 'RECHAZADO', label: 'Rechazado' },
+            ]}
+          />
+        </Col>
+      </Row>
+      <Table
+        columns={columns}
+        dataSource={data?.data ?? []}
+        rowKey="id"
+        loading={isLoading}
+        pagination={{
+          current: page,
+          pageSize: 20,
+          total: data?.total ?? 0,
+          showTotal: (total) => `Total: ${total}`,
+          onChange: (p) => setPage(p),
+        }}
+        scroll={{ x: 1200 }}
+        size="small"
+      />
+    </div>
+  );
+}
+
 export default function SunatPanel() {
   return (
     <div>
@@ -675,6 +858,11 @@ export default function SunatPanel() {
             key: 'resumen',
             label: 'Resumen Boletas',
             children: <ResumenBoletasTab />,
+          },
+          {
+            key: 'notas-credito',
+            label: 'Notas de Credito',
+            children: <NotasCreditoTab />,
           },
           {
             key: 'bajas',

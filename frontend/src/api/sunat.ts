@@ -45,6 +45,11 @@ export async function getSunatDocumentos(filters: SunatFilters): Promise<Paginat
   return data;
 }
 
+export async function enviarNotaCredito(saleId: number): Promise<SunatDocument> {
+  const { data } = await api.post(`/sunat/nota-credito/${saleId}/enviar`);
+  return data;
+}
+
 export async function getSunatForSale(saleId: number): Promise<{
   sunat_status: string | null;
   sunat_description: string | null;

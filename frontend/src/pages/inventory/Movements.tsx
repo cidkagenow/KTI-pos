@@ -5,6 +5,7 @@ import { getMovements } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import { formatDateTime } from '../../utils/format';
+import { tokenizedFilter } from '../../utils/search';
 import type { InventoryMovement } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -83,7 +84,7 @@ export default function Movements() {
             placeholder="Producto"
             style={{ width: 250 }}
             showSearch
-            optionFilterProp="label"
+            filterOption={tokenizedFilter}
             onChange={(val) => setProductId(val)}
             options={products?.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }))}
           />

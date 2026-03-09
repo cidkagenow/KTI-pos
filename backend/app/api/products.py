@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import func
 
 from app.database import get_db
 from app.models.product import Product, Brand, Category
@@ -79,13 +79,10 @@ def search_products(
     """Quick search for POS autocomplete (by code or name, top 20)."""
     query = db.query(Product).filter(Product.is_active == True)
     if q:
-        pattern = f"%{q}%"
-        query = query.filter(
-            or_(
-                Product.code.ilike(pattern),
-                Product.name.ilike(pattern),
-            )
-        )
+        tokens = q.strip().split()
+        combined = func.concat(Product.code, ' ', Product.name)
+        for token in tokens:
+            query = query.filter(combined.ilike(f"%{token}%"))
     query = query.outerjoin(Brand, Product.brand_id == Brand.id)
     products = query.order_by(Product.name).limit(20).all()
     results = []
@@ -125,13 +122,10 @@ def list_products(
         .filter(Product.is_active == True)
     )
     if search:
-        pattern = f"%{search}%"
-        query = query.filter(
-            or_(
-                Product.code.ilike(pattern),
-                Product.name.ilike(pattern),
-            )
-        )
+        tokens = search.strip().split()
+        combined = func.concat(Product.code, ' ', Product.name)
+        for token in tokens:
+            query = query.filter(combined.ilike(f"%{token}%"))
     if brand_id is not None:
         query = query.filter(Product.brand_id == brand_id)
     if category_id is not None:

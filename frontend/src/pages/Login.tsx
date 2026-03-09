@@ -4,6 +4,7 @@ import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import useEnterNavigation from '../hooks/useEnterNavigation';
 
 const { Text } = Typography;
 
@@ -12,6 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { isDark } = useTheme();
+  const enterNavRef = useEnterNavigation();
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true);
@@ -67,6 +69,7 @@ export default function Login() {
             Sistema de Punto de Venta
           </Text>
         </div>
+        <div ref={enterNavRef}>
         <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
           <Form.Item
             name="username"
@@ -86,6 +89,7 @@ export default function Login() {
             </Button>
           </Form.Item>
         </Form>
+        </div>
         <div style={{ textAlign: 'center' }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
             KTI POS v1.0

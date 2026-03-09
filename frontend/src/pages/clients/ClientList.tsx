@@ -20,6 +20,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LoadingOutl
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClients, createClient, updateClient, deleteClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { useAuth } from '../../contexts/AuthContext';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 import type { Client } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -34,6 +35,7 @@ export default function ClientList() {
   const [activeTab, setActiveTab] = useState('datos');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation();
 
   const docType = Form.useWatch('doc_type', form);
   const docNumber = Form.useWatch('doc_number', form);
@@ -380,9 +382,11 @@ export default function ClientList() {
         width={600}
         destroyOnClose
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
         </Form>
+        </div>
       </Modal>
     </div>
   );

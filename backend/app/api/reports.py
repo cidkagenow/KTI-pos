@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, case
+from sqlalchemy import func, case
 
 from app.database import get_db
 from app.models.sale import Sale, SaleItem
@@ -30,11 +30,14 @@ def dashboard(
     def _count_and_total(from_date: date) -> tuple[int, float]:
         result = (
             db.query(
-                func.count(Sale.id),
-                func.coalesce(func.sum(Sale.total), 0),
+                func.count(case((Sale.doc_type != "NOTA_CREDITO", Sale.id))),
+                func.coalesce(func.sum(
+                    case((Sale.doc_type == "NOTA_CREDITO", -Sale.total), else_=Sale.total)
+                ), 0),
             )
             .filter(
                 Sale.status.in_(SALE_STATUSES),
+                Sale.doc_type != "NOTA_VENTA",
                 func.date(Sale.created_at) >= from_date,
             )
             .first()
@@ -87,11 +90,14 @@ def sales_by_period(
     results = (
         db.query(
             period_expr.label("period"),
-            func.count(Sale.id).label("count"),
-            func.coalesce(func.sum(Sale.total), 0).label("total"),
+            func.count(case((Sale.doc_type != "NOTA_CREDITO", Sale.id))).label("count"),
+            func.coalesce(func.sum(
+                case((Sale.doc_type == "NOTA_CREDITO", -Sale.total), else_=Sale.total)
+            ), 0).label("total"),
         )
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "NOTA_VENTA",
             func.date(Sale.created_at) >= from_date,
             func.date(Sale.created_at) <= to_date,
         )
@@ -114,20 +120,23 @@ def top_products(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
+    nc_qty = case((Sale.doc_type == "NOTA_CREDITO", -SaleItem.quantity), else_=SaleItem.quantity)
+    nc_rev = case((Sale.doc_type == "NOTA_CREDITO", -SaleItem.line_total), else_=SaleItem.line_total)
     results = (
         db.query(
             SaleItem.product_name.label("product_name"),
-            func.sum(SaleItem.quantity).label("quantity_sold"),
-            func.sum(SaleItem.line_total).label("total_revenue"),
+            func.sum(nc_qty).label("quantity_sold"),
+            func.sum(nc_rev).label("total_revenue"),
         )
         .join(Sale, SaleItem.sale_id == Sale.id)
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "NOTA_VENTA",
             func.date(Sale.created_at) >= from_date,
             func.date(Sale.created_at) <= to_date,
         )
         .group_by(SaleItem.product_name)
-        .order_by(func.sum(SaleItem.line_total).desc())
+        .order_by(func.sum(nc_rev).desc())
         .limit(limit)
         .all()
     )
@@ -150,22 +159,25 @@ def profit_report(
     _user: User = Depends(get_current_user),
 ):
     """Reporte de Utilidades - per-product profitability."""
+    nc_qty = case((Sale.doc_type == "NOTA_CREDITO", -SaleItem.quantity), else_=SaleItem.quantity)
+    nc_rev = case((Sale.doc_type == "NOTA_CREDITO", -SaleItem.line_total), else_=SaleItem.line_total)
     results = (
         db.query(
             SaleItem.product_code.label("product_code"),
             SaleItem.product_name.label("product_name"),
             SaleItem.brand_name.label("brand_name"),
-            func.sum(SaleItem.quantity).label("quantity_sold"),
-            func.sum(SaleItem.line_total).label("total_revenue"),
+            func.sum(nc_qty).label("quantity_sold"),
+            func.sum(nc_rev).label("total_revenue"),
         )
         .join(Sale, SaleItem.sale_id == Sale.id)
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "NOTA_VENTA",
             func.date(Sale.created_at) >= from_date,
             func.date(Sale.created_at) <= to_date,
         )
         .group_by(SaleItem.product_code, SaleItem.product_name, SaleItem.brand_name)
-        .order_by(func.sum(SaleItem.line_total).desc())
+        .order_by(func.sum(nc_rev).desc())
         .all()
     )
 

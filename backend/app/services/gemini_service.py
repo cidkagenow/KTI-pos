@@ -29,7 +29,10 @@ REGLAS:
 - Si no encuentras datos, dilo claramente
 - Sé conciso y directo
 - Para saludos simples (hola, buenos días, etc.), responde amablemente SIN llamar herramientas
-- Solo usa herramientas cuando el usuario pida datos específicos (productos, clientes, ventas, stock)
+- Solo usa herramientas de base de datos cuando el usuario pida datos específicos (productos, clientes, ventas, stock)
+- Para preguntas generales que NO sean sobre el sistema POS (ej: especificaciones técnicas de motos, \
+repuestos compatibles, medidas, información general), usa web_search DIRECTAMENTE sin pedir confirmación al usuario. \
+NUNCA preguntes "¿puedo buscar en internet?" — simplemente busca y responde
 - {role_instruction}
 
 TIPS DE BÚSQUEDA:
@@ -50,6 +53,20 @@ ADMIN_INSTRUCTION = (
 
 # Tool declarations for Gemini function calling
 TOOL_DECLARATIONS = [
+    {
+        "name": "web_search",
+        "description": "Buscar información en internet usando Google. Usar para preguntas generales que NO sean sobre datos del sistema POS. Ejemplos: especificaciones técnicas de motos/autos, compatibilidad de repuestos, medidas de piezas, información de productos del mercado, etc.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "La búsqueda a realizar en Google (en español o inglés según convenga)",
+                },
+            },
+            "required": ["query"],
+        },
+    },
     {
         "name": "search_products",
         "description": "Buscar productos por nombre, código o marca. Retorna lista con precios y stock.",
@@ -493,7 +510,35 @@ def _exec_search_sales(db: Session, args: dict, _user_role: str) -> str:
     return json.dumps(results, ensure_ascii=False)
 
 
+def _exec_web_search(_db: Session, args: dict, _user_role: str) -> str:
+    """Execute a Google Search via a separate Gemini call with grounding."""
+    query = args.get("query", "")
+    if not query:
+        return json.dumps({"error": "No se proporcionó búsqueda"})
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        search_tool = types.Tool(google_search=types.GoogleSearch())
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=query,
+            config=types.GenerateContentConfig(
+                tools=[search_tool],
+                temperature=0.3,
+            ),
+        )
+        return response.text or "No se encontraron resultados."
+    except Exception as e:
+        logger.error(f"Web search error: {e}")
+        return json.dumps({"error": f"Error en búsqueda web: {str(e)}"})
+
+
 TOOL_DISPATCH = {
+    "web_search": _exec_web_search,
     "search_products": _exec_search_products,
     "get_product_details": _exec_get_product_details,
     "check_inventory": _exec_check_inventory,

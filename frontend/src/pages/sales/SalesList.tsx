@@ -22,11 +22,13 @@ import {
   DeleteOutlined,
   PrinterOutlined,
   CloudOutlined,
+  RollbackOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getSales, anularSale, deleteSale } from '../../api/sales';
-import { getWarehouses } from '../../api/catalogs';
+import { getSales, anularSale, deleteSale, convertirSale } from '../../api/sales';
+import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getUsers } from '../../api/users';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
@@ -57,6 +59,10 @@ export default function SalesList() {
   const [sellerId, setSellerId] = useState<number | undefined>(undefined);
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [voidReason, setVoidReason] = useState('');
+  const [convertirModalOpen, setConvertirModalOpen] = useState(false);
+  const [convertirSaleRecord, setConvertirSaleRecord] = useState<Sale | null>(null);
+  const [convertirTargetType, setConvertirTargetType] = useState<string>('BOLETA');
+  const [convertirTargetSeries, setConvertirTargetSeries] = useState<string>('');
 
   const filters = {
     page,
@@ -84,6 +90,11 @@ export default function SalesList() {
     queryFn: getUsers,
   });
 
+  const { data: docSeries } = useQuery({
+    queryKey: ['doc-series'],
+    queryFn: getDocumentSeries,
+  });
+
   const anularMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => anularSale(id, reason),
     onSuccess: () => {
@@ -101,6 +112,27 @@ export default function SalesList() {
     },
     onError: () => message.error('Error al eliminar la venta'),
   });
+
+  const convertirMutation = useMutation({
+    mutationFn: ({ id, targetDocType, targetSeries }: { id: number; targetDocType: string; targetSeries: string }) =>
+      convertirSale(id, targetDocType, targetSeries),
+    onSuccess: () => {
+      message.success('Nota de Venta convertida correctamente');
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      setConvertirModalOpen(false);
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail;
+      message.error(detail || 'Error al convertir la nota de venta');
+    },
+  });
+
+  const handleConvertir = (sale: Sale) => {
+    setConvertirSaleRecord(sale);
+    setConvertirTargetType('BOLETA');
+    setConvertirTargetSeries('');
+    setConvertirModalOpen(true);
+  };
 
   const handleVoid = (sale: Sale) => {
     setVoidReason('');
@@ -145,9 +177,17 @@ export default function SalesList() {
     {
       title: 'Documento',
       key: 'documento',
-      render: (_: unknown, record: Sale) =>
-        `${record.doc_type}/${record.series}-${String(record.doc_number).padStart(7, '0')}`,
-      width: 180,
+      render: (_: unknown, record: Sale) => {
+        const docNum = `${record.series}-${String(record.doc_number).padStart(7, '0')}`;
+        if (record.doc_type === 'NOTA_CREDITO') {
+          return <><Tag color="purple">N.CREDITO</Tag>{docNum}</>;
+        }
+        if (record.doc_type === 'NOTA_VENTA') {
+          return <><Tag color="cyan">N.VENTA</Tag>{docNum}</>;
+        }
+        return `${record.doc_type}/${docNum}`;
+      },
+      width: 200,
     },
     {
       title: 'Cliente',
@@ -237,6 +277,24 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/${record.id}`)}
             />
           )}
+          {isAdmin && record.doc_type === 'NOTA_VENTA' && record.status === 'PREVENTA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<SwapOutlined />}
+              title="Convertir a Boleta/Factura"
+              onClick={() => handleConvertir(record)}
+            />
+          )}
+          {isAdmin && record.status === 'FACTURADO' && record.doc_type !== 'NOTA_CREDITO' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<RollbackOutlined />}
+              title="Nota de Credito"
+              onClick={() => navigate(`/sales/nota-credito/new?ref_sale_id=${record.id}`)}
+            />
+          )}
           {isAdmin && (record.status === 'PREVENTA' || record.status === 'FACTURADO') && (
             <Button
               type="link"
@@ -284,7 +342,7 @@ export default function SalesList() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => navigate('/sales/new')}
+            onClick={() => navigate('/sales')}
           >
             Nueva Venta
           </Button>
@@ -309,6 +367,8 @@ export default function SalesList() {
             options={[
               { value: 'BOLETA', label: 'Boleta' },
               { value: 'FACTURA', label: 'Factura' },
+              { value: 'NOTA_CREDITO', label: 'N. Credito' },
+              { value: 'NOTA_VENTA', label: 'N. Venta' },
             ]}
           />
         </Col>
@@ -363,6 +423,58 @@ export default function SalesList() {
         scroll={{ x: 1200 }}
         size="small"
       />
+
+      <Modal
+        title="Convertir Nota de Venta"
+        open={convertirModalOpen}
+        onCancel={() => setConvertirModalOpen(false)}
+        onOk={() => {
+          if (!convertirSaleRecord || !convertirTargetSeries) {
+            message.warning('Seleccione una serie de destino');
+            return;
+          }
+          convertirMutation.mutate({
+            id: convertirSaleRecord.id,
+            targetDocType: convertirTargetType,
+            targetSeries: convertirTargetSeries,
+          });
+        }}
+        okText="Convertir"
+        cancelText="Cancelar"
+        confirmLoading={convertirMutation.isPending}
+      >
+        {convertirSaleRecord && (
+          <div style={{ marginTop: 16 }}>
+            <p>
+              Convertir <strong>{convertirSaleRecord.series}-{String(convertirSaleRecord.doc_number).padStart(7, '0')}</strong> a:
+            </p>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', marginBottom: 4 }}>Tipo de documento:</label>
+              <Select
+                value={convertirTargetType}
+                onChange={(val) => { setConvertirTargetType(val); setConvertirTargetSeries(''); }}
+                style={{ width: '100%' }}
+                options={[
+                  { value: 'BOLETA', label: 'Boleta' },
+                  { value: 'FACTURA', label: 'Factura' },
+                ]}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 4 }}>Serie:</label>
+              <Select
+                value={convertirTargetSeries || undefined}
+                onChange={(val) => setConvertirTargetSeries(val)}
+                style={{ width: '100%' }}
+                placeholder="Seleccionar serie"
+                options={(docSeries ?? [])
+                  .filter((s) => s.is_active && s.doc_type === convertirTargetType)
+                  .map((s) => ({ value: s.series, label: `${s.series} (Sig: ${s.next_number})` }))}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

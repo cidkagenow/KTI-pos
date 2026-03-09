@@ -65,6 +65,11 @@ class Sale(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="PREVENTA")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ref_sale_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sales.id"), nullable=True
+    )
+    nc_motivo_code: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    nc_motivo_text: Mapped[str | None] = mapped_column(String(200), nullable=True)
     voided_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     voided_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -89,6 +94,9 @@ class Sale(Base):
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])  # noqa: F821
     voider: Mapped["User | None"] = relationship(  # noqa: F821
         foreign_keys=[voided_by]
+    )
+    ref_sale: Mapped["Sale | None"] = relationship(
+        remote_side="Sale.id", foreign_keys=[ref_sale_id]
     )
 
     def __repr__(self) -> str:

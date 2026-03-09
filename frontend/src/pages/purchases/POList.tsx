@@ -24,7 +24,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   CheckOutlined,
-  StopOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -38,6 +37,8 @@ import { getWarehouses, getSuppliers } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import dayjs from 'dayjs';
 import { formatCurrency, formatDate } from '../../utils/format';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
+import { tokenizedFilter } from '../../utils/search';
 import type { PurchaseOrder, PurchaseOrderItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -97,6 +98,7 @@ export default function POList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation();
   const [items, setItems] = useState<POLineItem[]>([]);
 
   /* ---------- queries ---------- */
@@ -461,6 +463,7 @@ export default function POList() {
         width={960}
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           {/* --- Row 1: Doc Tipo, Nro Documento, Proveedor --- */}
           <Row gutter={12}>
@@ -487,7 +490,7 @@ export default function POList() {
               >
                 <Select
                   showSearch
-                  optionFilterProp="label"
+                  filterOption={tokenizedFilter}
                   placeholder="Seleccionar proveedor"
                   options={suppliers?.map((s) => ({
                     value: s.id,
@@ -599,7 +602,7 @@ export default function POList() {
             <Col span={6}>
               <Select
                 showSearch
-                optionFilterProp="label"
+                filterOption={tokenizedFilter}
                 placeholder="Producto"
                 value={item.product_id}
                 onChange={(val) => updateItem(idx, 'product_id', val)}
@@ -705,6 +708,7 @@ export default function POList() {
         >
           Agregar Producto
         </Button>
+        </div>
 
         {/* ====================== FOOTER TOTALS ====================== */}
         <Row justify="end" style={{ gap: 0 }}>

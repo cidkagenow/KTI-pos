@@ -1,5 +1,5 @@
 import api from './client';
-import type { Sale, PaginatedResponse } from '../types';
+import type { Sale, NotaCreditoCreate, PaginatedResponse } from '../types';
 
 interface SaleFilters {
   page?: number;
@@ -47,3 +47,17 @@ export async function anularSale(id: number, reason: string): Promise<Sale> {
 export async function deleteSale(id: number): Promise<void> {
   await api.delete(`/sales/${id}`);
 }
+
+export async function createNotaCredito(ncData: NotaCreditoCreate): Promise<Sale> {
+  const { data } = await api.post('/sales/nota-credito', ncData);
+  return data;
+}
+
+export async function convertirSale(id: number, targetDocType: string, targetSeries: string): Promise<Sale> {
+  const { data } = await api.post(`/sales/${id}/convertir`, {
+    target_doc_type: targetDocType,
+    target_series: targetSeries,
+  });
+  return data;
+}
+

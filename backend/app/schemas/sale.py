@@ -56,6 +56,20 @@ class SaleCreate(BaseModel):
     notes: str | None = None
 
 
+class NotaCreditoItemIn(BaseModel):
+    product_id: int
+    quantity: int
+    unit_price: float
+    discount_pct: float = 0
+
+
+class NotaCreditoCreate(BaseModel):
+    ref_sale_id: int
+    nc_motivo_code: str
+    nc_motivo_text: str
+    items: list[NotaCreditoItemIn]
+
+
 class SaleOut(BaseModel):
     id: int
     doc_type: str
@@ -79,6 +93,9 @@ class SaleOut(BaseModel):
     issue_date: date
     created_at: datetime
     items: list[SaleItemOut]
+    ref_sale_id: int | None = None
+    nc_motivo_code: str | None = None
+    nc_motivo_text: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,9 +120,16 @@ class SaleListOut(BaseModel):
     issue_date: date
     created_at: datetime
     sunat_status: str | None = None
+    ref_sale_id: int | None = None
+    nc_motivo_code: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class VoidRequest(BaseModel):
     reason: str
+
+
+class ConvertirRequest(BaseModel):
+    target_doc_type: str  # "BOLETA" or "FACTURA"
+    target_series: str    # e.g. "B001" or "F001"

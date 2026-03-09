@@ -20,6 +20,7 @@ import Settings from './pages/settings/Settings';
 import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
 import SunatPanel from './pages/sales/SunatPanel';
+import NotaCreditoForm from './pages/sales/NotaCreditoForm';
 
 const queryClient = new QueryClient();
 
@@ -40,8 +41,10 @@ function AppRoutes() {
       <Route path="/sales/:id/print" element={<ProtectedRoute><SalePrint /></ProtectedRoute>} />
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
-        <Route path="sales" element={<SalesList />} />
+        <Route path="sales" element={<SaleForm />} />
+        <Route path="sales/list" element={<SalesList />} />
         <Route path="sales/new" element={<SaleForm />} />
+        <Route path="sales/nota-credito/new" element={<AdminRoute><NotaCreditoForm /></AdminRoute>} />
         <Route path="sales/:id" element={<SaleForm />} />
         <Route path="products" element={<ProductList />} />
         <Route path="clients" element={<ClientList />} />
