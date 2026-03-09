@@ -5,6 +5,10 @@ export async function getUsers(): Promise<User[]> {
   return (await api.get('/users')).data;
 }
 
+export async function getSellers(): Promise<User[]> {
+  return (await api.get('/users/sellers')).data;
+}
+
 export async function createUser(data: any): Promise<User> {
   return (await api.post('/users', data)).data;
 }

@@ -28,7 +28,7 @@ import { createSale, updateSale, getSale, facturarSale } from '../../api/sales';
 import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
-import { getUsers } from '../../api/users';
+import { getSellers } from '../../api/users';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
 import type { ProductSearch, Client } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -94,7 +94,7 @@ export default function SaleForm() {
   const clientEnterNavRef = useEnterNavigation(() => handleCreateClient());
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
-  const { data: users } = useQuery({ queryKey: ['users'], queryFn: getUsers });
+  const { data: users } = useQuery({ queryKey: ['sellers'], queryFn: getSellers });
   const { data: docSeries } = useQuery({ queryKey: ['doc-series'], queryFn: getDocumentSeries });
 
   const { data: existingSale, isLoading: loadingSale } = useQuery({

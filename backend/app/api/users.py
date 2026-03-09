@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserOut, UserCreate, UserUpdate, PasswordChange
 from app.utils.security import hash_password
-from app.api.deps import require_admin
+from app.api.deps import require_admin, get_current_user
 
 router = APIRouter()
 
@@ -16,6 +16,16 @@ def list_users(
     _admin: User = Depends(require_admin),
 ):
     users = db.query(User).order_by(User.id).all()
+    return [UserOut.model_validate(u) for u in users]
+
+
+@router.get("/sellers", response_model=list[UserOut])
+def list_sellers(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """List active VENTAS users — accessible by any authenticated user (for Vendedor dropdown)."""
+    users = db.query(User).filter(User.is_active == True, User.role == "VENTAS").order_by(User.full_name).all()
     return [UserOut.model_validate(u) for u in users]
 
 
