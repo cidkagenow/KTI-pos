@@ -38,7 +38,7 @@ export default function ProductList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [editingStockValue, setEditingStockValue] = useState<number>(0);
 
@@ -278,6 +278,7 @@ export default function ProductList() {
               placeholder="Buscar productos..."
               prefix={<SearchOutlined />}
               allowClear
+              autoFocus
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 220 }}
             />

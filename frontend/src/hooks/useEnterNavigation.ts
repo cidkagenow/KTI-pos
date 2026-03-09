@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 
 /**
  * Enables Enter-key navigation between form fields inside a container.
@@ -6,6 +6,8 @@ import { useEffect, useRef, useCallback } from 'react';
  *
  * Supports `data-enter-skip` attribute on any parent element to exclude
  * its inputs from the Enter navigation chain.
+ *
+ * Works inside Modals (portals) thanks to callback ref pattern.
  */
 
 function getFocusableInputs(container: HTMLElement): HTMLInputElement[] {
@@ -15,6 +17,8 @@ function getFocusableInputs(container: HTMLElement): HTMLInputElement[] {
     if (el.type === 'hidden') return false;
     if (el.getAttribute('tabindex') === '-1') return false;
     if (el.closest('[data-enter-skip]')) return false;
+    // Skip inputs hidden by tabs, display:none, etc.
+    if (el.offsetParent === null && !el.closest('.ant-select')) return false;
     return true;
   });
 }
@@ -24,18 +28,37 @@ function isNumberInput(el: HTMLElement): boolean {
 }
 
 export default function useEnterNavigation(onLastField?: () => void) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const onLastFieldRef = useRef(onLastField);
+  onLastFieldRef.current = onLastField;
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  // Callback ref — fires when the DOM node mounts/unmounts (including inside Modals)
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainer(node);
+  }, []);
+
+  // Auto-focus first visible input when container mounts
+  useEffect(() => {
+    if (!container) return;
+    // Small delay to let Modal/Tab animations finish
+    const timer = setTimeout(() => {
+      const fields = getFocusableInputs(container);
+      if (fields.length > 0 && !container.contains(document.activeElement)) {
+        fields[0].focus();
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [container]);
+
+  useEffect(() => {
+    if (!container) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return;
 
       const target = e.target as HTMLElement;
       if (target.tagName === 'TEXTAREA') return;
       if (target.tagName !== 'INPUT') return;
-
-      const container = containerRef.current;
-      if (!container) return;
 
       const fields = getFocusableInputs(container);
       const idx = fields.indexOf(target as HTMLInputElement);
@@ -47,8 +70,8 @@ export default function useEnterNavigation(onLastField?: () => void) {
         if (idx < fields.length - 1) {
           const next = fields[idx + 1];
           setTimeout(() => { next.focus(); next.select(); }, 0);
-        } else if (onLastField) {
-          setTimeout(onLastField, 0);
+        } else if (onLastFieldRef.current) {
+          setTimeout(onLastFieldRef.current, 0);
         }
         return;
       }
@@ -59,33 +82,27 @@ export default function useEnterNavigation(onLastField?: () => void) {
         const next = fields[idx + 1];
         next.focus();
         next.select();
-      } else if (onLastField) {
+      } else if (onLastFieldRef.current) {
         e.preventDefault();
-        onLastField();
+        onLastFieldRef.current();
       }
-    },
-    [onLastField],
-  );
+    };
 
-  // Auto-select InputNumber values on any focus (click, tab, etc.)
-  const handleFocusIn = useCallback((e: FocusEvent) => {
-    const target = e.target as HTMLInputElement;
-    if (target.tagName !== 'INPUT') return;
-    if (isNumberInput(target)) {
-      requestAnimationFrame(() => target.select());
-    }
-  }, []);
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLInputElement;
+      if (target.tagName !== 'INPUT') return;
+      if (isNumberInput(target)) {
+        requestAnimationFrame(() => target.select());
+      }
+    };
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
     container.addEventListener('keydown', handleKeyDown, true);
     container.addEventListener('focusin', handleFocusIn);
     return () => {
       container.removeEventListener('keydown', handleKeyDown, true);
       container.removeEventListener('focusin', handleFocusIn);
     };
-  }, [handleKeyDown, handleFocusIn]);
+  }, [container]);
 
   return containerRef;
 }

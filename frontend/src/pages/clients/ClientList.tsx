@@ -35,7 +35,7 @@ export default function ClientList() {
   const [activeTab, setActiveTab] = useState('datos');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
 
   const docType = Form.useWatch('doc_type', form);
   const docNumber = Form.useWatch('doc_number', form);
@@ -351,6 +351,7 @@ export default function ClientList() {
               placeholder="Buscar clientes..."
               prefix={<SearchOutlined />}
               allowClear
+              autoFocus
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 250 }}
             />

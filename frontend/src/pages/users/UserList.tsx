@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUsers, createUser, updateUser, deleteUser, changePassword } from '../../api/users';
 import type { User } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 
 const { Title } = Typography;
 
@@ -30,6 +31,8 @@ export default function UserList() {
   const [passwordUserId, setPasswordUserId] = useState<number | null>(null);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
+  const passwordEnterNavRef = useEnterNavigation(() => handlePasswordChange());
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -204,6 +207,7 @@ export default function UserList() {
         cancelText="Cancelar"
         confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="username" label="Usuario" rules={[{ required: true, message: 'Requerido' }]}>
             <Input disabled={!!editingUser} />
@@ -226,6 +230,7 @@ export default function UserList() {
             />
           </Form.Item>
         </Form>
+        </div>
       </Modal>
 
       <Modal
@@ -237,6 +242,7 @@ export default function UserList() {
         cancelText="Cancelar"
         confirmLoading={passwordMutation.isPending}
       >
+        <div ref={passwordEnterNavRef}>
         <Form form={passwordForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="new_password"
@@ -267,6 +273,7 @@ export default function UserList() {
             <Input.Password />
           </Form.Item>
         </Form>
+        </div>
       </Modal>
     </div>
   );

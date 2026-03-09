@@ -417,7 +417,7 @@ function ReporteUtilidades() {
 
           return (
             <Table.Summary fixed>
-              <Table.Summary.Row style={{ fontWeight: 'bold', background: '#fafafa' }}>
+              <Table.Summary.Row style={{ fontWeight: 'bold' }}>
                 <Table.Summary.Cell index={0}>TOTALES</Table.Summary.Cell>
                 <Table.Summary.Cell index={1} />
                 <Table.Summary.Cell index={2} />

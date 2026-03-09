@@ -13,7 +13,8 @@ export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { isDark } = useTheme();
-  const enterNavRef = useEnterNavigation();
+  const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation(() => form.submit());
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true);
@@ -70,7 +71,7 @@ export default function Login() {
           </Text>
         </div>
         <div ref={enterNavRef}>
-        <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
+        <Form form={form} name="login" onFinish={onFinish} autoComplete="off" size="large">
           <Form.Item
             name="username"
             rules={[{ required: true, message: 'Ingrese su usuario' }]}

@@ -98,7 +98,7 @@ export default function POList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
   const [items, setItems] = useState<POLineItem[]>([]);
 
   /* ---------- queries ---------- */

@@ -34,6 +34,7 @@ import { formatCurrency, formatDate } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -63,6 +64,7 @@ export default function SalesList() {
   const [convertirSaleRecord, setConvertirSaleRecord] = useState<Sale | null>(null);
   const [convertirTargetType, setConvertirTargetType] = useState<string>('BOLETA');
   const [convertirTargetSeries, setConvertirTargetSeries] = useState<string>('');
+  const enterNavRef = useEnterNavigation();
 
   const filters = {
     page,
@@ -444,7 +446,7 @@ export default function SalesList() {
         confirmLoading={convertirMutation.isPending}
       >
         {convertirSaleRecord && (
-          <div style={{ marginTop: 16 }}>
+          <div ref={enterNavRef} style={{ marginTop: 16 }}>
             <p>
               Convertir <strong>{convertirSaleRecord.series}-{String(convertirSaleRecord.doc_number).padStart(7, '0')}</strong> a:
             </p>

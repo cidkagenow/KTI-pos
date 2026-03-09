@@ -22,6 +22,7 @@ import { getSale, createNotaCredito, facturarSale } from '../../api/sales';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
 import type { Sale, SaleItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 
 const { Title, Text } = Typography;
 
@@ -57,6 +58,7 @@ export default function NotaCreditoForm() {
   const [motivoCode, setMotivoCode] = useState<string>('04');
   const [items, setItems] = useState<NCLineItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const enterNavRef = useEnterNavigation(() => handleFacturar());
 
   const { data: refSale, isLoading } = useQuery({
     queryKey: ['sale', refSaleId],
@@ -252,7 +254,7 @@ export default function NotaCreditoForm() {
   const refDocNumber = `${refSale.doc_type}/${refSale.series}-${String(refSale.doc_number).padStart(7, '0')}`;
 
   return (
-    <div>
+    <div ref={enterNavRef}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
           <Title level={3} style={{ margin: 0 }}>

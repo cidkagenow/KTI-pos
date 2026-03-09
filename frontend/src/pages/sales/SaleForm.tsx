@@ -91,6 +91,7 @@ export default function SaleForm() {
   const [clientModalLoading, setClientModalLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [clientForm] = Form.useForm();
+  const clientEnterNavRef = useEnterNavigation(() => handleCreateClient());
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: getUsers });
@@ -605,7 +606,7 @@ export default function SaleForm() {
       <Title level={3}>{isEditing ? 'Editar Venta' : 'NUEVA PRE-VENTA'}</Title>
 
       <Form form={form} layout="vertical" initialValues={{ max_discount_pct: 0 }}>
-        <Row gutter={16}>
+        <Row gutter={16} data-enter-skip>
           <Col xs={24} sm={8} md={4}>
             <Form.Item
               name="doc_type_series"
@@ -852,6 +853,7 @@ export default function SaleForm() {
         width={500}
         destroyOnClose
       >
+        <div ref={clientEnterNavRef}>
         <Form form={clientForm} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={12}>
             <Col span={8}>
@@ -893,6 +895,7 @@ export default function SaleForm() {
             <Input />
           </Form.Item>
         </Form>
+        </div>
       </Modal>
     </div>
   );

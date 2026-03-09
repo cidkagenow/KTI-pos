@@ -76,7 +76,7 @@ function CrudTab<T extends { id: number; is_active?: boolean }>({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
 
   const { data, isLoading } = useQuery({ queryKey: [queryKey], queryFn: fetchFn });
 
@@ -173,7 +173,7 @@ function SupplierTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation();
+  const enterNavRef = useEnterNavigation(() => handleSubmit());
 
   const rucValue: string | undefined = Form.useWatch('ruc', form);
   const canLookup = rucValue?.length === 11;

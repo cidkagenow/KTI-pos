@@ -23,6 +23,7 @@ import { getProducts } from '../../api/products';
 import { tokenizedFilter } from '../../utils/search';
 import type { InventoryItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
+import useEnterNavigation from '../../hooks/useEnterNavigation';
 
 const { Title } = Typography;
 
@@ -32,6 +33,7 @@ export default function StockLevels() {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [form] = Form.useForm();
+  const enterNavRef = useEnterNavigation(() => handleAdjust());
 
   const { data: inventory, isLoading } = useQuery({
     queryKey: ['inventory', warehouseId],
@@ -147,6 +149,7 @@ export default function StockLevels() {
         cancelText="Cancelar"
         confirmLoading={adjustMutation.isPending}
       >
+        <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="product_id" label="Producto" rules={[{ required: true, message: 'Requerido' }]}>
             <Select
@@ -172,6 +175,7 @@ export default function StockLevels() {
             <Input.TextArea rows={2} placeholder="Motivo del ajuste" />
           </Form.Item>
         </Form>
+        </div>
       </Modal>
     </div>
   );
