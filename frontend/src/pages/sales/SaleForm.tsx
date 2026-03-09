@@ -18,13 +18,15 @@ import {
   Radio,
   Tag,
   DatePicker,
+  Modal,
+  Tabs,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { createSale, updateSale, getSale, facturarSale } from '../../api/sales';
 import { searchProducts } from '../../api/products';
-import { searchClients } from '../../api/clients';
+import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getUsers } from '../../api/users';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
@@ -85,6 +87,10 @@ export default function SaleForm() {
   const [saving, setSaving] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
   const [cashReceived, setCashReceived] = useState<number>(0);
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [clientModalLoading, setClientModalLoading] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [clientForm] = Form.useForm();
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: getUsers });
@@ -236,6 +242,48 @@ export default function SaleForm() {
     }
   }, []);
 
+  const handleLookup = async () => {
+    const docType = clientForm.getFieldValue('doc_type');
+    const docNumber = clientForm.getFieldValue('doc_number');
+    if (!docType || !docNumber) return;
+    setLookupLoading(true);
+    try {
+      if (docType === 'RUC') {
+        const result = await lookupRUC(docNumber);
+        clientForm.setFieldsValue({ business_name: result.business_name, address: result.address });
+      } else if (docType === 'DNI') {
+        const result = await lookupDNI(docNumber);
+        clientForm.setFieldsValue({ business_name: result.business_name });
+      }
+    } catch {
+      message.error('No se pudo consultar el documento');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const handleCreateClient = async () => {
+    try {
+      const values = await clientForm.validateFields();
+      setClientModalLoading(true);
+      const created = await createClient(values);
+      setClientOptions((prev) => [
+        ...prev,
+        { value: created.id, label: `${created.doc_number ? created.doc_number + ' - ' : ''}${created.business_name}` },
+      ]);
+      form.setFieldValue('client_id', created.id);
+      setClientModalOpen(false);
+      clientForm.resetFields();
+      message.success('Cliente creado');
+    } catch (err: any) {
+      if (err?.response?.data?.detail) {
+        message.error(err.response.data.detail);
+      }
+    } finally {
+      setClientModalLoading(false);
+    }
+  };
+
   const handleProductSelect = (value: string, idx: number) => {
     const option = productOptions.find((o) => o.value === value);
     if (!option) return;
@@ -384,7 +432,8 @@ export default function SaleForm() {
       navigate('/sales/list');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      message.error(detail || 'Error al facturar la venta');
+      const sunatDesc = err?.response?.data?.sunat_description;
+      message.error(detail || sunatDesc || 'Error al facturar la venta', 8);
     } finally {
       setSaving(false);
     }
@@ -568,19 +617,25 @@ export default function SaleForm() {
             </Form.Item>
           </Col>
           <Col xs={24} sm={8} md={5}>
-            <Form.Item
-              name="client_id"
-              label="Cliente"
-              rules={[{ required: true, message: 'Requerido' }]}
-            >
-              <Select
-                showSearch
-                filterOption={false}
-                onSearch={handleClientSearch}
-                options={clientOptions}
-                placeholder="Buscar cliente..."
-                notFoundContent={clientSearch.length >= 2 ? 'Sin resultados' : 'Escriba para buscar'}
-              />
+            <Form.Item label="Cliente" required>
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item
+                  name="client_id"
+                  noStyle
+                  rules={[{ required: true, message: 'Requerido' }]}
+                >
+                  <Select
+                    showSearch
+                    filterOption={false}
+                    onSearch={handleClientSearch}
+                    options={clientOptions}
+                    placeholder="Buscar cliente..."
+                    notFoundContent={clientSearch.length >= 2 ? 'Sin resultados' : 'Escriba para buscar'}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+                <Button icon={<PlusOutlined />} onClick={() => { clientForm.resetFields(); setClientModalOpen(true); }} />
+              </Space.Compact>
             </Form.Item>
           </Col>
           <Col xs={24} sm={8} md={3}>
@@ -688,7 +743,7 @@ export default function SaleForm() {
           <Card
             size="small"
             title="Resumen"
-            styles={{ header: { background: '#fafafa', fontWeight: 600 } }}
+            styles={{ header: { fontWeight: 600 } }}
           >
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text type="secondary">Op. Gravada:</Text>
@@ -783,6 +838,60 @@ export default function SaleForm() {
           background-color: #fffbe6 !important;
         }
       `}</style>
+
+      <Modal
+        title="Nuevo Cliente"
+        open={clientModalOpen}
+        onOk={handleCreateClient}
+        onCancel={() => setClientModalOpen(false)}
+        okText="Guardar"
+        cancelText="Cancelar"
+        confirmLoading={clientModalLoading}
+        width={500}
+        destroyOnClose
+      >
+        <Form form={clientForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Row gutter={12}>
+            <Col span={8}>
+              <Form.Item name="doc_type" label="Tipo Doc." rules={[{ required: true, message: 'Requerido' }]}>
+                <Select placeholder="Seleccionar">
+                  <Select.Option value="DNI">DNI</Select.Option>
+                  <Select.Option value="RUC">RUC</Select.Option>
+                  <Select.Option value="NONE">NINGUNO</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="doc_number" label="Nro. Documento">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={4} style={{ display: 'flex', alignItems: 'end', paddingBottom: 24 }}>
+              <Button onClick={handleLookup} loading={lookupLoading} size="small">
+                Buscar
+              </Button>
+            </Col>
+          </Row>
+          <Form.Item name="business_name" label="Nombre / Razón Social" rules={[{ required: true, message: 'Requerido' }]}>
+            <Input />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="phone" label="Teléfono">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="email" label="Email">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="address" label="Dirección">
+            <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
