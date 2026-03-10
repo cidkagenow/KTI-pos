@@ -53,7 +53,17 @@ def _save_cdr(filename: str, cdr_xml: bytes) -> str:
 
 
 def _xml_hash(xml_bytes: bytes) -> str:
-    """Compute SHA-256 hash of XML for reference."""
+    """Extract DigestValue from the XML signature (base64, SUNAT standard)."""
+    try:
+        from lxml import etree
+        root = etree.fromstring(xml_bytes)
+        ns_ds = "http://www.w3.org/2000/09/xmldsig#"
+        digest_el = root.find(f".//{{{ns_ds}}}Reference/{{{ns_ds}}}DigestValue")
+        if digest_el is not None and digest_el.text:
+            return digest_el.text.strip()
+    except Exception:
+        pass
+    # Fallback if signature not found
     return hashlib.sha256(xml_bytes).hexdigest()[:16]
 
 

@@ -53,6 +53,11 @@ export async function createNotaCredito(ncData: NotaCreditoCreate): Promise<Sale
   return data;
 }
 
+export async function emitirNotaVenta(id: number): Promise<Sale> {
+  const { data } = await api.post(`/sales/${id}/emitir-nv`);
+  return data;
+}
+
 export async function convertirSale(id: number, targetDocType: string, targetSeries: string): Promise<Sale> {
   const { data } = await api.post(`/sales/${id}/convertir`, {
     target_doc_type: targetDocType,

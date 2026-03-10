@@ -89,10 +89,14 @@ export default function SalePrint() {
 
   const isNotaVenta = sale.doc_type === 'NOTA_VENTA';
 
-  // QR data for SUNAT (facturas=01, boletas=03)
+  // QR data for SUNAT (facturas=01, boletas=03, NC=07)
   const docTypeCode = sale.doc_type === 'FACTURA' ? '01'
     : sale.doc_type === 'BOLETA' ? '03'
     : sale.doc_type === 'NOTA_CREDITO' ? '07' : '';
+  const clientDocTypeCode = sale.client_doc_type === 'RUC' ? '6'
+    : sale.client_doc_type === 'DNI' ? '1'
+    : sale.client_doc_type === 'CE' ? '4'
+    : sale.client_doc_type === 'PASAPORTE' ? '7' : '0';
   const hasHash = !isNotaVenta && sale.sunat_hash;
   const qrData = hasHash
     ? [
@@ -103,6 +107,7 @@ export default function SalePrint() {
         sale.igv_amount.toFixed(2),
         sale.total.toFixed(2),
         dateStr,
+        clientDocTypeCode,
         sale.client_doc_number || '',
         sale.sunat_hash,
       ].join('|')

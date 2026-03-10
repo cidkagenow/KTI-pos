@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Form,
   Select,
   InputNumber,
   Button,
@@ -15,12 +14,12 @@ import {
   Descriptions,
   Tag,
 } from 'antd';
-import { SaveOutlined, CheckOutlined } from '@ant-design/icons';
+import { CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getSale, createNotaCredito, facturarSale } from '../../api/sales';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
-import type { Sale, SaleItem } from '../../types';
+import type { Sale } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
 
@@ -43,9 +42,8 @@ interface NCLineItem {
   presentation: string | null;
   unit_price: number;
   discount_pct: number;
-  max_quantity: number;
-  quantity: number;
-  line_total: number;
+  orig_quantity: number;
+  new_quantity: number;  // what customer keeps
   selected: boolean;
 }
 
@@ -66,7 +64,7 @@ export default function NotaCreditoForm() {
     enabled: !!refSaleId,
   });
 
-  // Initialize items from original sale
+  // Initialize items — all unselected, new_quantity = orig (no return)
   useEffect(() => {
     if (refSale?.items) {
       setItems(
@@ -79,18 +77,25 @@ export default function NotaCreditoForm() {
           presentation: item.presentation,
           unit_price: item.unit_price,
           discount_pct: item.discount_pct,
-          max_quantity: item.quantity,
-          quantity: item.quantity,
-          line_total: item.line_total,
-          selected: true,
+          orig_quantity: item.quantity,
+          new_quantity: item.quantity, // keeps all = no return
+          selected: false,
         })),
       );
     }
   }, [refSale]);
 
-  const selectedItems = items.filter((i) => i.selected);
-  const grandTotal = selectedItems.reduce((sum, i) => sum + i.line_total, 0);
+  // Devolucion for an item = orig - new
+  const getDevolucion = (item: NCLineItem) => item.orig_quantity - item.new_quantity;
+  const getLineTotal = (item: NCLineItem) => {
+    const dev = getDevolucion(item);
+    return dev > 0 ? calcLineTotal(dev, item.unit_price, item.discount_pct) : 0;
+  };
+
+  const selectedItems = items.filter((i) => i.selected && getDevolucion(i) > 0);
+  const grandTotal = selectedItems.reduce((sum, i) => sum + getLineTotal(i), 0);
   const { base: subtotal, igv: igvAmount, total } = calcIGV(grandTotal);
+  const totalDevolucion = selectedItems.reduce((sum, i) => sum + getDevolucion(i), 0);
 
   const motivo = NC_MOTIVOS.find((m) => m.code === motivoCode);
 
@@ -99,20 +104,23 @@ export default function NotaCreditoForm() {
 
   const handleToggleItem = (key: number, checked: boolean) => {
     setItems((prev) =>
-      prev.map((i) => (i.key === key ? { ...i, selected: checked } : i)),
+      prev.map((i) => {
+        if (i.key !== key) return i;
+        // Check: default to returning 1 item (new_qty = orig - 1)
+        // Uncheck: keep all (new_qty = orig)
+        const newQty = checked ? i.orig_quantity - 1 : i.orig_quantity;
+        return { ...i, selected: checked, new_quantity: newQty };
+      }),
     );
   };
 
-  const handleQuantityChange = (key: number, qty: number | null) => {
+  const handleNewQuantityChange = (key: number, val: number | null) => {
     setItems((prev) =>
       prev.map((i) => {
         if (i.key !== key) return i;
-        const newQty = Math.min(Math.max(qty ?? 1, 1), i.max_quantity);
-        return {
-          ...i,
-          quantity: newQty,
-          line_total: calcLineTotal(newQty, i.unit_price, i.discount_pct),
-        };
+        const newQty = Math.min(Math.max(val ?? i.orig_quantity, 0), i.orig_quantity - 1);
+        const hasDevolucion = newQty < i.orig_quantity;
+        return { ...i, new_quantity: newQty, selected: hasDevolucion };
       }),
     );
   };
@@ -121,34 +129,18 @@ export default function NotaCreditoForm() {
     ref_sale_id: Number(refSaleId),
     nc_motivo_code: motivoCode,
     nc_motivo_text: motivo?.text || '',
+    // Send devolucion quantity (what's returned), not the new quantity
     items: selectedItems.map((i) => ({
       product_id: i.product_id,
-      quantity: i.quantity,
+      quantity: getDevolucion(i),
       unit_price: i.unit_price,
       discount_pct: i.discount_pct,
     })),
   });
 
-  const handleSave = async () => {
-    if (!selectedItems.length) {
-      message.warning('Seleccione al menos un item');
-      return;
-    }
-    setSaving(true);
-    try {
-      const nc = await createMutation.mutateAsync(buildPayload());
-      message.success(`Nota de Credito ${nc.doc_number ? `${nc.series}-${nc.doc_number}` : `PRE-${nc.id}`} creada`);
-      navigate('/sales/list');
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || 'Error al crear Nota de Credito');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleFacturar = async () => {
     if (!selectedItems.length) {
-      message.warning('Seleccione al menos un item');
+      message.warning('Seleccione al menos un item con devolucion');
       return;
     }
     setSaving(true);
@@ -205,49 +197,50 @@ export default function NotaCreditoForm() {
       title: 'P.U.',
       dataIndex: 'unit_price',
       key: 'unit_price',
-      width: 100,
+      width: 90,
       align: 'right' as const,
       render: (val: number) => val.toFixed(2),
     },
     {
-      title: 'Desc %',
-      dataIndex: 'discount_pct',
-      key: 'discount_pct',
-      width: 80,
-      align: 'center' as const,
-      render: (val: number) => (val > 0 ? `${val}%` : '-'),
-    },
-    {
       title: 'Cant. Orig.',
-      dataIndex: 'max_quantity',
-      key: 'max_quantity',
+      dataIndex: 'orig_quantity',
+      key: 'orig_quantity',
       width: 90,
       align: 'center' as const,
     },
     {
-      title: 'Cantidad',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      width: 100,
-      render: (_: number, record: NCLineItem) => (
+      title: 'Nueva Cant.',
+      key: 'new_quantity',
+      width: 110,
+      render: (_: unknown, record: NCLineItem) => (
         <InputNumber
-          min={1}
-          max={record.max_quantity}
-          value={record.quantity}
+          min={0}
+          max={record.orig_quantity - 1}
+          value={record.new_quantity}
           size="small"
-          disabled={!record.selected}
-          onChange={(val) => handleQuantityChange(record.key, val)}
+          onChange={(val) => handleNewQuantityChange(record.key, val)}
         />
       ),
     },
     {
-      title: 'Total',
-      dataIndex: 'line_total',
+      title: 'Devolucion',
+      key: 'devolucion',
+      width: 90,
+      align: 'center' as const,
+      render: (_: unknown, record: NCLineItem) => {
+        const dev = getDevolucion(record);
+        return dev > 0 ? <Tag color="orange">{dev}</Tag> : '-';
+      },
+    },
+    {
+      title: 'Total NC',
       key: 'line_total',
       width: 110,
       align: 'right' as const,
-      render: (val: number, record: NCLineItem) =>
-        record.selected ? formatCurrency(val) : '-',
+      render: (_: unknown, record: NCLineItem) => {
+        const dev = getDevolucion(record);
+        return dev > 0 ? formatCurrency(getLineTotal(record)) : '-';
+      },
     },
   ];
 
@@ -266,14 +259,6 @@ export default function NotaCreditoForm() {
         <Col>
           <Space>
             <Button onClick={() => navigate('/sales/list')}>Cancelar</Button>
-            <Button
-              icon={<SaveOutlined />}
-              onClick={handleSave}
-              loading={saving}
-              disabled={!selectedItems.length}
-            >
-              Guardar PreVenta
-            </Button>
             {isAdmin && (
               <Button
                 type="primary"
@@ -334,8 +319,12 @@ export default function NotaCreditoForm() {
 
           <Card title="Resumen" size="small">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text>Items seleccionados:</Text>
+              <Text>Items con devolucion:</Text>
               <Text strong>{selectedItems.length}</Text>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text>Total unidades devueltas:</Text>
+              <Text strong>{totalDevolucion}</Text>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text>Op. Gravada:</Text>
@@ -354,7 +343,7 @@ export default function NotaCreditoForm() {
                 marginTop: 4,
               }}
             >
-              <Text strong style={{ fontSize: 16 }}>TOTAL:</Text>
+              <Text strong style={{ fontSize: 16 }}>TOTAL NC:</Text>
               <Text strong style={{ fontSize: 16 }}>{formatCurrency(total)}</Text>
             </div>
           </Card>

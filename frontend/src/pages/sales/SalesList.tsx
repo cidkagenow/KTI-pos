@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Table,
   Button,
@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getSales, anularSale, deleteSale, convertirSale, facturarSale } from '../../api/sales';
+import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta } from '../../api/sales';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getUsers } from '../../api/users';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -38,10 +38,11 @@ import useEnterNavigation from '../../hooks/useEnterNavigation';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const STATUS_COLORS: Record<string, string> = {
   PREVENTA: 'blue',
+  EMITIDO: 'cyan',
   FACTURADO: 'green',
   ANULADO: 'red',
   ELIMINADO: 'default',
@@ -59,7 +60,7 @@ export default function SalesList() {
   const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
   const [sellerId, setSellerId] = useState<number | undefined>(undefined);
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
-  const [voidReason, setVoidReason] = useState('');
+  const voidReasonRef = useRef('');
   const [convertirModalOpen, setConvertirModalOpen] = useState(false);
   const [convertirSaleRecord, setConvertirSaleRecord] = useState<Sale | null>(null);
   const [convertirTargetType, setConvertirTargetType] = useState<string>('BOLETA');
@@ -137,7 +138,7 @@ export default function SalesList() {
   };
 
   const handleVoid = (sale: Sale) => {
-    setVoidReason('');
+    voidReasonRef.current = '';
     Modal.confirm({
       title: 'Anular Venta',
       content: (
@@ -145,7 +146,7 @@ export default function SalesList() {
           <p>Esta seguro de anular la venta {sale.doc_number !== null ? `${sale.doc_type}/${sale.series}-${String(sale.doc_number).padStart(7, '0')}` : `PRE-${sale.id}`}?</p>
           <Input.TextArea
             placeholder="Motivo de anulacion"
-            onChange={(e) => setVoidReason(e.target.value)}
+            onChange={(e) => { voidReasonRef.current = e.target.value; }}
             rows={3}
           />
         </div>
@@ -153,7 +154,7 @@ export default function SalesList() {
       okText: 'Anular',
       okType: 'danger',
       cancelText: 'Cancelar',
-      onOk: () => anularMutation.mutateAsync({ id: sale.id, reason: voidReason }),
+      onOk: () => anularMutation.mutateAsync({ id: sale.id, reason: voidReasonRef.current }),
     });
   };
 
@@ -185,14 +186,22 @@ export default function SalesList() {
         }
         const docNum = `${record.series}-${String(record.doc_number).padStart(7, '0')}`;
         if (record.doc_type === 'NOTA_CREDITO') {
-          return <><Tag color="purple">N.CREDITO</Tag>{docNum}</>;
+          let refLabel = '';
+          if (record.ref_sale_id) {
+            const refSale = salesData.find((s) => s.id === record.ref_sale_id);
+            refLabel = refSale && refSale.doc_number !== null
+              ? ` → ${refSale.series}-${String(refSale.doc_number).padStart(7, '0')}`
+              : ` → #${record.ref_sale_id}`;
+          }
+          return <><Tag color="purple">N.CREDITO</Tag>{docNum}<Text type="secondary" style={{ fontSize: 11 }}>{refLabel}</Text></>;
         }
         if (record.doc_type === 'NOTA_VENTA') {
-          return <><Tag color="cyan">N.VENTA</Tag>{docNum}</>;
+          const nvTag = record.status === 'EMITIDO' ? <Tag color="cyan">N.VENTA</Tag> : <Tag color="cyan">N.VENTA</Tag>;
+          return <>{nvTag}{docNum}</>;
         }
         return `${record.doc_type}/${docNum}`;
       },
-      width: 200,
+      width: 280,
     },
     {
       title: 'Cliente',
@@ -274,7 +283,7 @@ export default function SalesList() {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/sales/${record.id}`)}
           />
-          {record.status === 'PREVENTA' && (
+          {(record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
             <Button
               type="link"
               size="small"
@@ -282,7 +291,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/${record.id}`)}
             />
           )}
-          {isAdmin && record.doc_type === 'NOTA_VENTA' && record.status === 'PREVENTA' && (
+          {isAdmin && record.doc_type === 'NOTA_VENTA' && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
             <Button
               type="link"
               size="small"
@@ -291,7 +300,7 @@ export default function SalesList() {
               onClick={() => handleConvertir(record)}
             />
           )}
-          {isAdmin && record.status === 'FACTURADO' && record.doc_type !== 'NOTA_CREDITO' && (
+          {isAdmin && record.status === 'FACTURADO' && record.doc_type !== 'NOTA_CREDITO' && record.sunat_status === 'ACEPTADO' && (
             <Button
               type="link"
               size="small"
@@ -300,7 +309,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/nota-credito/new?ref_sale_id=${record.id}`)}
             />
           )}
-          {isAdmin && (record.status === 'PREVENTA' || record.status === 'FACTURADO') && (
+          {isAdmin && (record.status === 'PREVENTA' || record.status === 'EMITIDO' || record.status === 'FACTURADO') && (
             <Button
               type="link"
               size="small"
@@ -309,7 +318,7 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {isAdmin && record.status === 'PREVENTA' && (
+          {isAdmin && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
             <Button
               type="link"
               size="small"
@@ -318,36 +327,51 @@ export default function SalesList() {
               onClick={() => handleDelete(record)}
             />
           )}
-          <Button
-            type="link"
-            size="small"
-            icon={<PrinterOutlined />}
-            disabled={
-              record.status === 'PREVENTA' &&
-              record.payment_method === 'EFECTIVO' &&
-              (record.cash_received ?? 0) < record.total
-            }
-            title={
-              record.status === 'PREVENTA' &&
-              record.payment_method === 'EFECTIVO' &&
-              (record.cash_received ?? 0) < record.total
+          {(record.doc_type !== 'NOTA_VENTA' || isAdmin) && (() => {
+            const isPreventa = record.status === 'PREVENTA';
+            const isNV = record.doc_type === 'NOTA_VENTA';
+            const cashShort = record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total;
+            // Disable print: PREVENTA non-NV with insufficient cash, OR PREVENTA non-NV for ventas (needs admin to facturar)
+            const disabled = isPreventa && !isNV && (cashShort || !isAdmin);
+            const title = isPreventa && !isNV && !isAdmin
+              ? 'Solo administradores pueden facturar'
+              : isPreventa && !isNV && cashShort
                 ? 'Efectivo insuficiente'
-                : undefined
-            }
-            onClick={async () => {
-              if (record.status === 'PREVENTA') {
-                try {
-                  await facturarSale(record.id);
-                  message.success('Venta facturada');
-                  queryClient.invalidateQueries({ queryKey: ['sales'] });
-                } catch (err: any) {
-                  message.error(err?.response?.data?.detail || 'Error al facturar');
-                  return;
-                }
-              }
-              window.open(`/sales/${record.id}/print`, '_blank');
-            }}
-          />
+                : undefined;
+            return (
+              <Button
+                type="link"
+                size="small"
+                icon={<PrinterOutlined />}
+                disabled={disabled}
+                title={title}
+                onClick={async () => {
+                  if (isPreventa) {
+                    if (isNV) {
+                      try {
+                        await emitirNotaVenta(record.id);
+                        message.success('Nota de Venta emitida');
+                        queryClient.invalidateQueries({ queryKey: ['sales'] });
+                      } catch (err: any) {
+                        message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
+                        return;
+                      }
+                    } else {
+                      try {
+                        await facturarSale(record.id);
+                        message.success('Venta facturada');
+                        queryClient.invalidateQueries({ queryKey: ['sales'] });
+                      } catch (err: any) {
+                        message.error(err?.response?.data?.detail || 'Error al facturar');
+                        return;
+                      }
+                    }
+                  }
+                  window.open(`/sales/${record.id}/print`, '_blank');
+                }}
+              />
+            );
+          })()}
         </Space>
       ),
     },
@@ -423,6 +447,7 @@ export default function SalesList() {
           <Checkbox.Group
             options={[
               { label: 'Preventa', value: 'PREVENTA' },
+              { label: 'Emitido', value: 'EMITIDO' },
               { label: 'Facturado', value: 'FACTURADO' },
               { label: 'Anulado', value: 'ANULADO' },
               { label: 'Eliminado', value: 'ELIMINADO' },
@@ -469,11 +494,19 @@ export default function SalesList() {
           });
         }}
         okText="Convertir"
+        okButtonProps={{
+          disabled: !!(convertirSaleRecord && convertirSaleRecord.payment_method === 'EFECTIVO' && (convertirSaleRecord.cash_received ?? 0) < convertirSaleRecord.total),
+        }}
         cancelText="Cancelar"
         confirmLoading={convertirMutation.isPending}
       >
         {convertirSaleRecord && (
           <div ref={enterNavRef} style={{ marginTop: 16 }}>
+            {convertirSaleRecord.payment_method === 'EFECTIVO' && (convertirSaleRecord.cash_received ?? 0) < convertirSaleRecord.total && (
+              <p style={{ color: '#ff4d4f' }}>
+                Efectivo insuficiente (S/ {(convertirSaleRecord.cash_received ?? 0).toFixed(2)} / S/ {convertirSaleRecord.total.toFixed(2)}). Edite la nota de venta primero.
+              </p>
+            )}
             <p>
               Convertir <strong>{convertirSaleRecord.doc_number !== null ? `${convertirSaleRecord.series}-${String(convertirSaleRecord.doc_number).padStart(7, '0')}` : `PRE-${convertirSaleRecord.id}`}</strong> a:
             </p>

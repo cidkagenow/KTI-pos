@@ -24,7 +24,7 @@ import {
 import { PlusOutlined, DeleteOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { createSale, updateSale, getSale, facturarSale } from '../../api/sales';
+import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta } from '../../api/sales';
 import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
@@ -401,9 +401,6 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
-    if (paymentMethod === 'EFECTIVO' && cashReceived < total) {
-      message.warning('El efectivo recibido es menor al total');
-    }
     setSaving(true);
     try {
       let saleId: number;
@@ -439,6 +436,45 @@ export default function SaleForm() {
       const statusCode = err?.response?.status;
       const networkMsg = !err?.response ? `Error de conexión: ${err?.message || 'servidor no responde'}` : null;
       message.error(networkMsg || detail || sunatDesc || `Error al facturar (${statusCode || 'desconocido'})`, 10);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEmitirNV = async () => {
+    try {
+      await form.validateFields();
+    } catch {
+      return;
+    }
+    const validItems = items.filter((item) => item.product_id);
+    if (validItems.length === 0) {
+      message.error('Agregue al menos un producto');
+      return;
+    }
+    setSaving(true);
+    try {
+      let saleId: number;
+      const payload = buildPayload();
+      if (isEditing) {
+        await updateSale(Number(id), payload);
+        saleId = Number(id);
+      } else {
+        const created = await createSale(payload);
+        saleId = created.id;
+      }
+      // Only call emitir if not already emitted
+      if (!isEditing || existingSale?.status === 'PREVENTA') {
+        await emitirNotaVenta(saleId);
+      }
+      message.success('Nota de Venta emitida');
+      if (isAdmin) {
+        window.open(`/sales/${saleId}/print`, '_blank');
+      }
+      navigate('/sales/list');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      message.error(detail || 'Error al emitir la Nota de Venta');
     } finally {
       setSaving(false);
     }
@@ -812,16 +848,42 @@ export default function SaleForm() {
 
           <div style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Button
-                icon={<SaveOutlined />}
-                onClick={handleSavePreVenta}
-                loading={saving}
-                disabled={!isAdmin && cashInsufficient}
-                block
-                size="large"
-              >
-                Guardar como PreVenta
-              </Button>
+              {currentDocType !== 'NOTA_VENTA' && (
+                <Button
+                  icon={<SaveOutlined />}
+                  onClick={handleSavePreVenta}
+                  loading={saving}
+                  disabled={!isAdmin && cashInsufficient}
+                  block
+                  size="large"
+                >
+                  Guardar como PreVenta
+                </Button>
+              )}
+              {currentDocType === 'NOTA_VENTA' && isEditing && (
+                <Button
+                  icon={<SaveOutlined />}
+                  onClick={handleSavePreVenta}
+                  loading={saving}
+                  block
+                  size="large"
+                >
+                  Guardar
+                </Button>
+              )}
+              {currentDocType === 'NOTA_VENTA' && (
+                <Button
+                  ref={facturarRef}
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  onClick={handleEmitirNV}
+                  loading={saving}
+                  block
+                  size="large"
+                >
+                  Emitir Nota de Venta
+                </Button>
+              )}
               {isAdmin && currentDocType !== 'NOTA_VENTA' && (
                 <Button
                   ref={facturarRef}

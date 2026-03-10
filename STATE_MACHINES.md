@@ -41,19 +41,26 @@ stateDiagram-v2
     end note
 ```
 
-## 2. Nota de Venta → Boleta/Factura Conversion
+## 2. Nota de Venta → Emitir / Convertir Flow
 
 ```mermaid
 stateDiagram-v2
     [*] --> NOTA_VENTA_PREVENTA: POST /sales\n(doc_type=NOTA_VENTA)\n⚠️ NO stock deducted
 
+    NOTA_VENTA_PREVENTA --> NOTA_VENTA_EMITIDO: POST /sales/{id}/emitir-nv\n→ Assigns doc_number\n→ Printable (non-fiscal)\n⚠️ NO stock deducted
+
     NOTA_VENTA_PREVENTA --> BOLETA_PREVENTA: POST /sales/{id}/convertir\n[admin, stock check]\n✅ Stock deducted now
     NOTA_VENTA_PREVENTA --> FACTURA_PREVENTA: POST /sales/{id}/convertir\n[admin, client RUC required]\n✅ Stock deducted now
+
+    NOTA_VENTA_EMITIDO --> BOLETA_PREVENTA: POST /sales/{id}/convertir\n[admin, stock check]\n✅ Stock deducted now
+    NOTA_VENTA_EMITIDO --> FACTURA_PREVENTA: POST /sales/{id}/convertir\n[admin, client RUC required]\n✅ Stock deducted now
 
     BOLETA_PREVENTA --> FACTURADO: POST /sales/{id}/facturar
     FACTURA_PREVENTA --> FACTURADO: POST /sales/{id}/facturar
 
     NOTA_VENTA_PREVENTA --> ELIMINADO: DELETE /sales/{id}\n(no stock to return)
+    NOTA_VENTA_EMITIDO --> ELIMINADO: DELETE /sales/{id}\n(no stock to return)
+    NOTA_VENTA_EMITIDO --> ANULADO: POST /sales/{id}/anular\n(no stock to return)
 ```
 
 ## 3. Nota de Credito (Credit Note) Flow
@@ -191,11 +198,12 @@ flowchart TB
 | Action | Endpoint | Role | Valid From States |
 |--------|----------|------|-------------------|
 | Create Sale | `POST /sales` | any auth | — |
-| Edit Sale | `PUT /sales/{id}` | admin | PREVENTA |
+| Edit Sale | `PUT /sales/{id}` | admin | PREVENTA, EMITIDO |
 | Facturar | `POST /sales/{id}/facturar` | admin | PREVENTA |
-| Anular | `POST /sales/{id}/anular` | admin | PREVENTA, FACTURADO |
-| Delete Sale | `DELETE /sales/{id}` | admin | PREVENTA |
-| Convertir NV | `POST /sales/{id}/convertir` | admin | PREVENTA (NOTA_VENTA only) |
+| Emitir NV | `POST /sales/{id}/emitir-nv` | any auth | PREVENTA (NOTA_VENTA only) |
+| Anular | `POST /sales/{id}/anular` | admin | PREVENTA, EMITIDO, FACTURADO |
+| Delete Sale | `DELETE /sales/{id}` | admin | PREVENTA, EMITIDO |
+| Convertir NV | `POST /sales/{id}/convertir` | admin | PREVENTA, EMITIDO (NOTA_VENTA only) |
 | Create NC | `POST /sales/nota-credito` | admin | ref sale = FACTURADO |
 | Create PO | `POST /purchase-orders` | admin | — |
 | Edit PO | `PUT /purchase-orders/{id}` | admin | DRAFT |
