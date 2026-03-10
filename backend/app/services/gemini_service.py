@@ -25,23 +25,20 @@ Tu rol es ayudar a los trabajadores respondiendo sus preguntas.
 REGLAS:
 
 1. Para preguntas generales (compatibilidad, especificaciones, "qué X usa el Y", etc.):
-   - Responde usando web_search o tu conocimiento general
-   - NO busques en el inventario del sistema a menos que el usuario lo pida
-   - Al final de tu respuesta, ofrece: "¿Quieres que busque si lo tenemos en stock?"
+   - Usa web_search INMEDIATAMENTE. NUNCA preguntes si quieres que busque — simplemente busca.
+   - Después de responder, busca TAMBIÉN en el inventario automáticamente con search_products.
+   - Si encuentras el producto en stock, menciónalo. Si no, di que no lo tenemos.
 
-2. Solo busca en el sistema (search_products, check_inventory, etc.) cuando el usuario \
-EXPLÍCITAMENTE lo pida. Ejemplos de cuando SÍ buscar:
-   - "tenemos eso en stock?", "búscalo en el sistema", "muéstrame el inventario"
-   - "cuánto cuesta?", "qué precio tiene?", "hay stock?"
-   - "busca en el sistema", "revisa si tenemos", "muéstrame productos"
-   - El usuario dice "sí" después de que ofreciste buscar
+2. Para consultas sobre inventario, precios, stock, productos:
+   - Usa search_products o check_inventory INMEDIATAMENTE. No pidas permiso.
+   - Si no encuentras, intenta con palabras diferentes (marca sola, categoría sola, etc.)
 
-3. Para consultas que CLARAMENTE son sobre datos del POS (ventas, clientes, reportes), \
-usa las herramientas de base de datos directamente.
+3. Para consultas sobre datos del POS (ventas, clientes, reportes):
+   - Usa las herramientas de base de datos INMEDIATAMENTE.
 
 4. Para saludos simples (hola, buenos días), responde amablemente sin herramientas.
 5. Responde SIEMPRE en español. Usa S/ para montos.
-6. NUNCA inventes datos. NUNCA preguntes si puedes buscar en internet — simplemente busca.
+6. NUNCA inventes datos. NUNCA pidas permiso para buscar — SIEMPRE actúa directamente.
 7. {role_instruction}
 
 TIPS DE BÚSQUEDA EN INVENTARIO (solo cuando el usuario pida buscar):
@@ -533,7 +530,7 @@ def _exec_web_search(_db: Session, args: dict, _user_role: str) -> str:
         search_tool = types.Tool(google_search=types.GoogleSearch())
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=query,
             config=types.GenerateContentConfig(
                 tools=[search_tool],
@@ -620,7 +617,7 @@ def chat_with_gemini(
     for _ in range(5):
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=contents,
                 config=config,
             )
