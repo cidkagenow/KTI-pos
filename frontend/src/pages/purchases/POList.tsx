@@ -24,6 +24,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   CheckOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -97,6 +98,7 @@ export default function POList() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
   const [form] = Form.useForm();
   const enterNavRef = useEnterNavigation(() => handleSubmit());
   const [items, setItems] = useState<POLineItem[]>([]);
@@ -201,9 +203,45 @@ export default function POList() {
     setModalOpen(true);
   };
 
+  const openView = (po: PurchaseOrder) => {
+    setEditingPO(po);
+    setViewOnly(true);
+    form.setFieldsValue({
+      supplier_id: po.supplier_id,
+      warehouse_id: po.warehouse_id,
+      doc_type: po.doc_type ?? 'FACTURA',
+      doc_number: po.doc_number,
+      condicion: po.condicion ?? 'CONTADO',
+      moneda: po.moneda ?? 'SOLES',
+      tipo_cambio: po.tipo_cambio ?? 3.70,
+      igv_included: po.igv_included ?? true,
+      flete: po.flete ?? 0,
+      grr_number: po.grr_number,
+      expected_delivery_date: po.expected_delivery_date ? dayjs(po.expected_delivery_date) : null,
+      notes: po.notes,
+    });
+    setItems(
+      po.items.map((item) => ({
+        key: crypto.randomUUID(),
+        product_id: item.product_id,
+        product_code: item.product_code,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+        discount_pct1: item.discount_pct1 ?? 0,
+        discount_pct2: item.discount_pct2 ?? 0,
+        discount_pct3: item.discount_pct3 ?? 0,
+        flete_unit: item.flete_unit ?? 0,
+        line_total: item.line_total,
+      }))
+    );
+    setModalOpen(true);
+  };
+
   const closeModal = () => {
     setModalOpen(false);
     setEditingPO(null);
+    setViewOnly(false);
     form.resetFields();
     setItems([]);
   };
@@ -378,6 +416,12 @@ export default function POList() {
       width: 150,
       render: (_: unknown, record: PurchaseOrder) => (
         <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => openView(record)}
+          />
           {record.status === 'DRAFT' && (
             <>
               <Button
@@ -453,18 +497,18 @@ export default function POList() {
 
       {/* ====================== MODAL ====================== */}
       <Modal
-        title={editingPO ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'}
+        title={viewOnly ? 'Detalle Orden de Compra' : editingPO ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'}
         open={modalOpen}
-        onOk={handleSubmit}
+        onOk={viewOnly ? closeModal : handleSubmit}
         onCancel={closeModal}
-        okText="Guardar"
-        cancelText="Cancelar"
-        confirmLoading={createMut.isPending || updateMut.isPending}
+        okText={viewOnly ? 'Cerrar' : 'Guardar'}
+        cancelButtonProps={viewOnly ? { style: { display: 'none' } } : undefined}
+        confirmLoading={!viewOnly && (createMut.isPending || updateMut.isPending)}
         width={960}
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         <div ref={enterNavRef}>
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }} disabled={viewOnly}>
           {/* --- Row 1: Doc Tipo, Nro Documento, Proveedor --- */}
           <Row gutter={12}>
             <Col span={5}>
@@ -609,6 +653,7 @@ export default function POList() {
                 options={productOptions}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={2}>
@@ -618,6 +663,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'quantity', val ?? 1)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={3}>
@@ -629,6 +675,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'unit_cost', val ?? 0)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={2}>
@@ -641,6 +688,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'discount_pct1', val ?? 0)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={2}>
@@ -653,6 +701,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'discount_pct2', val ?? 0)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={2}>
@@ -665,6 +714,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'discount_pct3', val ?? 0)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={2}>
@@ -676,6 +726,7 @@ export default function POList() {
                 onChange={(val) => updateItem(idx, 'flete_unit', val ?? 0)}
                 style={{ width: '100%' }}
                 size="small"
+                disabled={viewOnly}
               />
             </Col>
             <Col span={3}>
@@ -686,28 +737,32 @@ export default function POList() {
                 size="small"
               />
             </Col>
-            <Col span={2}>
-              <Button
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => removeItem(idx)}
-                disabled={items.length <= 1}
-                size="small"
-              />
-            </Col>
+            {!viewOnly && (
+              <Col span={2}>
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeItem(idx)}
+                  disabled={items.length <= 1}
+                  size="small"
+                />
+              </Col>
+            )}
           </Row>
         ))}
 
-        <Button
-          type="dashed"
-          onClick={addItem}
-          icon={<PlusOutlined />}
-          block
-          style={{ marginTop: 8, marginBottom: 16 }}
-        >
-          Agregar Producto
-        </Button>
+        {!viewOnly && (
+          <Button
+            type="dashed"
+            onClick={addItem}
+            icon={<PlusOutlined />}
+            block
+            style={{ marginTop: 8, marginBottom: 16 }}
+          >
+            Agregar Producto
+          </Button>
+        )}
         </div>
 
         {/* ====================== FOOTER TOTALS ====================== */}
