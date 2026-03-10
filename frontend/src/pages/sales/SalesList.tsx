@@ -322,6 +322,18 @@ export default function SalesList() {
             type="link"
             size="small"
             icon={<PrinterOutlined />}
+            disabled={
+              record.status === 'PREVENTA' &&
+              record.payment_method === 'EFECTIVO' &&
+              (record.cash_received ?? 0) < record.total
+            }
+            title={
+              record.status === 'PREVENTA' &&
+              record.payment_method === 'EFECTIVO' &&
+              (record.cash_received ?? 0) < record.total
+                ? 'Efectivo insuficiente'
+                : undefined
+            }
             onClick={async () => {
               if (record.status === 'PREVENTA') {
                 try {

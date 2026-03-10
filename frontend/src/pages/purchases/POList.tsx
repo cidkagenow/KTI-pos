@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Table,
   Button,
@@ -100,7 +100,8 @@ export default function POList() {
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
   const [form] = Form.useForm();
-  const enterNavRef = useEnterNavigation(() => handleSubmit());
+  const autoAddItemRef = useRef<() => void>(() => {});
+  const enterNavRef = useEnterNavigation(() => handleSubmit(), () => autoAddItemRef.current());
   const [items, setItems] = useState<POLineItem[]>([]);
 
   /* ---------- queries ---------- */
@@ -250,6 +251,7 @@ export default function POList() {
   const addItem = () => {
     setItems((prev) => [...prev, emptyLineItem()]);
   };
+  autoAddItemRef.current = addItem;
 
   const removeItem = (idx: number) => {
     setItems((prev) => prev.filter((_, i) => i !== idx));
@@ -666,7 +668,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={3}>
+            <Col span={3} data-enter-add-row>
               <InputNumber
                 min={0}
                 step={0.01}
@@ -678,7 +680,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={2}>
+            <Col span={2} data-enter-skip>
               <InputNumber
                 min={0}
                 max={100}
@@ -691,7 +693,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={2}>
+            <Col span={2} data-enter-skip>
               <InputNumber
                 min={0}
                 max={100}
@@ -704,7 +706,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={2}>
+            <Col span={2} data-enter-skip>
               <InputNumber
                 min={0}
                 max={100}
@@ -717,7 +719,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={2}>
+            <Col span={2} data-enter-skip>
               <InputNumber
                 min={0}
                 step={0.01}
@@ -729,7 +731,7 @@ export default function POList() {
                 disabled={viewOnly}
               />
             </Col>
-            <Col span={3}>
+            <Col span={3} data-enter-skip>
               <Input
                 value={formatCurrency(item.line_total)}
                 readOnly

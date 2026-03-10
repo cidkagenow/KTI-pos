@@ -27,10 +27,12 @@ function isNumberInput(el: HTMLElement): boolean {
   return !!el.closest('.ant-input-number');
 }
 
-export default function useEnterNavigation(onLastField?: () => void) {
+export default function useEnterNavigation(onLastField?: () => void, onAutoAddRow?: () => void) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const onLastFieldRef = useRef(onLastField);
   onLastFieldRef.current = onLastField;
+  const onAutoAddRowRef = useRef(onAutoAddRow);
+  onAutoAddRowRef.current = onAutoAddRow;
 
   // Callback ref — fires when the DOM node mounts/unmounts (including inside Modals)
   const containerRef = useCallback((node: HTMLDivElement | null) => {
@@ -63,6 +65,36 @@ export default function useEnterNavigation(onLastField?: () => void) {
       const fields = getFocusableInputs(container);
       const idx = fields.indexOf(target as HTMLInputElement);
       if (idx === -1) return;
+
+      // Auto-add row: when Enter is pressed on a field inside [data-enter-add-row]
+      if (target.closest('[data-enter-add-row]') && onAutoAddRowRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Check if there's already a next product search input (next row exists)
+        let nextProductInput: HTMLInputElement | null = null;
+        for (let i = idx + 1; i < fields.length; i++) {
+          if (fields[i].closest('.ant-select')) {
+            nextProductInput = fields[i];
+            break;
+          }
+        }
+        if (nextProductInput) {
+          nextProductInput.focus();
+        } else {
+          onAutoAddRowRef.current();
+          setTimeout(() => {
+            if (!container) return;
+            const newFields = getFocusableInputs(container);
+            for (let i = newFields.length - 1; i >= 0; i--) {
+              if (newFields[i].closest('.ant-select')) {
+                newFields[i].focus();
+                break;
+              }
+            }
+          }, 100);
+        }
+        return;
+      }
 
       // Check if inside an open Select/AutoComplete dropdown
       const selectWrapper = target.closest('.ant-select');

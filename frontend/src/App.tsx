@@ -15,6 +15,7 @@ import ClientList from './pages/clients/ClientList';
 import StockLevels from './pages/inventory/StockLevels';
 import Movements from './pages/inventory/Movements';
 import Alerts from './pages/inventory/Alerts';
+import StockValorizado from './pages/inventory/StockValorizado';
 import UserList from './pages/users/UserList';
 import Settings from './pages/settings/Settings';
 import Reports from './pages/reports/Reports';
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="inventory" element={<AdminRoute><StockLevels /></AdminRoute>} />
         <Route path="inventory/movements" element={<AdminRoute><Movements /></AdminRoute>} />
         <Route path="inventory/alerts" element={<AdminRoute><Alerts /></AdminRoute>} />
+        <Route path="inventory/stock-valorizado" element={<AdminRoute><StockValorizado /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />
         <Route path="sunat" element={<AdminRoute><SunatPanel /></AdminRoute>} />
         <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />

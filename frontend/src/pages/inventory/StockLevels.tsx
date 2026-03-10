@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   Button,
@@ -14,13 +14,16 @@ import {
   Row,
   Col,
   message,
+  Card,
+  Statistic,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInventory, adjustStock } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import { tokenizedFilter } from '../../utils/search';
+import { formatCurrency } from '../../utils/format';
 import type { InventoryItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
@@ -31,6 +34,7 @@ export default function StockLevels() {
   const queryClient = useQueryClient();
   const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [search, setSearch] = useState('');
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [form] = Form.useForm();
   const enterNavRef = useEnterNavigation(() => handleAdjust());
@@ -66,12 +70,31 @@ export default function StockLevels() {
     }
   };
 
-  const filteredData = lowStockOnly
-    ? (inventory ?? []).filter((item) => {
+  const filteredData = useMemo(() => {
+    let data = inventory ?? [];
+    if (search) {
+      const terms = search.toLowerCase().split(/\s+/);
+      data = data.filter((item) => {
+        const text = `${item.product_code} ${item.product_name}`.toLowerCase();
+        return terms.every((t) => text.includes(t));
+      });
+    }
+    if (lowStockOnly) {
+      data = data.filter((item) => {
         const product = products?.find((p) => p.id === item.product_id);
         return product ? item.quantity < product.min_stock : false;
-      })
-    : (inventory ?? []);
+      });
+    }
+    return data;
+  }, [inventory, search, lowStockOnly, products]);
+
+  const stockValorizado = useMemo(() => {
+    return (filteredData ?? []).reduce((sum, item) => {
+      const product = products?.find((p) => p.id === item.product_id);
+      const cost = product?.cost_price ?? 0;
+      return sum + item.quantity * cost;
+    }, 0);
+  }, [filteredData, products]);
 
   const columns: ColumnsType<InventoryItem> = [
     { title: 'Codigo', dataIndex: 'product_code', key: 'product_code', width: 100 },
@@ -113,7 +136,17 @@ export default function StockLevels() {
         </Col>
       </Row>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Input
+            placeholder="Buscar por codigo o nombre..."
+            prefix={<SearchOutlined />}
+            allowClear
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 250 }}
+          />
+        </Col>
         <Col>
           <Select
             allowClear
@@ -128,6 +161,17 @@ export default function StockLevels() {
             <Switch checked={lowStockOnly} onChange={setLowStockOnly} />
             <span>Solo stock bajo</span>
           </Space>
+        </Col>
+        <Col flex="auto" style={{ textAlign: 'right' }}>
+          <Card size="small" style={{ display: 'inline-block' }}>
+            <Statistic
+              title="Stock Valorizado"
+              value={stockValorizado}
+              precision={2}
+              prefix="S/"
+              valueStyle={{ fontSize: 18, fontWeight: 600 }}
+            />
+          </Card>
         </Col>
       </Row>
 

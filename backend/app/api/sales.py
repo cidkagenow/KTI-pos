@@ -51,6 +51,7 @@ def _sale_to_list_out(sale: Sale, sunat_status: str | None = None) -> SaleListOu
         seller_name=sale.seller.full_name if sale.seller else "",
         payment_cond=sale.payment_cond,
         payment_method=sale.payment_method,
+        cash_received=float(sale.cash_received) if sale.cash_received else None,
         subtotal=float(sale.subtotal),
         igv_amount=float(sale.igv_amount),
         total=float(sale.total),
@@ -283,36 +284,6 @@ def create_sale(
     )
 
     db.add(sale)
-    db.flush()
-
-    # Deduct stock for each item (skip for NOTA_VENTA — no stock reservation)
-    if data.doc_type == "NOTA_VENTA":
-        db.commit()
-        db.refresh(sale)
-        return _sale_to_out(sale)
-
-    for item in sale.items:
-        inv = (
-            db.query(Inventory)
-            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
-            .first()
-        )
-        if inv is None:
-            inv = Inventory(product_id=item.product_id, warehouse_id=sale.warehouse_id, quantity=0)
-            db.add(inv)
-            db.flush()
-        inv.quantity -= item.quantity
-        db.add(InventoryMovement(
-            product_id=item.product_id,
-            warehouse_id=sale.warehouse_id,
-            movement_type="SALE",
-            quantity=-item.quantity,
-            reference_type="SALE",
-            reference_id=sale.id,
-            notes=f"Venta #{sale.series}-{sale.doc_number or sale.id}",
-            created_by=current_user.id,
-        ))
-
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)
@@ -637,6 +608,31 @@ def facturar_sale(
     sale.issue_date = date.today()
     db.flush()
 
+    # Deduct stock (preventas don't touch inventory — only facturación does)
+    if sale.doc_type != "NOTA_CREDITO":
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv is None:
+                inv = Inventory(product_id=item.product_id, warehouse_id=sale.warehouse_id, quantity=0)
+                db.add(inv)
+                db.flush()
+            inv.quantity -= item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="SALE",
+                quantity=-item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Venta #{sale.series}-{sale.doc_number}",
+                created_by=_user.id,
+            ))
+        db.flush()
+
     # If this is a NOTA_CREDITO with stock-return motivo, return stock
     if sale.doc_type == "NOTA_CREDITO" and sale.nc_motivo_code in NC_STOCK_RETURN_MOTIVOS:
         for item in sale.items:
@@ -825,8 +821,8 @@ def void_sale(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La venta está eliminada",
         )
-    # Return stock for each item (skip for NOTA_VENTA — no stock was deducted)
-    if sale.doc_type != "NOTA_VENTA":
+    # Return stock only for FACTURADO sales (preventas never deducted stock)
+    if sale.status == "FACTURADO" and sale.doc_type != "NOTA_VENTA":
         for item in sale.items:
             inv = (
                 db.query(Inventory)
@@ -842,7 +838,7 @@ def void_sale(
                 quantity=item.quantity,
                 reference_type="SALE",
                 reference_id=sale.id,
-                notes=f"Anulación venta #{sale.series}-{sale.doc_number or sale.id}",
+                notes=f"Anulación venta #{sale.series}-{sale.doc_number}",
                 created_by=current_user.id,
             ))
 
@@ -878,27 +874,7 @@ def soft_delete_sale(
             detail="Solo se pueden eliminar ventas en estado PREVENTA",
         )
 
-    # Return stock for each item (skip for NOTA_VENTA — no stock was deducted)
-    if sale.doc_type != "NOTA_VENTA":
-        for item in sale.items:
-            inv = (
-                db.query(Inventory)
-                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
-                .first()
-            )
-            if inv:
-                inv.quantity += item.quantity
-            db.add(InventoryMovement(
-                product_id=item.product_id,
-                warehouse_id=sale.warehouse_id,
-                movement_type="VOID_RETURN",
-                quantity=item.quantity,
-                reference_type="SALE",
-                reference_id=sale.id,
-                notes=f"Eliminación venta #{sale.series}-{sale.doc_number or sale.id}",
-                created_by=_user.id,
-            ))
-
+    # Preventas never deducted stock, so no need to return it
     sale.status = "ELIMINADO"
     db.commit()
     db.refresh(sale)

@@ -331,6 +331,24 @@ export default function SalePrint() {
             <span>IMPORTE TOTAL (S/):</span>
             <span>{sale.total.toFixed(2)}</span>
           </div>
+          {sale.payment_method === 'EFECTIVO' && sale.cash_received != null && (
+            <>
+              <div className="total-row" style={{ marginTop: 4 }}>
+                <span>Efectivo:</span>
+                <span>{sale.cash_received.toFixed(2)}</span>
+              </div>
+              <div className="total-row">
+                <span>Vuelto:</span>
+                <span>{Math.max(0, sale.cash_received - sale.total).toFixed(2)}</span>
+              </div>
+            </>
+          )}
+          {sale.payment_method === 'TARJETA' && (
+            <div className="total-row" style={{ marginTop: 4 }}>
+              <span>Pago:</span>
+              <span>TARJETA</span>
+            </div>
+          )}
         </div>
 
         <hr className="divider" />

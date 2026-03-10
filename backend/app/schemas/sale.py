@@ -116,6 +116,7 @@ class SaleListOut(BaseModel):
     seller_name: str
     payment_cond: str
     payment_method: str | None
+    cash_received: float | None = None
     subtotal: float
     igv_amount: float
     total: float

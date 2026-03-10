@@ -78,8 +78,8 @@ export default function SaleForm() {
   const { isAdmin } = useAuth();
   const [form] = Form.useForm();
   const facturarRef = useRef<HTMLButtonElement>(null);
-  const enterNavRef = useEnterNavigation(() => facturarRef.current?.focus());
-
+  const autoAddRowRef = useRef<() => void>(() => {});
+  const enterNavRef = useEnterNavigation(() => facturarRef.current?.focus(), () => autoAddRowRef.current());
   const [items, setItems] = useState<LineItem[]>([newLineItem()]);
   const [productOptions, setProductOptions] = useState<{ value: string; label: string; product: ProductSearch; disabled?: boolean }[]>([]);
   const [clientOptions, setClientOptions] = useState<{ value: number; label: string }[]>([]);
@@ -319,6 +319,7 @@ export default function SaleForm() {
   };
 
   const addRow = () => setItems((prev) => [...prev, newLineItem()]);
+  autoAddRowRef.current = addRow;
 
   const removeRow = (idx: number) => {
     setItems((prev) => {
@@ -330,6 +331,7 @@ export default function SaleForm() {
   const totalWithIGV = items.reduce((sum, item) => sum + item.line_total, 0);
   const { base: subtotal, igv: igvAmount, total } = calcIGV(totalWithIGV);
   const cashChange = paymentMethod === 'EFECTIVO' ? Math.max(0, cashReceived - total) : 0;
+  const cashInsufficient = paymentMethod === 'EFECTIVO' && total > 0 && cashReceived < total;
 
   const buildPayload = () => {
     const values = form.getFieldsValue();
@@ -532,15 +534,17 @@ export default function SaleForm() {
       render: (_: unknown, record: LineItem, idx: number) => {
         const belowCost = record.cost_price != null && record.unit_price < record.cost_price;
         return (
-          <InputNumber
-            min={record.cost_price ?? 0}
-            step={0.01}
-            value={record.unit_price}
-            onChange={(val) => updateItem(idx, 'unit_price', val ?? 0)}
-            style={{ width: '100%' }}
-            prefix="S/"
-            status={belowCost ? 'error' : undefined}
-          />
+          <span data-enter-add-row>
+            <InputNumber
+              min={record.cost_price ?? 0}
+              step={0.01}
+              value={record.unit_price}
+              onChange={(val) => updateItem(idx, 'unit_price', val ?? 0)}
+              style={{ width: '100%' }}
+              prefix="S/"
+              status={belowCost ? 'error' : undefined}
+            />
+          </span>
         );
       },
     },
@@ -559,14 +563,16 @@ export default function SaleForm() {
       render: (_: unknown, record: LineItem, idx: number) => {
         const exceedsMax = maxDiscountPct > 0 && record.discount_pct > maxDiscountPct;
         return (
-          <InputNumber
-            min={0}
-            max={100}
-            value={record.discount_pct}
-            onChange={(val) => updateItem(idx, 'discount_pct', val ?? 0)}
-            style={{ width: '100%' }}
-            status={exceedsMax ? 'error' : undefined}
-          />
+          <span data-enter-skip>
+            <InputNumber
+              min={0}
+              max={100}
+              value={record.discount_pct}
+              onChange={(val) => updateItem(idx, 'discount_pct', val ?? 0)}
+              style={{ width: '100%' }}
+              status={exceedsMax ? 'error' : undefined}
+            />
+          </span>
         );
       },
     },
@@ -810,6 +816,7 @@ export default function SaleForm() {
                 icon={<SaveOutlined />}
                 onClick={handleSavePreVenta}
                 loading={saving}
+                disabled={!isAdmin && cashInsufficient}
                 block
                 size="large"
               >
@@ -822,6 +829,7 @@ export default function SaleForm() {
                   icon={<CheckOutlined />}
                   onClick={handleFacturar}
                   loading={saving}
+                  disabled={cashInsufficient}
                   block
                   size="large"
                 >
