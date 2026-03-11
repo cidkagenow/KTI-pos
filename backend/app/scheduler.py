@@ -158,6 +158,7 @@ def send_resumen_diario_job():
                 reference_date=ref_date,
                 sunat_status=sunat_status,
                 sunat_description=parsed.get("sunat_description"),
+                sunat_hash=parsed.get("sunat_hash"),
                 ticket=parsed.get("ticket"),
                 raw_request="",
                 raw_response="",
