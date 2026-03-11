@@ -173,7 +173,7 @@ export default function AppLayout() {
               src="/kti-logo-white.png"
               alt="KTI"
               style={{
-                width: collapsed ? 54 : 130,
+                width: collapsed ? 40 : 90,
                 objectFit: 'contain',
                 transition: 'width 0.2s',
               }}
@@ -183,7 +183,7 @@ export default function AppLayout() {
               src="/kti-logo.png"
               alt="KTI"
               style={{
-                width: collapsed ? 54 : 130,
+                width: collapsed ? 40 : 90,
                 objectFit: 'contain',
                 transition: 'width 0.2s',
                 borderRadius: 10,
