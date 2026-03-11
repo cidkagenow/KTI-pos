@@ -170,7 +170,7 @@ export default function AppLayout() {
           onClick={() => navigate('/')}
         >
           <img
-            src="/kti-logo-white.png"
+            src={isDark ? '/kti-logo-white.png' : '/kti-logo.png'}
             alt="KTI"
             style={{
               width: collapsed ? 40 : 90,
