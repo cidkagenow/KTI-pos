@@ -186,9 +186,6 @@ export default function AppLayout() {
                 width: collapsed ? 40 : 90,
                 objectFit: 'contain',
                 transition: 'width 0.2s',
-                borderRadius: 10,
-                background: '#fff',
-                padding: collapsed ? '2px' : '2px 4px',
               }}
             />
           )}
