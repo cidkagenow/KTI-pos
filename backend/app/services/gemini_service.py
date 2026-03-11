@@ -637,8 +637,15 @@ def chat_with_gemini(
         temperature=0.5,
     )
 
+    # Helper to safely extract text
+    def _safe_text(resp) -> str:
+        try:
+            return resp.text or ""
+        except Exception:
+            return ""
+
     # Function calling loop (max 5 iterations)
-    for _ in range(5):
+    for iteration in range(5):
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -652,7 +659,11 @@ def chat_with_gemini(
         # Check if model wants to call functions
         candidate = response.candidates[0] if response.candidates else None
         if not candidate or not candidate.content or not candidate.content.parts:
-            return response.text or "No pude generar una respuesta."
+            logger.warning(f"Gemini empty response (iter {iteration}). candidates={response.candidates}")
+            if candidate and hasattr(candidate, 'finish_reason'):
+                logger.warning(f"Finish reason: {candidate.finish_reason}")
+            text = _safe_text(response)
+            return text or "Lo siento, no pude procesar tu consulta. Intenta de nuevo."
 
         has_function_call = any(
             part.function_call for part in candidate.content.parts if part.function_call
@@ -660,8 +671,9 @@ def chat_with_gemini(
 
         if not has_function_call:
             # Model returned final text
-            logger.info(f"Gemini final text (no tool calls): {(response.text or '')[:200]}")
-            return response.text or "No pude generar una respuesta."
+            text = _safe_text(response)
+            logger.info(f"Gemini final text (iter {iteration}): {text[:200]}")
+            return text or "Lo siento, no pude procesar tu consulta. Intenta de nuevo."
 
         # Process function calls
         contents.append(candidate.content)
@@ -674,14 +686,15 @@ def chat_with_gemini(
             fn_name = part.function_call.name
             fn_args = dict(part.function_call.args) if part.function_call.args else {}
 
-            logger.info(f"Gemini calling tool: {fn_name}({fn_args})")
+            logger.warning(f"Gemini calling tool: {fn_name}({fn_args})")
 
             executor = TOOL_DISPATCH.get(fn_name)
             if executor:
                 try:
                     result = executor(db, fn_args, user.role)
+                    logger.warning(f"Tool {fn_name} result: {result[:300] if result else 'empty'}")
                 except Exception as e:
-                    logger.error(f"Tool execution error: {fn_name}: {e}")
+                    logger.error(f"Tool execution error: {fn_name}: {e}", exc_info=True)
                     result = json.dumps({"error": f"Error ejecutando {fn_name}: {str(e)}"})
             else:
                 result = json.dumps({"error": f"Herramienta desconocida: {fn_name}"})
