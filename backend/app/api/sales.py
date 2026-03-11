@@ -495,14 +495,14 @@ def get_sale(
             detail="Venta no encontrada",
         )
     out = _sale_to_out(sale)
-    # Fetch sunat_hash from latest SunatDocument
+    # Fetch sunat_hash from SunatDocument (prefer the one with a hash)
     sunat_doc = (
         db.query(SunatDocument)
-        .filter(SunatDocument.sale_id == sale.id)
+        .filter(SunatDocument.sale_id == sale.id, SunatDocument.sunat_hash.isnot(None), SunatDocument.sunat_hash != "")
         .order_by(SunatDocument.id.desc())
         .first()
     )
-    if sunat_doc and sunat_doc.sunat_hash:
+    if sunat_doc:
         out.sunat_hash = sunat_doc.sunat_hash
     return out
 
