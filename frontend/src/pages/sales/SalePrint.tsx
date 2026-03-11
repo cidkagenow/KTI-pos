@@ -213,8 +213,8 @@ export default function SalePrint() {
 
       <div className="receipt">
         {/* Company header */}
-        <div className="center" style={{ height: 24, overflow: 'hidden', marginBottom: 0 }}>
-          <img src="/kti-logo.png" alt="KTI" style={{ height: 70, objectFit: 'contain', marginTop: -30 }} />
+        <div className="center" style={{ height: 28, overflow: 'hidden', marginBottom: 2 }}>
+          <img src="/kti-logo.png" alt="KTI" style={{ height: 70, objectFit: 'contain', marginTop: -20 }} />
         </div>
         <div className="center bold" style={{ fontSize: 13 }}>
           {EMPRESA_RAZON_SOCIAL}
