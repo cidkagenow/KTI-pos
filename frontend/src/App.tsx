@@ -103,7 +103,7 @@ const lightTheme = {
   },
   components: {
     Layout: { siderBg: 'transparent', headerBg: '#ffffff' },
-    Menu: { itemBg: 'transparent', itemSelectedBg: 'rgba(26, 58, 143, 0.12)', itemHoverBg: 'rgba(26, 58, 143, 0.08)', subMenuItemBg: 'transparent', itemSelectedColor: '#1a3a8f' },
+    Menu: { darkItemBg: 'transparent', darkItemSelectedBg: 'rgba(255,255,255,0.15)', darkItemHoverBg: 'rgba(255,255,255,0.1)', darkSubMenuItemBg: 'transparent' },
     Button: { primaryShadow: '0 2px 0 rgba(26, 58, 143, 0.1)' },
   },
 };
