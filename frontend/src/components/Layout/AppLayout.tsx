@@ -156,7 +156,7 @@ export default function AppLayout() {
           left: 0,
           top: 0,
           bottom: 0,
-          ...(!isDark ? { background: 'linear-gradient(180deg, #0a3d8f 0%, #001840 100%)' } : {}),
+          ...(!isDark ? { background: 'linear-gradient(180deg, #8b1a1a 0%, #0a1e4a 100%)' } : {}),
         }}
       >
         <div
