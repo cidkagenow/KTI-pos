@@ -19,6 +19,7 @@ dependencies = [
     "signxml>=4.0.0",
     "zeep>=4.2.0",
     "google-genai>=1.0.0",
+    "apscheduler>=3.10.0",
 ]
 
 [tool.pytest.ini_options]

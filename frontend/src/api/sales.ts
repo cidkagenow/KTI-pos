@@ -53,6 +53,18 @@ export async function createNotaCredito(ncData: NotaCreditoCreate): Promise<Sale
   return data;
 }
 
+export interface NCAvailableItem {
+  product_id: number;
+  orig_quantity: number;
+  already_returned: number;
+  available: number;
+}
+
+export async function getNCAvailable(saleId: number): Promise<{ items: NCAvailableItem[] }> {
+  const { data } = await api.get(`/sales/${saleId}/nc-disponible`);
+  return data;
+}
+
 export async function emitirNotaVenta(id: number): Promise<Sale> {
   const { data } = await api.post(`/sales/${id}/emitir-nv`);
   return data;

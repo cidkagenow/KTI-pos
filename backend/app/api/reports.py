@@ -15,7 +15,7 @@ from app.api.deps import get_current_user
 router = APIRouter()
 
 # Statuses that count as actual sales for reporting
-SALE_STATUSES = ("FACTURADO", "PREVENTA")
+SALE_STATUSES = ("FACTURADO",)
 
 
 @router.get("/dashboard", response_model=DashboardStats)

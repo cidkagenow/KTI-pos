@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Select,
   InputNumber,
@@ -17,7 +17,7 @@ import {
 import { CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getSale, createNotaCredito, facturarSale } from '../../api/sales';
+import { getSale, createNotaCredito, facturarSale, getNCAvailable } from '../../api/sales';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
 import type { Sale } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -43,7 +43,8 @@ interface NCLineItem {
   unit_price: number;
   discount_pct: number;
   orig_quantity: number;
-  new_quantity: number;  // what customer keeps
+  available: number;       // max returnable (orig - already returned via prev NCs)
+  return_quantity: number;  // how many items being returned in this NC
   selected: boolean;
 }
 
@@ -56,6 +57,7 @@ export default function NotaCreditoForm() {
   const [motivoCode, setMotivoCode] = useState<string>('04');
   const [items, setItems] = useState<NCLineItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const enterNavRef = useEnterNavigation(() => handleFacturar());
 
   const { data: refSale, isLoading } = useQuery({
@@ -64,38 +66,45 @@ export default function NotaCreditoForm() {
     enabled: !!refSaleId,
   });
 
-  // Initialize items — all unselected, new_quantity = orig (no return)
+  const { data: ncAvailable } = useQuery({
+    queryKey: ['nc-available', refSaleId],
+    queryFn: () => getNCAvailable(Number(refSaleId)),
+    enabled: !!refSaleId,
+  });
+
+  // Initialize items when ref sale and availability data are loaded
   useEffect(() => {
-    if (refSale?.items) {
+    if (refSale?.items && ncAvailable?.items) {
+      const availMap = new Map(ncAvailable.items.map((a) => [a.product_id, a.available]));
       setItems(
-        refSale.items.map((item, idx) => ({
-          key: item.id ?? idx,
-          product_id: item.product_id,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          brand_name: item.brand_name,
-          presentation: item.presentation,
-          unit_price: item.unit_price,
-          discount_pct: item.discount_pct,
-          orig_quantity: item.quantity,
-          new_quantity: item.quantity, // keeps all = no return
-          selected: false,
-        })),
+        refSale.items.map((item, idx) => {
+          const available = availMap.get(item.product_id) ?? item.quantity;
+          return {
+            key: item.id ?? idx,
+            product_id: item.product_id,
+            product_code: item.product_code,
+            product_name: item.product_name,
+            brand_name: item.brand_name,
+            presentation: item.presentation,
+            unit_price: item.unit_price,
+            discount_pct: item.discount_pct,
+            orig_quantity: item.quantity,
+            available,
+            return_quantity: 0,
+            selected: false,
+          };
+        }),
       );
     }
-  }, [refSale]);
+  }, [refSale, ncAvailable]);
 
-  // Devolucion for an item = orig - new
-  const getDevolucion = (item: NCLineItem) => item.orig_quantity - item.new_quantity;
-  const getLineTotal = (item: NCLineItem) => {
-    const dev = getDevolucion(item);
-    return dev > 0 ? calcLineTotal(dev, item.unit_price, item.discount_pct) : 0;
-  };
+  const getLineTotal = (item: NCLineItem) =>
+    item.return_quantity > 0 ? calcLineTotal(item.return_quantity, item.unit_price, item.discount_pct) : 0;
 
-  const selectedItems = items.filter((i) => i.selected && getDevolucion(i) > 0);
+  const selectedItems = items.filter((i) => i.selected && i.return_quantity > 0);
   const grandTotal = selectedItems.reduce((sum, i) => sum + getLineTotal(i), 0);
   const { base: subtotal, igv: igvAmount, total } = calcIGV(grandTotal);
-  const totalDevolucion = selectedItems.reduce((sum, i) => sum + getDevolucion(i), 0);
+  const totalDevolucion = selectedItems.reduce((sum, i) => sum + i.return_quantity, 0);
 
   const motivo = NC_MOTIVOS.find((m) => m.code === motivoCode);
 
@@ -106,21 +115,20 @@ export default function NotaCreditoForm() {
     setItems((prev) =>
       prev.map((i) => {
         if (i.key !== key) return i;
-        // Check: default to returning 1 item (new_qty = orig - 1)
-        // Uncheck: keep all (new_qty = orig)
-        const newQty = checked ? i.orig_quantity - 1 : i.orig_quantity;
-        return { ...i, selected: checked, new_quantity: newQty };
+        // Check: default to returning all available items
+        // Uncheck: return 0
+        const returnQty = checked ? i.available : 0;
+        return { ...i, selected: checked, return_quantity: returnQty };
       }),
     );
   };
 
-  const handleNewQuantityChange = (key: number, val: number | null) => {
+  const handleReturnQuantityChange = (key: number, val: number | null) => {
     setItems((prev) =>
       prev.map((i) => {
         if (i.key !== key) return i;
-        const newQty = Math.min(Math.max(val ?? i.orig_quantity, 0), i.orig_quantity - 1);
-        const hasDevolucion = newQty < i.orig_quantity;
-        return { ...i, new_quantity: newQty, selected: hasDevolucion };
+        const returnQty = Math.min(Math.max(val ?? 0, 0), i.available);
+        return { ...i, return_quantity: returnQty, selected: returnQty > 0 };
       }),
     );
   };
@@ -129,20 +137,21 @@ export default function NotaCreditoForm() {
     ref_sale_id: Number(refSaleId),
     nc_motivo_code: motivoCode,
     nc_motivo_text: motivo?.text || '',
-    // Send devolucion quantity (what's returned), not the new quantity
     items: selectedItems.map((i) => ({
       product_id: i.product_id,
-      quantity: getDevolucion(i),
+      quantity: i.return_quantity,
       unit_price: i.unit_price,
       discount_pct: i.discount_pct,
     })),
   });
 
   const handleFacturar = async () => {
+    if (savingRef.current) return;
     if (!selectedItems.length) {
       message.warning('Seleccione al menos un item con devolucion');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       const nc = await createMutation.mutateAsync(buildPayload());
@@ -152,6 +161,7 @@ export default function NotaCreditoForm() {
     } catch (err: any) {
       message.error(err?.response?.data?.detail || 'Error al procesar Nota de Credito');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -178,6 +188,7 @@ export default function NotaCreditoForm() {
         <Checkbox
           checked={record.selected}
           onChange={(e) => handleToggleItem(record.key, e.target.checked)}
+          disabled={record.available <= 0}
         />
       ),
     },
@@ -209,44 +220,46 @@ export default function NotaCreditoForm() {
       align: 'center' as const,
     },
     {
-      title: 'Nueva Cant.',
-      key: 'new_quantity',
-      width: 110,
-      render: (_: unknown, record: NCLineItem) => (
-        <InputNumber
-          min={0}
-          max={record.orig_quantity - 1}
-          value={record.new_quantity}
-          size="small"
-          onChange={(val) => handleNewQuantityChange(record.key, val)}
-        />
+      title: 'Disponible',
+      dataIndex: 'available',
+      key: 'available',
+      width: 90,
+      align: 'center' as const,
+      render: (val: number, record: NCLineItem) => (
+        <Tag color={val < record.orig_quantity ? 'orange' : 'default'}>{val}</Tag>
       ),
     },
     {
-      title: 'Devolucion',
-      key: 'devolucion',
-      width: 90,
-      align: 'center' as const,
-      render: (_: unknown, record: NCLineItem) => {
-        const dev = getDevolucion(record);
-        return dev > 0 ? <Tag color="orange">{dev}</Tag> : '-';
-      },
+      title: 'Cant. Devolver',
+      key: 'return_quantity',
+      width: 120,
+      render: (_: unknown, record: NCLineItem) => (
+        <InputNumber
+          min={0}
+          max={record.available}
+          value={record.return_quantity}
+          size="small"
+          disabled={record.available <= 0}
+          onChange={(val) => handleReturnQuantityChange(record.key, val)}
+        />
+      ),
     },
     {
       title: 'Total NC',
       key: 'line_total',
       width: 110,
       align: 'right' as const,
-      render: (_: unknown, record: NCLineItem) => {
-        const dev = getDevolucion(record);
-        return dev > 0 ? formatCurrency(getLineTotal(record)) : '-';
-      },
+      render: (_: unknown, record: NCLineItem) =>
+        record.return_quantity > 0 ? formatCurrency(getLineTotal(record)) : '-',
     },
   ];
 
   const refDocNumber = refSale.doc_number
     ? `${refSale.doc_type}/${refSale.series}-${String(refSale.doc_number).padStart(7, '0')}`
     : `PRE-${refSale.id}`;
+
+  // Check if all items are fully returned already
+  const allFullyReturned = items.every((i) => i.available <= 0);
 
   return (
     <div ref={enterNavRef}>
@@ -265,7 +278,7 @@ export default function NotaCreditoForm() {
                 icon={<CheckOutlined />}
                 onClick={handleFacturar}
                 loading={saving}
-                disabled={!selectedItems.length}
+                disabled={!selectedItems.length || allFullyReturned}
               >
                 Facturar
               </Button>
@@ -273,6 +286,14 @@ export default function NotaCreditoForm() {
           </Space>
         </Col>
       </Row>
+
+      {allFullyReturned && (
+        <div style={{ marginBottom: 16 }}>
+          <Tag color="red" style={{ fontSize: 14, padding: '4px 12px' }}>
+            Todos los items ya fueron devueltos en notas de credito anteriores
+          </Tag>
+        </div>
+      )}
 
       <Row gutter={16}>
         <Col span={16}>

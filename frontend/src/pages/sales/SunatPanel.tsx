@@ -21,6 +21,7 @@ import {
   FileTextOutlined,
   SafetyCertificateOutlined,
   CloseCircleOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -31,7 +32,12 @@ import {
   checkTicketStatus,
   getPendingBoletas,
   enviarNotaCredito,
+  getResumenBoletas,
+  enviarBajaMasiva,
+  getPendingBajas,
 } from '../../api/sunat';
+import type { PendingBaja } from '../../api/sunat';
+import type { ResumenBoleta } from '../../api/sunat';
 import { getSales } from '../../api/sales';
 import { formatCurrency, formatDateTime } from '../../utils/format';
 import type { SunatDocument, Sale } from '../../types';
@@ -45,6 +51,7 @@ const SUNAT_STATUS_COLORS: Record<string, string> = {
   PENDIENTE: 'orange',
   RECHAZADO: 'red',
   ERROR: 'red',
+  NO_ENVIADA: 'default',
 };
 
 function FacturasTab() {
@@ -233,6 +240,9 @@ function ResumenBoletasTab() {
   const queryClient = useQueryClient();
   const [fecha, setFecha] = useState<dayjs.Dayjs>(dayjs());
   const [page, setPage] = useState(1);
+  const [boletasModalOpen, setBoletasModalOpen] = useState(false);
+  const [boletasModalData, setBoletasModalData] = useState<ResumenBoleta[]>([]);
+  const [boletasModalLoading, setBoletasModalLoading] = useState(false);
 
   const fechaStr = fecha.format('YYYY-MM-DD');
 
@@ -298,6 +308,20 @@ function ResumenBoletasTab() {
       message.error(err?.response?.data?.detail || 'Error al enviar resumen');
     },
   });
+
+  const handleViewBoletas = async (docId: number) => {
+    setBoletasModalLoading(true);
+    setBoletasModalOpen(true);
+    try {
+      const result = await getResumenBoletas(docId);
+      setBoletasModalData(result.boletas);
+    } catch {
+      message.error('Error al cargar boletas del resumen');
+      setBoletasModalData([]);
+    } finally {
+      setBoletasModalLoading(false);
+    }
+  };
 
   const boletaColumns: ColumnsType<Sale> = [
     {
@@ -371,9 +395,17 @@ function ResumenBoletasTab() {
     {
       title: 'Acciones',
       key: 'actions',
-      width: 140,
+      width: 200,
       render: (_: unknown, record: SunatDocument) => (
         <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewBoletas(record.id)}
+          >
+            Ver
+          </Button>
           {record.sunat_status === 'PENDIENTE' && record.ticket && (
             <Button
               type="link"
@@ -390,7 +422,10 @@ function ResumenBoletasTab() {
     },
   ];
 
-  const boletas = boletasData?.data ?? [];
+  // Exclude boletas anuladas before being sent to SUNAT (NO_ENVIADA) — SUNAT never knew about them
+  const boletas = (boletasData?.data ?? []).filter(
+    (s: Sale) => !(s.status === 'ANULADO' && s.sunat_status === 'NO_ENVIADA'),
+  );
 
   return (
     <div>
@@ -439,6 +474,54 @@ function ResumenBoletasTab() {
         }}
         size="small"
       />
+
+      <Modal
+        title="Boletas del Resumen"
+        open={boletasModalOpen}
+        onCancel={() => setBoletasModalOpen(false)}
+        footer={null}
+        width={700}
+      >
+        <Table
+          columns={[
+            {
+              title: 'Documento',
+              dataIndex: 'doc_number',
+              key: 'doc_number',
+              width: 180,
+              render: (val: string) => `BOLETA/${val}`,
+            },
+            {
+              title: 'Cliente',
+              dataIndex: 'client_name',
+              key: 'client_name',
+              ellipsis: true,
+            },
+            {
+              title: 'Condicion',
+              dataIndex: 'condition',
+              key: 'condition',
+              width: 100,
+              render: (val: string) => (
+                <Tag color={val === 'Anulada' ? 'red' : 'green'}>{val}</Tag>
+              ),
+            },
+            {
+              title: 'Total',
+              dataIndex: 'total',
+              key: 'total',
+              width: 110,
+              align: 'right',
+              render: (val: number) => formatCurrency(val),
+            },
+          ]}
+          dataSource={boletasModalData}
+          rowKey="sale_id"
+          loading={boletasModalLoading}
+          pagination={false}
+          size="small"
+        />
+      </Modal>
     </div>
   );
 }
@@ -452,10 +535,10 @@ function BajasTab() {
     queryFn: () => getSunatDocumentos({ doc_category: 'BAJA', page, limit: 20 }),
   });
 
-  // Show anuladas that have been accepted by SUNAT (candidates for baja)
-  const { data: anuladasData } = useQuery({
-    queryKey: ['ventas-anuladas-sunat'],
-    queryFn: () => getSales({ status: 'ANULADO', limit: 200 }),
+  // Get only facturas pending baja (filtered by backend)
+  const { data: pendingBajasData } = useQuery({
+    queryKey: ['pending-bajas'],
+    queryFn: () => getPendingBajas(),
   });
 
   const bajaTicketMut = useMutation({
@@ -487,13 +570,32 @@ function BajasTab() {
         message.error(`SUNAT: ${doc.sunat_description || 'Error'}`);
       }
       queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-bajas'] });
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.detail || 'Error al enviar baja');
     },
   });
 
-  const handleBaja = (sale: Sale) => {
+  const bajaMasivaMut = useMutation({
+    mutationFn: () => enviarBajaMasiva(),
+    onSuccess: (doc) => {
+      if (doc.sunat_status === 'ACEPTADO') {
+        message.success('Todas las bajas aceptadas por SUNAT');
+      } else if (doc.sunat_status === 'PENDIENTE' && doc.ticket) {
+        message.info(`Bajas enviadas. Ticket: ${doc.ticket}. Use "Consultar" para verificar.`);
+      } else {
+        message.error(`SUNAT: ${doc.sunat_description || 'Error'}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-bajas'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.detail || 'Error al enviar bajas');
+    },
+  });
+
+  const handleBaja = (sale: PendingBaja) => {
     let motivo = 'ANULACION DE OPERACION';
     Modal.confirm({
       title: 'Enviar Comunicacion de Baja',
@@ -583,20 +685,33 @@ function BajasTab() {
     },
   ];
 
-  // Only facturas can be sent as baja. Boletas are voided via resumen diario.
-  const anuladas = (anuladasData?.data ?? []).filter((s: Sale) => s.doc_type === 'FACTURA');
+  const anuladas = pendingBajasData?.data ?? [];
 
   return (
     <div>
       {anuladas.length > 0 && (
         <>
-          <Title level={5}>Ventas Anuladas (enviar baja)</Title>
+          <Row justify="space-between" align="middle" style={{ marginBottom: 8 }}>
+            <Col>
+              <Title level={5} style={{ margin: 0 }}>Ventas Anuladas (enviar baja)</Title>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                icon={<SendOutlined />}
+                onClick={() => bajaMasivaMut.mutate()}
+                loading={bajaMasivaMut.isPending}
+              >
+                Enviar Todas las Bajas ({anuladas.length})
+              </Button>
+            </Col>
+          </Row>
           <Table
             columns={[
               {
                 title: 'Documento',
                 key: 'doc',
-                render: (_: unknown, r: Sale) =>
+                render: (_: unknown, r: PendingBaja) =>
                   `${r.doc_type}/${r.series}-${String(r.doc_number).padStart(7, '0')}`,
                 width: 200,
               },
@@ -618,7 +733,7 @@ function BajasTab() {
                 title: '',
                 key: 'action',
                 width: 150,
-                render: (_: unknown, record: Sale) => (
+                render: (_: unknown, record: PendingBaja) => (
                   <Button
                     type="link"
                     size="small"
@@ -643,7 +758,7 @@ function BajasTab() {
       <Title level={5}>Bajas Enviadas</Title>
       <Table
         columns={bajaColumns}
-        dataSource={bajaDocs?.data ?? []}
+        dataSource={(bajaDocs?.data ?? []).filter((d) => d.sale_id != null)}
         rowKey="id"
         loading={isLoading}
         pagination={{

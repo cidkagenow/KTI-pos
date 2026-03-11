@@ -271,34 +271,36 @@ def _get_pending_boletas(db: Session, fecha: date):
         .all()
     )
 
+    # Anuladas: no date filter — they can be sent in any resumen after acceptance
     boletas_anuladas = (
         db.query(Sale)
         .options(joinedload(Sale.client))
         .filter(
             Sale.doc_type == "BOLETA",
             Sale.status == "ANULADO",
-            Sale.issue_date == fecha,
         )
         .all()
     )
 
-    # Filter out already accepted nuevas
+    # Filter out already sent nuevas (accepted or pending ticket)
     if boletas_nuevas:
         nueva_ids = [b.id for b in boletas_nuevas]
-        accepted_nueva_ids = set(
+        already_sent_nueva_ids = set(
             row[0] for row in
             db.query(SunatDocument.sale_id)
             .filter(
                 SunatDocument.sale_id.in_(nueva_ids),
                 SunatDocument.doc_category == "RESUMEN",
-                SunatDocument.sunat_status == "ACEPTADO",
+                SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
             )
             .all()
         )
-        boletas_nuevas = [b for b in boletas_nuevas if b.id not in accepted_nueva_ids]
+        boletas_nuevas = [b for b in boletas_nuevas if b.id not in already_sent_nueva_ids]
 
-    # Filter anuladas: only include those previously accepted by SUNAT
-    # and not already voided via resumen
+    # Filter anuladas: only include those whose original resumen was accepted
+    # on a PREVIOUS day (same-day annulments = NO_ENVIADA, SUNAT never knew).
+    # Also exclude already voided via resumen.
+    today_start = datetime.combine(date.today(), time.min, tzinfo=timezone.utc)
     if boletas_anuladas:
         anulada_ids = [b.id for b in boletas_anuladas]
         accepted_anulada_ids = set(
@@ -308,6 +310,7 @@ def _get_pending_boletas(db: Session, fecha: date):
                 SunatDocument.sale_id.in_(anulada_ids),
                 SunatDocument.doc_category == "RESUMEN",
                 SunatDocument.sunat_status == "ACEPTADO",
+                SunatDocument.last_attempt_at < today_start,
             )
             .all()
         )
@@ -350,6 +353,15 @@ def enviar_resumen_boletas(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    # Only allow manual send from 10 PM onwards (Lima time, UTC-5)
+    from zoneinfo import ZoneInfo
+    lima_now = datetime.now(ZoneInfo("America/Lima"))
+    if lima_now.hour < 22:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"El resumen diario solo se puede enviar a partir de las 10:00 PM. Hora actual: {lima_now.strftime('%I:%M %p')}",
+        )
+
     try:
         fecha = date.fromisoformat(data.fecha)
     except ValueError:
@@ -435,6 +447,51 @@ def enviar_resumen_boletas(
     return _doc_to_out(master_doc)
 
 
+def _get_pending_baja_facturas(db: Session) -> list[Sale]:
+    """Get ANULADO facturas that don't have an ACEPTADO or PENDIENTE baja."""
+    already_sent_ids = (
+        db.query(SunatDocument.sale_id)
+        .filter(
+            SunatDocument.doc_category == "BAJA",
+            SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
+        )
+        .subquery()
+    )
+    return (
+        db.query(Sale)
+        .options(joinedload(Sale.client))
+        .filter(
+            Sale.status == "ANULADO",
+            Sale.doc_type == "FACTURA",
+            Sale.id.notin_(already_sent_ids),
+        )
+        .all()
+    )
+
+
+@router.get("/bajas/pendientes")
+def get_pending_bajas(
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    sales = _get_pending_baja_facturas(db)
+    return {
+        "total": len(sales),
+        "data": [
+            {
+                "id": s.id,
+                "doc_type": s.doc_type,
+                "series": s.series,
+                "doc_number": s.doc_number,
+                "client_name": s.client.business_name if s.client else None,
+                "total": float(s.total),
+                "status": s.status,
+            }
+            for s in sales
+        ],
+    }
+
+
 @router.post("/baja", response_model=SunatDocumentOut)
 def enviar_baja(
     data: BajaRequest,
@@ -511,6 +568,75 @@ def enviar_baja(
     return _doc_to_out(doc)
 
 
+@router.post("/baja-masiva", response_model=SunatDocumentOut)
+def enviar_baja_masiva(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Send Comunicacion de Baja for ALL pending anuladas facturas in one batch."""
+    sales = _get_pending_baja_facturas(db)
+    if not sales:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No hay facturas anuladas pendientes de baja",
+        )
+
+    today = date.today()
+    existing_count = (
+        db.query(SunatDocument)
+        .filter(
+            SunatDocument.doc_category == "BAJA",
+            SunatDocument.created_at >= datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc),
+        )
+        .count()
+    )
+    correlativo = existing_count + 1
+
+    parsed = send_baja_to_sunat(sales, "ANULACION DE OPERACION", correlativo)
+
+    now = datetime.now(timezone.utc)
+    # Create one master baja doc (sale_id=NULL) plus per-sale docs
+    master_doc = SunatDocument(
+        sale_id=None,
+        doc_category="BAJA",
+        reference_date=now,
+        sunat_status=parsed.get("sunat_status", "ERROR"),
+        sunat_description=parsed.get("sunat_description"),
+        sunat_hash=parsed.get("sunat_hash"),
+        sunat_cdr_url=parsed.get("sunat_cdr_url"),
+        sunat_xml_url=parsed.get("sunat_xml_url"),
+        sunat_pdf_url=parsed.get("sunat_pdf_url"),
+        ticket=parsed.get("ticket"),
+        raw_request="",
+        raw_response=json.dumps(parsed, ensure_ascii=False),
+        attempt_count=1,
+        last_attempt_at=now,
+        sent_by=current_user.id,
+    )
+    db.add(master_doc)
+    db.flush()
+
+    for sale in sales:
+        per_sale_doc = SunatDocument(
+            sale_id=sale.id,
+            doc_category="BAJA",
+            reference_date=now,
+            sunat_status=parsed.get("sunat_status", "ERROR"),
+            sunat_description=parsed.get("sunat_description"),
+            ticket=parsed.get("ticket"),
+            raw_request="",
+            raw_response="",
+            attempt_count=1,
+            last_attempt_at=now,
+            sent_by=current_user.id,
+        )
+        db.add(per_sale_doc)
+
+    db.commit()
+    db.refresh(master_doc)
+    return _doc_to_out(master_doc)
+
+
 @router.post("/ticket/{ticket}/status", response_model=SunatDocumentOut)
 def consultar_ticket(
     ticket: str,
@@ -562,6 +688,49 @@ def consultar_ticket(
     db.commit()
     db.refresh(doc)
     return _doc_to_out(doc)
+
+
+@router.get("/resumen/{doc_id}/boletas")
+def get_resumen_boletas(
+    doc_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get the list of boletas included in a specific resumen."""
+    master = db.query(SunatDocument).filter(SunatDocument.id == doc_id).first()
+    if not master:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resumen no encontrado")
+    if master.doc_category != "RESUMEN" or master.sale_id is not None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "El documento no es un resumen maestro")
+
+    # Find per-boleta docs linked by the same ticket
+    linked_docs = (
+        db.query(SunatDocument)
+        .options(joinedload(SunatDocument.sale).joinedload(Sale.client))
+        .filter(
+            SunatDocument.ticket == master.ticket,
+            SunatDocument.sale_id.isnot(None),
+        )
+        .all()
+    )
+
+    boletas = []
+    for doc in linked_docs:
+        sale = doc.sale
+        if not sale:
+            continue
+        boletas.append({
+            "sale_id": sale.id,
+            "doc_number": f"{sale.series}-{str(sale.doc_number).zfill(7)}" if sale.doc_number else f"PRE-{sale.id}",
+            "client_name": sale.client.business_name if sale.client else "",
+            "total": float(sale.total),
+            "condition": "Anulada" if doc.doc_category == "BAJA_RESUMEN" else "Nueva",
+            "status": sale.status,
+        })
+
+    boletas.sort(key=lambda b: b["doc_number"])
+
+    return {"boletas": boletas, "total": len(boletas)}
 
 
 @router.get("/documentos", response_model=dict)

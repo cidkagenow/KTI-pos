@@ -24,7 +24,7 @@ import {
 import { PlusOutlined, DeleteOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta } from '../../api/sales';
+import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta, deleteSale } from '../../api/sales';
 import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
@@ -85,6 +85,7 @@ export default function SaleForm() {
   const [clientOptions, setClientOptions] = useState<{ value: number; label: string }[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -361,6 +362,7 @@ export default function SaleForm() {
   };
 
   const handleSavePreVenta = async () => {
+    if (savingRef.current) return;
     try {
       await form.validateFields();
     } catch {
@@ -371,6 +373,7 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = { ...buildPayload(), status: 'PREVENTA' };
@@ -386,11 +389,13 @@ export default function SaleForm() {
       const detail = err?.response?.data?.detail;
       message.error(detail || 'Error al guardar la venta');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleFacturar = async () => {
+    if (savingRef.current) return;
     try {
       await form.validateFields();
     } catch {
@@ -401,6 +406,7 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       let saleId: number;
@@ -416,15 +422,21 @@ export default function SaleForm() {
         }
       } else {
         const created = await createSale(payload);
-        const result = await facturarSale(created.id);
-        saleId = created.id;
-        // Check SUNAT status from facturar response
-        if ((result as any).sunat_status === 'ACEPTADO') {
-          message.success('Venta facturada y aceptada por SUNAT');
-        } else if ((result as any).sunat_status === 'ERROR') {
-          message.warning('Venta facturada pero SUNAT devolvio error. Puede reintentar desde el panel SUNAT.');
-        } else if ((result as any).sunat_status) {
-          message.info(`Venta facturada. Estado SUNAT: ${(result as any).sunat_status}`);
+        try {
+          const result = await facturarSale(created.id);
+          saleId = created.id;
+          // Check SUNAT status from facturar response
+          if ((result as any).sunat_status === 'ACEPTADO') {
+            message.success('Venta facturada y aceptada por SUNAT');
+          } else if ((result as any).sunat_status === 'ERROR') {
+            message.warning('Venta facturada pero SUNAT devolvio error. Puede reintentar desde el panel SUNAT.');
+          } else if ((result as any).sunat_status) {
+            message.info(`Venta facturada. Estado SUNAT: ${(result as any).sunat_status}`);
+          }
+        } catch (facturarErr) {
+          // Facturar failed — delete the orphan PREVENTA
+          try { await deleteSale(created.id); } catch { /* ignore */ }
+          throw facturarErr;
         }
       }
       if (!saleId) message.success('Venta facturada');
@@ -437,11 +449,13 @@ export default function SaleForm() {
       const networkMsg = !err?.response ? `Error de conexión: ${err?.message || 'servidor no responde'}` : null;
       message.error(networkMsg || detail || sunatDesc || `Error al facturar (${statusCode || 'desconocido'})`, 10);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleEmitirNV = async () => {
+    if (savingRef.current) return;
     try {
       await form.validateFields();
     } catch {
@@ -452,6 +466,7 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       let saleId: number;
@@ -476,6 +491,7 @@ export default function SaleForm() {
       const detail = err?.response?.data?.detail;
       message.error(detail || 'Error al emitir la Nota de Venta');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

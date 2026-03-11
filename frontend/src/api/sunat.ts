@@ -26,6 +26,26 @@ export async function enviarBaja(saleId: number, motivo: string): Promise<SunatD
   return data;
 }
 
+export async function enviarBajaMasiva(): Promise<SunatDocument> {
+  const { data } = await api.post('/sunat/baja-masiva');
+  return data;
+}
+
+export interface PendingBaja {
+  id: number;
+  doc_type: string;
+  series: string;
+  doc_number: number;
+  client_name: string | null;
+  total: number;
+  status: string;
+}
+
+export async function getPendingBajas(): Promise<{ total: number; data: PendingBaja[] }> {
+  const { data } = await api.get('/sunat/bajas/pendientes');
+  return data;
+}
+
 export async function checkTicketStatus(ticket: string): Promise<SunatDocument> {
   const { data } = await api.post(`/sunat/ticket/${ticket}/status`);
   return data;
@@ -47,6 +67,20 @@ export async function getSunatDocumentos(filters: SunatFilters): Promise<Paginat
 
 export async function enviarNotaCredito(saleId: number): Promise<SunatDocument> {
   const { data } = await api.post(`/sunat/nota-credito/${saleId}/enviar`);
+  return data;
+}
+
+export interface ResumenBoleta {
+  sale_id: number;
+  doc_number: string;
+  client_name: string;
+  total: number;
+  condition: string;
+  status: string;
+}
+
+export async function getResumenBoletas(docId: number): Promise<{ boletas: ResumenBoleta[]; total: number }> {
+  const { data } = await api.get(`/sunat/resumen/${docId}/boletas`);
   return data;
 }
 

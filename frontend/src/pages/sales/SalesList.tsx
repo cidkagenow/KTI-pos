@@ -267,6 +267,7 @@ export default function SalesList() {
           PENDIENTE: 'orange',
           ERROR: 'red',
           RECHAZADO: 'red',
+          NO_ENVIADA: 'default',
         };
         return <Tag color={colors[status] || 'default'}>{status}</Tag>;
       },
@@ -309,7 +310,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/nota-credito/new?ref_sale_id=${record.id}`)}
             />
           )}
-          {isAdmin && (record.status === 'PREVENTA' || record.status === 'EMITIDO' || record.status === 'FACTURADO') && (
+          {isAdmin && (record.status === 'EMITIDO' || (record.status === 'FACTURADO' && (record.doc_type === 'BOLETA' ? record.sunat_status === 'ACEPTADO' : true))) && (
             <Button
               type="link"
               size="small"

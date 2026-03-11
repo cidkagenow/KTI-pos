@@ -1,9 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, users, clients, products, catalogs, sales, inventory, purchases, reports, peru_consult, sunat, chat
+from app.scheduler import init_scheduler, shutdown_scheduler
 
-app = FastAPI(title="KTI POS", version="0.1.0", redirect_slashes=False)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_scheduler()
+    yield
+    shutdown_scheduler()
+
+
+app = FastAPI(title="KTI POS", version="0.1.0", redirect_slashes=False, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

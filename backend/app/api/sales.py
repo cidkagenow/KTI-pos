@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -321,6 +321,22 @@ def create_nota_credito(
     # Build a map of original items: product_id -> max quantity
     orig_items = {item.product_id: item for item in ref_sale.items}
 
+    # Calculate already-returned quantities from previous NCs for this ref_sale
+    prev_ncs = (
+        db.query(Sale)
+        .options(joinedload(Sale.items))
+        .filter(
+            Sale.ref_sale_id == ref_sale.id,
+            Sale.doc_type == "NOTA_CREDITO",
+            Sale.status.in_(("PREVENTA", "FACTURADO")),
+        )
+        .all()
+    )
+    already_returned: dict[int, int] = {}
+    for nc in prev_ncs:
+        for item in nc.items:
+            already_returned[item.product_id] = already_returned.get(item.product_id, 0) + item.quantity
+
     # Validate NC items are subset of original
     if not data.items:
         raise HTTPException(
@@ -337,10 +353,16 @@ def create_nota_credito(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Producto ID {nc_item.product_id} no existe en la venta original",
             )
-        if nc_item.quantity >= orig.quantity:
+        available = orig.quantity - already_returned.get(nc_item.product_id, 0)
+        if nc_item.quantity > available:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cantidad ({nc_item.quantity}) debe ser menor a la cantidad original ({orig.quantity}) para producto {orig.product_name}",
+                detail=f"Cantidad a devolver ({nc_item.quantity}) excede lo disponible ({available}) para producto {orig.product_name}",
+            )
+        if nc_item.quantity <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cantidad debe ser mayor a 0 para producto {orig.product_name}",
             )
         line_total = calc_line_total(
             nc_item.quantity,
@@ -409,6 +431,50 @@ def create_nota_credito(
     db.commit()
     db.refresh(nc)
     return _sale_to_out(nc)
+
+
+@router.get("/{sale_id}/nc-disponible")
+def get_nc_available(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get available quantities for NC creation (original - already returned)."""
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if not sale:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Venta no encontrada")
+
+    prev_ncs = (
+        db.query(Sale)
+        .options(joinedload(Sale.items))
+        .filter(
+            Sale.ref_sale_id == sale.id,
+            Sale.doc_type == "NOTA_CREDITO",
+            Sale.status.in_(("PREVENTA", "FACTURADO")),
+        )
+        .all()
+    )
+    already_returned: dict[int, int] = {}
+    for nc in prev_ncs:
+        for item in nc.items:
+            already_returned[item.product_id] = already_returned.get(item.product_id, 0) + item.quantity
+
+    return {
+        "items": [
+            {
+                "product_id": item.product_id,
+                "orig_quantity": item.quantity,
+                "already_returned": already_returned.get(item.product_id, 0),
+                "available": item.quantity - already_returned.get(item.product_id, 0),
+            }
+            for item in sale.items
+        ]
+    }
 
 
 @router.get("/{sale_id}", response_model=SaleOut)
@@ -518,6 +584,31 @@ def update_sale(
 
     subtotal, igv_amount, total = calc_igv(grand_total)
 
+    # Allow changing doc_type and series for PREVENTA sales
+    if sale.status == "PREVENTA" and (data.doc_type != sale.doc_type or data.series != sale.series):
+        new_series = (
+            db.query(DocumentSeries)
+            .filter(
+                DocumentSeries.doc_type == data.doc_type,
+                DocumentSeries.series == data.series,
+                DocumentSeries.is_active == True,
+            )
+            .first()
+        )
+        if new_series is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Serie de documento no encontrada o inactiva",
+            )
+        # SUNAT rule: facturas require client with RUC
+        if data.doc_type == "FACTURA" and client.doc_type != "RUC":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Las facturas solo se pueden emitir a clientes con RUC.",
+            )
+        sale.doc_type = data.doc_type
+        sale.series = data.series
+
     sale.client_id = data.client_id
     sale.warehouse_id = data.warehouse_id
     sale.seller_id = data.seller_id
@@ -600,12 +691,16 @@ def facturar_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
 ):
+    # Lock the sale row to prevent double-facturación from concurrent requests
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
         .filter(Sale.id == sale_id)
+        .with_for_update()
         .first()
     )
+    if sale:
+        # Load relationships after acquiring lock
+        db.refresh(sale, attribute_names=["items", "client", "seller"])
     if sale is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -622,6 +717,25 @@ def facturar_sale(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Las Notas de Venta no se pueden facturar directamente. Use 'Convertir' para cambiarla a Boleta o Factura primero.",
         )
+
+    # Block facturar-ing boletas if today's resumen was already sent
+    if sale.doc_type == "BOLETA":
+        today_start = datetime.combine(date.today(), time.min, tzinfo=timezone.utc)
+        resumen_sent_today = (
+            db.query(SunatDocument)
+            .filter(
+                SunatDocument.sale_id.is_(None),
+                SunatDocument.doc_category == "RESUMEN",
+                SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
+                SunatDocument.last_attempt_at >= today_start,
+            )
+            .first()
+        )
+        if resumen_sent_today:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se puede facturar boletas hoy. El resumen diario ya fue enviado. Las nuevas boletas se pueden facturar mañana.",
+            )
 
     # For NC: eagerly load the referenced sale (needed for SUNAT XML)
     if sale.doc_type == "NOTA_CREDITO" and sale.ref_sale_id:
@@ -876,6 +990,27 @@ def void_sale(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La venta está eliminada",
         )
+
+    # Block voiding a boleta if its resumen was accepted TODAY.
+    # Same-day annulment is only allowed if the boleta was never sent (NO_ENVIADA/PENDIENTE).
+    if sale.status == "FACTURADO" and sale.doc_type == "BOLETA":
+        today_start = datetime.combine(date.today(), time.min, tzinfo=timezone.utc)
+        accepted_today = (
+            db.query(SunatDocument)
+            .filter(
+                SunatDocument.sale_id == sale.id,
+                SunatDocument.doc_category == "RESUMEN",
+                SunatDocument.sunat_status == "ACEPTADO",
+                SunatDocument.last_attempt_at >= today_start,
+            )
+            .first()
+        )
+        if accepted_today:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se puede anular esta boleta hoy. El resumen diario ya fue aceptado por SUNAT. Puede anularla a partir de mañana.",
+            )
+
     # Return stock only for FACTURADO sales (preventas/emitidos never deducted stock)
     if sale.status == "FACTURADO" and sale.doc_type not in ("NOTA_VENTA", "NOTA_CREDITO"):
         # BOLETA/FACTURA: return stock that was deducted at facturar
@@ -919,6 +1054,22 @@ def void_sale(
                 created_by=current_user.id,
             ))
 
+    # If voiding a FACTURADO boleta that was never sent to SUNAT (still PENDIENTE),
+    # mark the SunatDocument as NO_ENVIADA so it doesn't show as "PENDIENTE" forever.
+    if sale.status == "FACTURADO" and sale.doc_type == "BOLETA":
+        pending_doc = (
+            db.query(SunatDocument)
+            .filter(
+                SunatDocument.sale_id == sale.id,
+                SunatDocument.doc_category == "BOLETA",
+                SunatDocument.sunat_status == "PENDIENTE",
+            )
+            .first()
+        )
+        if pending_doc:
+            pending_doc.sunat_status = "NO_ENVIADA"
+            pending_doc.sunat_description = "Anulada antes de enviar a SUNAT"
+
     sale.status = "ANULADO"
     sale.voided_reason = data.reason
     sale.voided_by = current_user.id
@@ -928,8 +1079,8 @@ def void_sale(
     return _sale_to_out(sale)
 
 
-@router.delete("/{sale_id}", response_model=SaleOut)
-def soft_delete_sale(
+@router.delete("/{sale_id}")
+def delete_sale(
     sale_id: int,
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
@@ -951,11 +1102,12 @@ def soft_delete_sale(
             detail="Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
         )
 
-    # Preventas never deducted stock, so no need to return it
-    sale.status = "ELIMINADO"
+    # Preventas/emitidos never deducted stock — hard delete from DB
+    for item in sale.items:
+        db.delete(item)
+    db.delete(sale)
     db.commit()
-    db.refresh(sale)
-    return _sale_to_out(sale)
+    return {"detail": "Venta eliminada"}
 
 
 @router.post("/{sale_id}/convertir", response_model=SaleOut)
