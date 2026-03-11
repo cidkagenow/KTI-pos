@@ -102,8 +102,8 @@ const lightTheme = {
     fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   },
   components: {
-    Layout: { siderBg: '#f0f2f5', headerBg: '#ffffff' },
-    Menu: { darkItemBg: '#f0f2f5' },
+    Layout: { siderBg: '#0a1e4a', headerBg: '#ffffff' },
+    Menu: { darkItemBg: '#0a1e4a', darkItemSelectedBg: '#1a3a8f', darkItemHoverBg: '#122d6e', darkSubMenuItemBg: '#071738' },
     Button: { primaryShadow: '0 2px 0 rgba(26, 58, 143, 0.1)' },
   },
 };

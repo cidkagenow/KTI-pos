@@ -168,30 +168,18 @@ export default function AppLayout() {
           }}
           onClick={() => navigate('/')}
         >
-          {isDark ? (
-            <img
-              src="/kti-logo-white.png"
-              alt="KTI"
-              style={{
-                width: collapsed ? 40 : 90,
-                objectFit: 'contain',
-                transition: 'width 0.2s',
-              }}
-            />
-          ) : (
-            <img
-              src="/kti-logo.png"
-              alt="KTI"
-              style={{
-                width: collapsed ? 40 : 90,
-                objectFit: 'contain',
-                transition: 'width 0.2s',
-              }}
-            />
-          )}
+          <img
+            src="/kti-logo-white.png"
+            alt="KTI"
+            style={{
+              width: collapsed ? 40 : 90,
+              objectFit: 'contain',
+              transition: 'width 0.2s',
+            }}
+          />
         </div>
         <Menu
-          theme={isDark ? 'dark' : 'light'}
+          theme="dark"
           mode="inline"
           selectedKeys={[getSelectedKey()]}
           items={menuItems}
