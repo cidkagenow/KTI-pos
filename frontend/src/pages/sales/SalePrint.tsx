@@ -119,7 +119,7 @@ export default function SalePrint() {
         @media print {
           body { margin: 0; }
           .no-print { display: none !important; }
-          @page { size: 80mm auto; margin: 4mm; }
+          @page { size: 80mm auto; margin: 0mm 2mm; }
         }
         html, body {
           font-family: 'Courier New', monospace;
@@ -137,7 +137,7 @@ export default function SalePrint() {
         .receipt {
           max-width: 302px;
           margin: 0 auto;
-          padding: 10px;
+          padding: 2px 10px;
         }
         .center { text-align: center; }
         .divider {
