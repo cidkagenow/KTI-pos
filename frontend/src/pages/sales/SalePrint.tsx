@@ -124,7 +124,7 @@ export default function SalePrint() {
         html, body {
           font-family: 'Courier New', monospace;
           font-size: 13px;
-          line-height: 1.4;
+          line-height: 1.2;
           color: #000 !important;
           background: #fff !important;
           -webkit-print-color-adjust: exact;
@@ -143,7 +143,7 @@ export default function SalePrint() {
         .divider {
           border: none;
           border-top: 1px dashed #000;
-          margin: 6px 0;
+          margin: 3px 0;
         }
         .row {
           display: flex;
@@ -168,7 +168,7 @@ export default function SalePrint() {
         th:last-child, td:last-child { text-align: right; }
         th:nth-child(3), td:nth-child(3) { text-align: center; }
         td { padding: 2px 0; vertical-align: top; }
-        .total-section { margin-top: 6px; }
+        .total-section { margin-top: 3px; }
         .total-row {
           display: flex;
           justify-content: space-between;
@@ -213,8 +213,8 @@ export default function SalePrint() {
 
       <div className="receipt">
         {/* Company header */}
-        <div className="center" style={{ marginBottom: -20 }}>
-          <img src="/kti-logo.png" alt="KTI" style={{ height: 110, objectFit: 'contain' }} />
+        <div className="center" style={{ marginBottom: -10 }}>
+          <img src="/kti-logo.png" alt="KTI" style={{ height: 70, objectFit: 'contain' }} />
         </div>
         <div className="center bold" style={{ fontSize: 13 }}>
           {EMPRESA_RAZON_SOCIAL}
@@ -359,42 +359,42 @@ export default function SalePrint() {
         <hr className="divider" />
 
         {/* Amount in words */}
-        <div style={{ fontSize: 10, marginTop: 4 }}>
+        <div style={{ fontSize: 10, marginTop: 2 }}>
           Son: {numberToWords(sale.total)}
         </div>
 
         <hr className="divider" />
 
         {/* Footer */}
-        <div style={{ fontSize: 10, marginTop: 4 }}>
+        <div style={{ fontSize: 10, marginTop: 2 }}>
           Vendedor: {sale.seller_name}
         </div>
 
         {isNotaVenta ? (
           <>
-            <div className="center" style={{ fontSize: 9, marginTop: 6 }}>
+            <div className="center" style={{ fontSize: 9, marginTop: 4 }}>
               Este documento no es comprobante de pago
             </div>
-            <div className="center" style={{ fontSize: 9, marginTop: 2 }}>
+            <div className="center" style={{ fontSize: 9, marginTop: 1 }}>
               {sale.items.length} articulo(s)
             </div>
           </>
         ) : (
           <>
-            <div className="center" style={{ fontSize: 9, marginTop: 6 }}>
+            <div className="center" style={{ fontSize: 9, marginTop: 4 }}>
               Repres. impresa de comprobante electronico.
             </div>
             {hasHash && (
               <>
-                <div style={{ fontSize: 9, marginTop: 4, wordBreak: 'break-all' }}>
+                <div style={{ fontSize: 9, marginTop: 2, wordBreak: 'break-all' }}>
                   HASH: {sale.sunat_hash}
                 </div>
-                <div className="center" style={{ marginTop: 6 }}>
-                  <QRCodeSVG value={qrData} size={120} />
+                <div className="center" style={{ marginTop: 4 }}>
+                  <QRCodeSVG value={qrData} size={100} />
                 </div>
               </>
             )}
-            <div className="center" style={{ fontSize: 9, marginTop: 4 }}>
+            <div className="center" style={{ fontSize: 9, marginTop: 2 }}>
               {sale.items.length} articulo(s)
             </div>
           </>
