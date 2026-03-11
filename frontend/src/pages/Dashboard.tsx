@@ -31,7 +31,7 @@ export default function Dashboard() {
   return (
     <div>
       <Row align="middle" style={{ marginBottom: 24 }}>
-        <img src={isDark ? '/kti-logo-white.png' : '/kti-logo.png'} alt="KTI" style={{ height: 70, objectFit: 'contain', marginRight: 16 }} />
+        <img src={isDark ? '/kti-logo-white.png' : '/kti-logo.png'} alt="KTI" style={{ height: 40, objectFit: 'contain', marginRight: 12 }} />
         <Title level={3} style={{ margin: 0 }}>
           Panel de Control
         </Title>
