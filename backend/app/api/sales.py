@@ -720,18 +720,18 @@ def facturar_sale(
 
     # Block facturar-ing boletas if today's resumen was already sent
     if sale.doc_type == "BOLETA":
-        today_start = datetime.combine(date.today(), time.min, tzinfo=timezone.utc)
-        resumen_sent_today = (
+        today_ref = datetime.combine(date.today(), time(12, 0), tzinfo=timezone.utc)
+        resumen_for_today = (
             db.query(SunatDocument)
             .filter(
                 SunatDocument.sale_id.is_(None),
                 SunatDocument.doc_category == "RESUMEN",
                 SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
-                SunatDocument.last_attempt_at >= today_start,
+                SunatDocument.reference_date == today_ref,
             )
             .first()
         )
-        if resumen_sent_today:
+        if resumen_for_today:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se puede facturar boletas hoy. El resumen diario ya fue enviado. Las nuevas boletas se pueden facturar mañana.",
