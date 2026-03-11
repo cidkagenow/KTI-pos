@@ -28,7 +28,7 @@ import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta, deleteS
 import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
-import { getSellers } from '../../api/users';
+import { getActiveTrabajadores } from '../../api/trabajadores';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
 import type { ProductSearch, Client } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,7 +95,7 @@ export default function SaleForm() {
   const clientEnterNavRef = useEnterNavigation(() => handleCreateClient());
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
-  const { data: users } = useQuery({ queryKey: ['sellers'], queryFn: getSellers });
+  const { data: trabajadores } = useQuery({ queryKey: ['trabajadores-active'], queryFn: getActiveTrabajadores });
   const { data: docSeries } = useQuery({ queryKey: ['doc-series'], queryFn: getDocumentSeries });
 
   const { data: existingSale, isLoading: loadingSale } = useQuery({
@@ -110,7 +110,7 @@ export default function SaleForm() {
         doc_type_series: `${existingSale.doc_type}|${existingSale.series}`,
         client_id: existingSale.client_id,
         warehouse_id: existingSale.warehouse_id,
-        seller_id: existingSale.seller_id,
+        trabajador_id: existingSale.trabajador_id ?? existingSale.seller_id,
         payment_cond: existingSale.payment_cond,
         max_discount_pct: existingSale.max_discount_pct ?? 0,
         issue_date: existingSale.issue_date ? dayjs(existingSale.issue_date) : dayjs(),
@@ -342,7 +342,7 @@ export default function SaleForm() {
       series,
       client_id: values.client_id,
       warehouse_id: values.warehouse_id,
-      seller_id: values.seller_id,
+      trabajador_id: values.trabajador_id,
       payment_cond: values.payment_cond,
       max_discount_pct: values.max_discount_pct ?? 0,
       issue_date: values.issue_date ? dayjs(values.issue_date).format('YYYY-MM-DD') : null,
@@ -713,13 +713,13 @@ export default function SaleForm() {
           </Col>
           <Col xs={24} sm={8} md={4}>
             <Form.Item
-              name="seller_id"
+              name="trabajador_id"
               label="Vendedor"
               rules={[{ required: true, message: 'Requerido' }]}
             >
               <Select
                 placeholder="Seleccionar"
-                options={users?.map((u) => ({ value: u.id, label: u.full_name }))}
+                options={trabajadores?.map((t) => ({ value: t.id, label: t.full_name }))}
               />
             </Form.Item>
           </Col>

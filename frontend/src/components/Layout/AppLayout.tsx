@@ -17,6 +17,7 @@ import {
   MoonOutlined,
   CloudUploadOutlined,
   MessageOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,11 +35,15 @@ export default function AppLayout() {
   const { token: themeToken } = theme.useToken();
 
   const menuItems = [
-    {
-      key: '/',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
-    },
+    ...(isAdmin
+      ? [
+          {
+            key: '/',
+            icon: <DashboardOutlined />,
+            label: 'Dashboard',
+          },
+        ]
+      : []),
     {
       key: isAdmin ? '/sales/list' : '/sales',
       icon: <ShoppingCartOutlined />,
@@ -87,6 +92,15 @@ export default function AppLayout() {
             label: 'Reportes',
           },
           {
+            key: '/trabajadores',
+            icon: <IdcardOutlined />,
+            label: 'Trabajadores',
+            children: [
+              { key: '/trabajadores', label: 'Lista' },
+              { key: '/trabajadores/asistencia', label: 'Asistencia' },
+            ],
+          },
+          {
             key: '/users',
             icon: <UserOutlined />,
             label: 'Usuarios',
@@ -116,6 +130,8 @@ export default function AppLayout() {
     if (path.startsWith('/clients')) return '/clients';
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
     if (path.startsWith('/sunat')) return '/sunat';
+    if (path === '/trabajadores/asistencia') return '/trabajadores/asistencia';
+    if (path.startsWith('/trabajadores')) return '/trabajadores';
     if (path.startsWith('/users')) return '/users';
     if (path.startsWith('/chat-history')) return '/chat-history';
     if (path.startsWith('/settings')) return '/settings';

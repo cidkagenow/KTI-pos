@@ -53,7 +53,10 @@ class Sale(Base):
     warehouse_id: Mapped[int] = mapped_column(
         ForeignKey("warehouses.id"), nullable=False
     )
-    seller_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    seller_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    trabajador_id: Mapped[int | None] = mapped_column(
+        ForeignKey("trabajadores.id"), nullable=True
+    )
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     payment_cond: Mapped[str] = mapped_column(String(20), default="CONTADO")
     payment_method: Mapped[str | None] = mapped_column(String(20), default="EFECTIVO")  # EFECTIVO, TARJETA, MIXTO
@@ -90,7 +93,8 @@ class Sale(Base):
     )
     client: Mapped["Client"] = relationship()  # noqa: F821
     warehouse: Mapped["Warehouse"] = relationship()  # noqa: F821
-    seller: Mapped["User"] = relationship(foreign_keys=[seller_id])  # noqa: F821
+    seller: Mapped["User | None"] = relationship(foreign_keys=[seller_id])  # noqa: F821
+    trabajador: Mapped["Trabajador | None"] = relationship()  # noqa: F821
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])  # noqa: F821
     voider: Mapped["User | None"] = relationship(  # noqa: F821
         foreign_keys=[voided_by]

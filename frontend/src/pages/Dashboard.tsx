@@ -1,16 +1,34 @@
-import { Row, Col, Card, Statistic, Spin, Typography } from 'antd';
+import { Row, Col, Card, Statistic, Spin, Typography, Tag, Table } from 'antd';
 import {
   ShoppingCartOutlined,
   DollarOutlined,
   CalendarOutlined,
   WarningOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { getDashboard } from '../api/reports';
+import { getAsistencia } from '../api/trabajadores';
 import { formatCurrency } from '../utils/format';
 import { useTheme } from '../contexts/ThemeContext';
+import type { Asistencia } from '../types';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
+
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  PRESENTE: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+  TARDANZA: <ClockCircleOutlined style={{ color: '#faad14' }} />,
+  AUSENTE: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  PRESENTE: 'green',
+  TARDANZA: 'orange',
+  AUSENTE: 'red',
+};
 
 export default function Dashboard() {
   const { isDark } = useTheme();
@@ -18,6 +36,12 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: getDashboard,
+  });
+
+  const todayStr = dayjs().format('YYYY-MM-DD');
+  const { data: asistenciaHoy } = useQuery({
+    queryKey: ['asistencia', todayStr],
+    queryFn: () => getAsistencia(todayStr),
   });
 
   if (isLoading) {
@@ -81,6 +105,62 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title="Asistencia Hoy"
+        bordered={false}
+        style={{ marginTop: 24 }}
+        styles={{ header: { fontWeight: 600 } }}
+      >
+        {(asistenciaHoy ?? []).length === 0 ? (
+          <Typography.Text type="secondary">No se ha registrado asistencia hoy</Typography.Text>
+        ) : (
+          <Table
+            dataSource={asistenciaHoy}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            columns={[
+              {
+                title: 'Trabajador',
+                dataIndex: 'trabajador_name',
+                key: 'trabajador_name',
+              },
+              {
+                title: 'Estado',
+                dataIndex: 'status',
+                key: 'status',
+                width: 120,
+                render: (status: string) => (
+                  <Tag icon={STATUS_ICONS[status]} color={STATUS_COLORS[status] || 'default'}>
+                    {status}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Entrada',
+                dataIndex: 'check_in_time',
+                key: 'check_in_time',
+                width: 80,
+                render: (v: string | null) => v || '-',
+              },
+              {
+                title: 'Salida',
+                dataIndex: 'check_out_time',
+                key: 'check_out_time',
+                width: 80,
+                render: (v: string | null) => v || '-',
+              },
+              {
+                title: 'Notas',
+                dataIndex: 'notes',
+                key: 'notes',
+                render: (v: string | null) => v || '-',
+              },
+            ]}
+          />
+        )}
+      </Card>
     </div>
   );
 }

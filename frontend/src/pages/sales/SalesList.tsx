@@ -29,7 +29,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta } from '../../api/sales';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
-import { getUsers } from '../../api/users';
+import { getActiveTrabajadores } from '../../api/trabajadores';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types';
@@ -88,9 +88,9 @@ export default function SalesList() {
     queryFn: getWarehouses,
   });
 
-  const { data: users } = useQuery({
-    queryKey: ['users'],
-    queryFn: getUsers,
+  const { data: trabajadores } = useQuery({
+    queryKey: ['trabajadores-active'],
+    queryFn: getActiveTrabajadores,
   });
 
   const { data: docSeries } = useQuery({
@@ -319,7 +319,7 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {isAdmin && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
+          {(isAdmin ? (record.status === 'PREVENTA' || record.status === 'EMITIDO') : record.status === 'PREVENTA') && (
             <Button
               type="link"
               size="small"
@@ -328,17 +328,12 @@ export default function SalesList() {
               onClick={() => handleDelete(record)}
             />
           )}
-          {(record.doc_type !== 'NOTA_VENTA' || isAdmin) && (() => {
+          {isAdmin && (() => {
             const isPreventa = record.status === 'PREVENTA';
             const isNV = record.doc_type === 'NOTA_VENTA';
             const cashShort = record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total;
-            // Disable print: PREVENTA non-NV with insufficient cash, OR PREVENTA non-NV for ventas (needs admin to facturar)
-            const disabled = isPreventa && !isNV && (cashShort || !isAdmin);
-            const title = isPreventa && !isNV && !isAdmin
-              ? 'Solo administradores pueden facturar'
-              : isPreventa && !isNV && cashShort
-                ? 'Efectivo insuficiente'
-                : undefined;
+            const disabled = isPreventa && !isNV && cashShort;
+            const title = disabled ? 'Efectivo insuficiente' : undefined;
             return (
               <Button
                 type="link"
@@ -441,7 +436,7 @@ export default function SalesList() {
             placeholder="Vendedor"
             style={{ width: 150 }}
             onChange={(val) => setSellerId(val)}
-            options={users?.map((u) => ({ value: u.id, label: u.full_name }))}
+            options={trabajadores?.map((t) => ({ value: t.id, label: t.full_name }))}
           />
         </Col>
         <Col>

@@ -14,6 +14,7 @@ from app.models.product import Product
 from app.models.user import User
 from app.models.inventory import Inventory, InventoryMovement
 from app.models.sunat import SunatDocument
+from app.models.trabajador import Trabajador
 from app.schemas.sale import (
     SaleCreate,
     SaleOut,
@@ -38,6 +39,14 @@ def _get_total_stock(db: Session, product_id: int) -> int:
     return int(result)
 
 
+def _resolve_seller_name(sale: Sale) -> str:
+    if sale.trabajador:
+        return sale.trabajador.full_name
+    if sale.seller:
+        return sale.seller.full_name
+    return ""
+
+
 def _sale_to_list_out(sale: Sale, sunat_status: str | None = None) -> SaleListOut:
     return SaleListOut(
         id=sale.id,
@@ -48,7 +57,8 @@ def _sale_to_list_out(sale: Sale, sunat_status: str | None = None) -> SaleListOu
         client_name=sale.client.business_name if sale.client else "",
         warehouse_id=sale.warehouse_id,
         seller_id=sale.seller_id,
-        seller_name=sale.seller.full_name if sale.seller else "",
+        trabajador_id=sale.trabajador_id,
+        seller_name=_resolve_seller_name(sale),
         payment_cond=sale.payment_cond,
         payment_method=sale.payment_method,
         cash_received=float(sale.cash_received) if sale.cash_received else None,
@@ -93,7 +103,8 @@ def _sale_to_out(sale: Sale) -> SaleOut:
         client_address=sale.client.address if sale.client else None,
         warehouse_id=sale.warehouse_id,
         seller_id=sale.seller_id,
-        seller_name=sale.seller.full_name if sale.seller else "",
+        trabajador_id=sale.trabajador_id,
+        seller_name=_resolve_seller_name(sale),
         payment_cond=sale.payment_cond,
         payment_method=sale.payment_method,
         cash_received=float(sale.cash_received) if sale.cash_received else None,
@@ -131,8 +142,13 @@ def list_sales(
     query = (
         db.query(Sale)
         .join(Client, Sale.client_id == Client.id)
-        .join(User, Sale.seller_id == User.id)
-        .options(joinedload(Sale.client), joinedload(Sale.seller))
+        .outerjoin(User, Sale.seller_id == User.id)
+        .outerjoin(Trabajador, Sale.trabajador_id == Trabajador.id)
+        .options(
+            joinedload(Sale.client),
+            joinedload(Sale.seller),
+            joinedload(Sale.trabajador),
+        )
     )
     if date_from:
         query = query.filter(Sale.created_at >= date_from)
@@ -147,7 +163,10 @@ def list_sales(
     if warehouse_id is not None:
         query = query.filter(Sale.warehouse_id == warehouse_id)
     if seller_id is not None:
-        query = query.filter(Sale.seller_id == seller_id)
+        # seller_id filter: match either legacy seller_id or trabajador_id
+        query = query.filter(
+            or_(Sale.seller_id == seller_id, Sale.trabajador_id == seller_id)
+        )
     if status_filter:
         statuses = [s.strip() for s in status_filter.split(",")]
         query = query.filter(Sale.status.in_(statuses))
@@ -268,6 +287,7 @@ def create_sale(
         client_id=data.client_id,
         warehouse_id=data.warehouse_id,
         seller_id=data.seller_id,
+        trabajador_id=data.trabajador_id,
         created_by=current_user.id,
         payment_cond=data.payment_cond,
         payment_method=data.payment_method,
@@ -303,7 +323,7 @@ def create_nota_credito(
     # Validate original sale
     ref_sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == data.ref_sale_id)
         .first()
     )
@@ -485,7 +505,7 @@ def get_sale(
 ):
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )
@@ -516,7 +536,7 @@ def update_sale(
 ):
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )
@@ -612,6 +632,7 @@ def update_sale(
     sale.client_id = data.client_id
     sale.warehouse_id = data.warehouse_id
     sale.seller_id = data.seller_id
+    sale.trabajador_id = data.trabajador_id
     sale.payment_cond = data.payment_cond
     sale.payment_method = data.payment_method
     sale.cash_received = Decimal(str(data.cash_received)) if data.cash_received else None
@@ -639,7 +660,7 @@ def emitir_nota_venta(
     """Emit (finalize) a Nota de Venta: assigns doc_number, sets status=EMITIDO. No stock deduction."""
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )
@@ -720,7 +741,9 @@ def facturar_sale(
 
     # Block facturar-ing boletas if today's resumen was already sent
     if sale.doc_type == "BOLETA":
-        today_ref = datetime.combine(date.today(), time(12, 0), tzinfo=timezone.utc)
+        from zoneinfo import ZoneInfo
+        lima_today = datetime.now(ZoneInfo("America/Lima")).date()
+        today_ref = datetime.combine(lima_today, time(12, 0), tzinfo=timezone.utc)
         resumen_for_today = (
             db.query(SunatDocument)
             .filter(
@@ -971,7 +994,7 @@ def void_sale(
 ):
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )
@@ -1083,11 +1106,11 @@ def void_sale(
 def delete_sale(
     sale_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_admin),
+    _user: User = Depends(get_current_user),
 ):
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )
@@ -1096,10 +1119,11 @@ def delete_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    if sale.status not in ("PREVENTA", "EMITIDO"):
+    allowed_statuses = ("PREVENTA", "EMITIDO") if _user.role == "ADMIN" else ("PREVENTA",)
+    if sale.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
+            detail="Solo se pueden eliminar preventas" if _user.role != "ADMIN" else "Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
         )
 
     # Preventas/emitidos never deducted stock — hard delete from DB
@@ -1120,7 +1144,7 @@ def convertir_sale(
     """Convert a NOTA_VENTA to BOLETA or FACTURA. Stock is deducted at this point."""
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller))
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
         .filter(Sale.id == sale_id)
         .first()
     )

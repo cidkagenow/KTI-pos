@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, users, clients, products, catalogs, sales, inventory, purchases, reports, peru_consult, sunat, chat
+from app.api import auth, users, clients, products, catalogs, sales, inventory, purchases, reports, peru_consult, sunat, chat, trabajadores
 from app.scheduler import init_scheduler, shutdown_scheduler
 
 
@@ -36,6 +36,7 @@ app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(peru_consult.router, prefix="/api/v1/lookup", tags=["lookup"])
 app.include_router(sunat.router, prefix="/api/v1/sunat", tags=["sunat"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
+app.include_router(trabajadores.router, prefix="/api/v1/trabajadores", tags=["trabajadores"])
 
 
 @app.get("/api/health")

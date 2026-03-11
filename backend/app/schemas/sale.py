@@ -45,7 +45,8 @@ class SaleCreate(BaseModel):
     series: str
     client_id: int
     warehouse_id: int
-    seller_id: int
+    seller_id: int | None = None
+    trabajador_id: int | None = None
     payment_cond: str = "CONTADO"
     payment_method: str = "EFECTIVO"
     cash_received: float | None = None
@@ -81,7 +82,8 @@ class SaleOut(BaseModel):
     client_doc_number: str | None = None
     client_address: str | None = None
     warehouse_id: int
-    seller_id: int
+    seller_id: int | None = None
+    trabajador_id: int | None = None
     seller_name: str
     payment_cond: str
     payment_method: str | None
@@ -112,7 +114,8 @@ class SaleListOut(BaseModel):
     client_id: int
     client_name: str
     warehouse_id: int
-    seller_id: int
+    seller_id: int | None = None
+    trabajador_id: int | None = None
     seller_name: str
     payment_cond: str
     payment_method: str | None

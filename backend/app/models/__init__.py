@@ -9,6 +9,7 @@ from app.models.sale import DocumentSeries, Sale, SaleItem
 from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem
 from app.models.sunat import SunatDocument
 from app.models.chat import ChatMessage
+from app.models.trabajador import Trabajador, Asistencia
 
 __all__ = [
     "User",
@@ -27,4 +28,6 @@ __all__ = [
     "PurchaseOrderItem",
     "SunatDocument",
     "ChatMessage",
+    "Trabajador",
+    "Asistencia",
 ]

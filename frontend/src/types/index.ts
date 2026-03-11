@@ -103,6 +103,29 @@ export interface SaleItem {
   presentation: string | null;
 }
 
+export interface Trabajador {
+  id: number;
+  full_name: string;
+  dni: string;
+  phone: string | null;
+  cargo: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface Asistencia {
+  id: number;
+  trabajador_id: number;
+  trabajador_name: string;
+  date: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Sale {
   id: number;
   doc_type: string;
@@ -114,7 +137,8 @@ export interface Sale {
   client_doc_number: string | null;
   client_address: string | null;
   warehouse_id: number;
-  seller_id: number;
+  seller_id: number | null;
+  trabajador_id: number | null;
   seller_name: string;
   payment_cond: string;
   payment_method: string | null;

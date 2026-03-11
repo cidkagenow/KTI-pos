@@ -23,6 +23,8 @@ import POList from './pages/purchases/POList';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
 import ChatHistory from './pages/chat/ChatHistory';
+import TrabajadorList from './pages/trabajadores/TrabajadorList';
+import AsistenciaPage from './pages/trabajadores/AsistenciaPage';
 
 const queryClient = new QueryClient();
 
@@ -33,7 +35,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAuth();
-  return isAdmin ? <>{children}</> : <Navigate to="/" />;
+  return isAdmin ? <>{children}</> : <Navigate to="/sales" />;
+}
+
+function DefaultRedirect() {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <Dashboard /> : <Navigate to="/sales" />;
 }
 
 function AppRoutes() {
@@ -42,7 +49,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/sales/:id/print" element={<ProtectedRoute><SalePrint /></ProtectedRoute>} />
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<DefaultRedirect />} />
         <Route path="sales" element={<SaleForm />} />
         <Route path="sales/list" element={<SalesList />} />
         <Route path="sales/new" element={<SaleForm />} />
@@ -56,6 +63,8 @@ function AppRoutes() {
         <Route path="inventory/stock-valorizado" element={<AdminRoute><StockValorizado /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />
         <Route path="sunat" element={<AdminRoute><SunatPanel /></AdminRoute>} />
+        <Route path="trabajadores" element={<AdminRoute><TrabajadorList /></AdminRoute>} />
+        <Route path="trabajadores/asistencia" element={<AdminRoute><AsistenciaPage /></AdminRoute>} />
         <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />
         <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
