@@ -353,19 +353,19 @@ def enviar_resumen_boletas(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    # Only allow manual send from 10 PM onwards (Lima time, UTC-5)
-    from zoneinfo import ZoneInfo
-    lima_now = datetime.now(ZoneInfo("America/Lima"))
-    if lima_now.hour < 22:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"El resumen diario solo se puede enviar a partir de las 10:00 PM. Hora actual: {lima_now.strftime('%I:%M %p')}",
-        )
-
     try:
         fecha = date.fromisoformat(data.fecha)
     except ValueError:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Formato de fecha invalido (YYYY-MM-DD)")
+
+    # Only apply 10 PM restriction when sending same-day resumen
+    from zoneinfo import ZoneInfo
+    lima_now = datetime.now(ZoneInfo("America/Lima"))
+    if fecha == lima_now.date() and lima_now.hour < 22:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"El resumen diario de hoy solo se puede enviar a partir de las 10:00 PM. Hora actual: {lima_now.strftime('%I:%M %p')}",
+        )
 
     boletas_nuevas, boletas_anuladas = _get_pending_boletas(db, fecha)
 
