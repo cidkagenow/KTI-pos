@@ -156,6 +156,7 @@ export default function AppLayout() {
           left: 0,
           top: 0,
           bottom: 0,
+          ...(!isDark ? { background: 'linear-gradient(180deg, #dce8fc 0%, #eaf1fe 50%, #f5f8ff 100%)' } : {}),
         }}
       >
         <div
@@ -169,7 +170,7 @@ export default function AppLayout() {
           onClick={() => navigate('/')}
         >
           <img
-            src="/kti-logo-white.png"
+            src={isDark ? '/kti-logo-white.png' : '/kti-logo.png'}
             alt="KTI"
             style={{
               width: collapsed ? 40 : 90,
@@ -179,7 +180,7 @@ export default function AppLayout() {
           />
         </div>
         <Menu
-          theme="dark"
+          theme={isDark ? 'dark' : 'light'}
           mode="inline"
           selectedKeys={[getSelectedKey()]}
           items={menuItems}
