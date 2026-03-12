@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, literal_column
 
 from app.database import get_db
 from app.models.sale import Sale, SaleItem
@@ -83,7 +83,7 @@ def sales_by_period(
     if group_by == "month":
         period_expr = func.to_char(Sale.created_at, "YYYY-MM")
     elif group_by == "week":
-        period_expr = func.to_char(Sale.created_at, "IYYY-IW")
+        period_expr = func.concat(func.to_char(Sale.created_at, "IYYY"), literal_column("'-W'"), func.to_char(Sale.created_at, "IW"))
     else:  # day
         period_expr = func.to_char(Sale.created_at, "YYYY-MM-DD")
 
