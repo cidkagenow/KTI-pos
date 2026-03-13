@@ -1,0 +1,6 @@
+services:
+  backend:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    volumes:
+      - ./certs:/app/certs:ro
+      - sunat_files:/app/sunat_files
