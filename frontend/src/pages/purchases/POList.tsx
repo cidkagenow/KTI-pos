@@ -25,6 +25,8 @@ import {
   DeleteOutlined,
   CheckOutlined,
   EyeOutlined,
+  SearchOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -35,6 +37,7 @@ import {
   deletePurchaseOrder,
 } from '../../api/purchases';
 import { getWarehouses, getSuppliers, createSupplier } from '../../api/catalogs';
+import { lookupRUC } from '../../api/clients';
 import { getProducts } from '../../api/products';
 import dayjs from 'dayjs';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -105,6 +108,7 @@ export default function POList() {
   const [items, setItems] = useState<POLineItem[]>([]);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierForm] = Form.useForm();
+  const [supplierLookupLoading, setSupplierLookupLoading] = useState(false);
 
   /* ---------- queries ---------- */
   const { data: orders, isLoading } = useQuery({
@@ -166,6 +170,25 @@ export default function POList() {
     },
     onError: () => message.error('Error al crear proveedor'),
   });
+
+  const handleSupplierLookup = async () => {
+    const ruc = supplierForm.getFieldValue('ruc');
+    if (!ruc || ruc.length !== 11) {
+      message.warning('Ingrese un RUC válido de 11 dígitos');
+      return;
+    }
+    setSupplierLookupLoading(true);
+    try {
+      const result = await lookupRUC(ruc);
+      supplierForm.setFieldsValue({ business_name: result.business_name, address: result.address });
+      message.success('Datos obtenidos de SUNAT');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Error al consultar SUNAT';
+      message.error(detail);
+    } finally {
+      setSupplierLookupLoading(false);
+    }
+  };
 
   /* ---------- modal open / close ---------- */
   const openCreate = () => {
@@ -833,26 +856,52 @@ export default function POList() {
         destroyOnClose
       >
         <Form form={supplierForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={12}>
+          <Row gutter={12} align="bottom">
             <Col span={10}>
               <Form.Item name="ruc" label="RUC">
                 <Input maxLength={11} />
               </Form.Item>
             </Col>
-            <Col span={14}>
+            <Col span={8}>
+              <Form.Item label=" ">
+                <Button
+                  icon={supplierLookupLoading ? <LoadingOutlined /> : <SearchOutlined />}
+                  onClick={handleSupplierLookup}
+                  loading={supplierLookupLoading}
+                  size="small"
+                >
+                  Buscar SUNAT
+                </Button>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={24}>
               <Form.Item name="business_name" label="Razon Social" rules={[{ required: true, message: 'Requerido' }]}>
                 <Input />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
-            <Col span={12}>
+            <Col span={24}>
+              <Form.Item name="address" label="Direccion">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={8}>
               <Form.Item name="phone" label="Telefono">
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="city" label="Ciudad">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="email" label="Email">
                 <Input />
               </Form.Item>
             </Col>
