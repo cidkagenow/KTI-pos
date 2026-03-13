@@ -100,7 +100,7 @@ export default function useFuzzyFilter<T>(
     if (!search.trim()) return items;
     const words = search.toLowerCase().trim().split(/\s+/);
 
-    const scored: { item: T; score: number }[] = [];
+    const scored: { item: T; score: number; pos: number }[] = [];
     for (const item of items) {
       const text = getText(item).toLowerCase();
       let totalScore = 0;
@@ -114,11 +114,13 @@ export default function useFuzzyFilter<T>(
         // Bonus: text starts with the full search query → prioritize
         const fullSearch = words.join(' ');
         if (text.startsWith(fullSearch)) totalScore -= 1;
-        scored.push({ item, score: totalScore });
+        // Position of first search word in text (earlier = better tiebreaker)
+        const pos = text.indexOf(words[0]);
+        scored.push({ item, score: totalScore, pos });
       }
     }
 
-    scored.sort((a, b) => a.score - b.score);
+    scored.sort((a, b) => a.score - b.score || a.pos - b.pos);
     return scored.map((s) => s.item);
   }, [items, search, getText]);
 }
