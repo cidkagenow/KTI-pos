@@ -38,7 +38,7 @@ function fuzzyWordMatch(word: string, text: string): boolean {
 
   return textWords.some((tw) => {
     // Check substring of text word
-    if (tw.includes(word) || word.includes(tw)) return true;
+    if (tw.includes(word) || (tw.length >= 3 && word.includes(tw))) return true;
     // Levenshtein on full words
     if (levenshtein(word, tw) <= maxDist) return true;
     // Check if word is a fuzzy prefix of text word
@@ -64,7 +64,7 @@ function fuzzyWordScore(word: string, text: string): number {
   let best = -1;
 
   for (const tw of textWords) {
-    if (tw.includes(word) || word.includes(tw)) return 0;
+    if (tw.includes(word) || (tw.length >= 3 && word.includes(tw))) return 0;
     const dist = levenshtein(word, tw);
     if (dist <= maxDist && (best === -1 || dist < best)) best = dist;
     if (tw.length >= word.length) {
