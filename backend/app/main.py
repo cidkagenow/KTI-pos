@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, users, clients, products, catalogs, sales, inventory, purchases, reports, peru_consult, sunat, chat, trabajadores
+from app.config import settings
 from app.scheduler import init_scheduler, shutdown_scheduler
 
 
@@ -18,7 +19,7 @@ app = FastAPI(title="KTI POS", version="0.1.0", redirect_slashes=False, lifespan
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
