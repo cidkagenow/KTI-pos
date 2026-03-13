@@ -705,6 +705,7 @@ export default function POList() {
                 value={item.product_id}
                 onChange={(val) => updateItem(idx, 'product_id', val)}
                 options={productOptions}
+                popupMatchSelectWidth={500}
                 style={{ width: '100%' }}
                 size="small"
                 disabled={viewOnly}
