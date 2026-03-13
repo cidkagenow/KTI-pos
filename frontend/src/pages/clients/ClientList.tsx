@@ -65,7 +65,7 @@ export default function ClientList() {
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['clients', search],
-    queryFn: () => getClients(search ? { q: search } : undefined),
+    queryFn: () => getClients(search ? { search } : undefined),
   });
 
   const createMutation = useMutation({
