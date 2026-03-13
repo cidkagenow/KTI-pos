@@ -289,6 +289,10 @@ export default function ProductList() {
             <Select
               placeholder="Marca"
               allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+              }
               style={{ width: 150 }}
               value={filterBrand}
               onChange={(val) => setFilterBrand(val)}
@@ -297,6 +301,10 @@ export default function ProductList() {
             <Select
               placeholder="Categoria"
               allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+              }
               style={{ width: 150 }}
               value={filterCategory}
               onChange={(val) => setFilterCategory(val)}
