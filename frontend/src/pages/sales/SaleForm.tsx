@@ -199,26 +199,28 @@ export default function SaleForm() {
     try {
       const results = await searchProducts(searchText);
       setProductOptions(
-        results.map((p) => {
-          const outOfStock = p.stock <= 0;
-          let stockLabel: string;
-          if (outOfStock && p.on_order_qty) {
-            const etaStr = p.on_order_eta
-              ? `, llega ${new Date(p.on_order_eta).toLocaleDateString('es-PE')}`
-              : '';
-            stockLabel = `SIN STOCK - En Pedido (${p.on_order_qty})${etaStr}`;
-          } else if (outOfStock) {
-            stockLabel = 'SIN STOCK - Agotado';
-          } else {
-            stockLabel = `Stock: ${p.stock}`;
-          }
-          return {
-            value: `${p.id}`,
-            label: `${p.code} - ${p.name} [${stockLabel}]`,
-            product: p,
-            disabled: outOfStock,
-          };
-        })
+        results
+          .sort((a, b) => (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0))
+          .map((p) => {
+            const outOfStock = p.stock <= 0;
+            let stockLabel: string;
+            if (outOfStock && p.on_order_qty) {
+              const etaStr = p.on_order_eta
+                ? `, llega ${new Date(p.on_order_eta).toLocaleDateString('es-PE')}`
+                : '';
+              stockLabel = `SIN STOCK - En Pedido (${p.on_order_qty})${etaStr}`;
+            } else if (outOfStock) {
+              stockLabel = 'SIN STOCK - Agotado';
+            } else {
+              stockLabel = `Stock: ${p.stock}`;
+            }
+            return {
+              value: `${p.id}`,
+              label: `${p.code} - ${p.name} [${stockLabel}]`,
+              product: p,
+              disabled: outOfStock,
+            };
+          })
       );
     } catch {
       setProductOptions([]);
