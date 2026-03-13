@@ -22,7 +22,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInventory, adjustStock } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
-import { tokenizedFilter } from '../../utils/search';
+import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import { formatCurrency } from '../../utils/format';
 import type { InventoryItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
@@ -196,6 +196,8 @@ export default function StockLevels() {
               showSearch
               placeholder="Seleccionar producto"
               filterOption={tokenizedFilter}
+              filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
+              popupMatchSelectWidth={500}
               options={products?.filter((p) => p.is_active).map((p) => ({
                 value: p.id,
                 label: `${p.code} - ${p.name}`,

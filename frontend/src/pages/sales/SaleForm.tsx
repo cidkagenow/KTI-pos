@@ -30,6 +30,7 @@ import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/cli
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getActiveTrabajadores } from '../../api/trabajadores';
 import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
+import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import type { ProductSearch, Client } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
@@ -198,9 +199,24 @@ export default function SaleForm() {
     }
     try {
       const results = await searchProducts(searchText);
+      const searchLower = searchText.toLowerCase();
       setProductOptions(
         results
-          .sort((a, b) => (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0))
+          .sort((a, b) => {
+            // Primary: in-stock first
+            const stockDiff = (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0);
+            if (stockDiff !== 0) return stockDiff;
+            // Secondary: name starts with search term first
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aStarts = aName.startsWith(searchLower) ? 0 : 1;
+            const bStarts = bName.startsWith(searchLower) ? 0 : 1;
+            if (aStarts !== bStarts) return aStarts - bStarts;
+            // Tertiary: position of search term in name
+            const aPos = aName.indexOf(searchLower);
+            const bPos = bName.indexOf(searchLower);
+            return aPos - bPos;
+          })
           .map((p) => {
             const outOfStock = p.stock <= 0;
             let stockLabel: string;
@@ -235,11 +251,23 @@ export default function SaleForm() {
     }
     try {
       const results = await searchClients(searchText);
+      const searchLower = searchText.toLowerCase();
       setClientOptions(
-        results.map((c: Client) => ({
-          value: c.id,
-          label: `${c.doc_number ? c.doc_number + ' - ' : ''}${c.business_name}`,
-        }))
+        results
+          .sort((a, b) => {
+            const aName = a.business_name.toLowerCase();
+            const bName = b.business_name.toLowerCase();
+            const aStarts = aName.startsWith(searchLower) ? 0 : 1;
+            const bStarts = bName.startsWith(searchLower) ? 0 : 1;
+            if (aStarts !== bStarts) return aStarts - bStarts;
+            const aPos = aName.indexOf(searchLower);
+            const bPos = bName.indexOf(searchLower);
+            return aPos - bPos;
+          })
+          .map((c: Client) => ({
+            value: c.id,
+            label: `${c.doc_number ? c.doc_number + ' - ' : ''}${c.business_name}`,
+          }))
       );
     } catch {
       setClientOptions([]);
@@ -694,6 +722,7 @@ export default function SaleForm() {
                     onSearch={handleClientSearch}
                     options={clientOptions}
                     placeholder="Buscar cliente..."
+                    popupMatchSelectWidth={400}
                     notFoundContent={clientSearch.length >= 2 ? 'Sin resultados' : 'Escriba para buscar'}
                     style={{ width: '100%' }}
                   />
@@ -709,6 +738,9 @@ export default function SaleForm() {
               rules={[{ required: true, message: 'Requerido' }]}
             >
               <Select
+                showSearch
+                filterOption={tokenizedFilter}
+                filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                 placeholder="Seleccionar"
                 options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
               />
@@ -721,6 +753,9 @@ export default function SaleForm() {
               rules={[{ required: true, message: 'Requerido' }]}
             >
               <Select
+                showSearch
+                filterOption={tokenizedFilter}
+                filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                 placeholder="Seleccionar"
                 options={trabajadores?.map((t) => ({ value: t.id, label: t.full_name }))}
               />

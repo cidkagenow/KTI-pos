@@ -31,6 +31,7 @@ import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNo
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getActiveTrabajadores } from '../../api/trabajadores';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
@@ -435,6 +436,9 @@ export default function SalesList() {
         <Col>
           <Select
             allowClear
+            showSearch
+            filterOption={tokenizedFilter}
+            filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
             placeholder="Almacen"
             style={{ width: 150 }}
             onChange={(val) => setWarehouseId(val)}
@@ -444,6 +448,9 @@ export default function SalesList() {
         <Col>
           <Select
             allowClear
+            showSearch
+            filterOption={tokenizedFilter}
+            filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
             placeholder="Vendedor"
             style={{ width: 150 }}
             onChange={(val) => setSellerId(val)}

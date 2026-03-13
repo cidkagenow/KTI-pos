@@ -22,6 +22,7 @@ import { getProducts, createProduct, updateProduct, deleteProduct } from '../../
 import { getBrands, getCategories } from '../../api/catalogs';
 import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
+import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
 import useFuzzyFilter from '../../hooks/useFuzzyFilter';
@@ -291,9 +292,8 @@ export default function ProductList() {
               placeholder="Marca"
               allowClear
               showSearch
-              filterOption={(input, option) =>
-                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={tokenizedFilter}
+              filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
               style={{ width: 150 }}
               value={filterBrand}
               onChange={(val) => setFilterBrand(val)}
@@ -303,9 +303,8 @@ export default function ProductList() {
               placeholder="Categoria"
               allowClear
               showSearch
-              filterOption={(input, option) =>
-                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={tokenizedFilter}
+              filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
               style={{ width: 150 }}
               value={filterCategory}
               onChange={(val) => setFilterCategory(val)}
@@ -359,6 +358,9 @@ export default function ProductList() {
               <Form.Item name="brand_id" label="Marca">
                 <Select
                   allowClear
+                  showSearch
+                  filterOption={tokenizedFilter}
+                  filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                   placeholder="Seleccionar"
                   options={brands?.filter((b) => b.is_active).map((b) => ({ value: b.id, label: b.name }))}
                 />
@@ -368,6 +370,9 @@ export default function ProductList() {
               <Form.Item name="category_id" label="Categoria">
                 <Select
                   allowClear
+                  showSearch
+                  filterOption={tokenizedFilter}
+                  filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                   placeholder="Seleccionar"
                   options={categories?.filter((c) => c.is_active).map((c) => ({ value: c.id, label: c.name }))}
                 />

@@ -42,7 +42,7 @@ import { getProducts } from '../../api/products';
 import dayjs from 'dayjs';
 import { formatCurrency, formatDate } from '../../utils/format';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
-import { tokenizedFilter } from '../../utils/search';
+import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import type { PurchaseOrder, PurchaseOrderItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -574,7 +574,9 @@ export default function POList() {
                 <Select
                   showSearch
                   filterOption={tokenizedFilter}
+                  filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                   placeholder="Seleccionar proveedor"
+                  popupMatchSelectWidth={400}
                   options={suppliers?.map((s) => ({
                     value: s.id,
                     label: s.ruc ? `${s.ruc} - ${s.business_name}` : s.business_name,
@@ -701,6 +703,7 @@ export default function POList() {
               <Select
                 showSearch
                 filterOption={tokenizedFilter}
+                filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
                 placeholder="Producto"
                 value={item.product_id}
                 onChange={(val) => updateItem(idx, 'product_id', val)}
