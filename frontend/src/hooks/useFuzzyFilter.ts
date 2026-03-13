@@ -33,7 +33,7 @@ function fuzzyWordMatch(word: string, text: string): boolean {
   if (text.includes(word)) return true;
 
   // Fuzzy match against individual words in text
-  const textWords = text.split(/\s+/);
+  const textWords = text.split(/\s+/).filter(Boolean);
   const maxDist = word.length <= 3 ? 0 : word.length <= 6 ? 1 : 2;
 
   return textWords.some((tw) => {
@@ -51,9 +51,35 @@ function fuzzyWordMatch(word: string, text: string): boolean {
 }
 
 /**
+ * Score how well `word` matches within `text`. Lower = better.
+ * 0 = exact substring, 1+ = fuzzy (Levenshtein distance).
+ * Returns -1 if no match.
+ */
+function fuzzyWordScore(word: string, text: string): number {
+  // Exact substring → best score
+  if (text.includes(word)) return 0;
+
+  const textWords = text.split(/\s+/).filter(Boolean);
+  const maxDist = word.length <= 3 ? 0 : word.length <= 6 ? 1 : 2;
+  let best = -1;
+
+  for (const tw of textWords) {
+    if (tw.includes(word) || word.includes(tw)) return 0;
+    const dist = levenshtein(word, tw);
+    if (dist <= maxDist && (best === -1 || dist < best)) best = dist;
+    if (tw.length >= word.length) {
+      const prefixDist = levenshtein(word, tw.substring(0, word.length));
+      if (prefixDist <= maxDist && (best === -1 || prefixDist < best)) best = prefixDist;
+    }
+  }
+  return best;
+}
+
+/**
  * Client-side fuzzy filter hook.
  * Splits search into words and checks each word fuzzy-matches the text extracted from items.
  * Tolerates 1-2 character typos depending on word length.
+ * Results are sorted by relevance (best matches first).
  */
 export default function useFuzzyFilter<T>(
   items: T[],
@@ -63,9 +89,26 @@ export default function useFuzzyFilter<T>(
   return useMemo(() => {
     if (!search.trim()) return items;
     const words = search.toLowerCase().trim().split(/\s+/);
-    return items.filter((item) => {
+
+    const scored: { item: T; score: number }[] = [];
+    for (const item of items) {
       const text = getText(item).toLowerCase();
-      return words.every((word) => fuzzyWordMatch(word, text));
-    });
+      let totalScore = 0;
+      let matched = true;
+      for (const word of words) {
+        const s = fuzzyWordScore(word, text);
+        if (s === -1) { matched = false; break; }
+        totalScore += s;
+      }
+      if (matched) {
+        // Bonus: text starts with the full search query → prioritize
+        const fullSearch = words.join(' ');
+        if (text.startsWith(fullSearch)) totalScore -= 1;
+        scored.push({ item, score: totalScore });
+      }
+    }
+
+    scored.sort((a, b) => a.score - b.score);
+    return scored.map((s) => s.item);
   }, [items, search, getText]);
 }
