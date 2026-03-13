@@ -69,6 +69,13 @@ export default function SalePrint() {
     }
   }, [id]);
 
+  // Auto-close tab after printing
+  useEffect(() => {
+    const handleAfterPrint = () => window.close();
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
+
   if (!sale) return <div style={{ padding: 40, textAlign: 'center' }}>Cargando...</div>;
 
   const docLabel = sale.doc_type === 'NOTA_CREDITO'
