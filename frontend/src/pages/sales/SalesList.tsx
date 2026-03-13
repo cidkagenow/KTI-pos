@@ -173,10 +173,19 @@ export default function SalesList() {
   const columns: ColumnsType<Sale> = [
     {
       title: 'Fecha',
-      dataIndex: 'issue_date',
       key: 'issue_date',
-      render: (date: string) => formatDate(date),
-      width: 100,
+      width: 120,
+      render: (_: unknown, record: Sale) => {
+        const time = record.created_at
+          ? new Date(record.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        return (
+          <>
+            <div>{formatDate(record.issue_date)}</div>
+            {time && <div style={{ fontSize: 11, opacity: 0.6 }}>{time}</div>}
+          </>
+        );
+      },
     },
     {
       title: 'Documento',
