@@ -150,10 +150,11 @@ def list_sales(
             joinedload(Sale.trabajador),
         )
     )
+    _lima = sa_func.timezone("America/Lima", Sale.created_at)
     if date_from:
-        query = query.filter(Sale.created_at >= date_from)
+        query = query.filter(sa_func.date(_lima) >= date_from)
     if date_to:
-        query = query.filter(Sale.created_at <= date_to + " 23:59:59")
+        query = query.filter(sa_func.date(_lima) <= date_to)
     if doc_type:
         query = query.filter(Sale.doc_type == doc_type)
     if series:

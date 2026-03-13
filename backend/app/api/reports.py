@@ -14,6 +14,9 @@ from app.api.deps import get_current_user
 
 router = APIRouter()
 
+# Convert UTC timestamps to Lima time for correct date grouping
+_lima = func.timezone("America/Lima", Sale.created_at)
+
 # Statuses that count as actual sales for reporting
 SALE_STATUSES = ("FACTURADO",)
 
@@ -38,7 +41,7 @@ def dashboard(
             .filter(
                 Sale.status.in_(SALE_STATUSES),
                 Sale.doc_type != "NOTA_VENTA",
-                func.date(Sale.created_at) >= from_date,
+                func.date(_lima) >= from_date,
             )
             .first()
         )
@@ -76,16 +79,16 @@ def sales_by_period(
 ):
     base_query = db.query(Sale).filter(
         Sale.status.in_(SALE_STATUSES),
-        func.date(Sale.created_at) >= from_date,
-        func.date(Sale.created_at) <= to_date,
+        func.date(_lima) >= from_date,
+        func.date(_lima) <= to_date,
     )
 
     if group_by == "month":
-        period_expr = func.to_char(Sale.created_at, "YYYY-MM")
+        period_expr = func.to_char(_lima, "YYYY-MM")
     elif group_by == "week":
-        period_expr = func.concat(func.to_char(Sale.created_at, "IYYY"), literal_column("'-W'"), func.to_char(Sale.created_at, "IW"))
+        period_expr = func.concat(func.to_char(_lima, "IYYY"), literal_column("'-W'"), func.to_char(_lima, "IW"))
     else:  # day
-        period_expr = func.to_char(Sale.created_at, "YYYY-MM-DD")
+        period_expr = func.to_char(_lima, "YYYY-MM-DD")
 
     results = (
         db.query(
@@ -98,8 +101,8 @@ def sales_by_period(
         .filter(
             Sale.status.in_(SALE_STATUSES),
             Sale.doc_type != "NOTA_VENTA",
-            func.date(Sale.created_at) >= from_date,
-            func.date(Sale.created_at) <= to_date,
+            func.date(_lima) >= from_date,
+            func.date(_lima) <= to_date,
         )
         .group_by(period_expr)
         .order_by(period_expr)
@@ -132,8 +135,8 @@ def top_products(
         .filter(
             Sale.status.in_(SALE_STATUSES),
             Sale.doc_type != "NOTA_VENTA",
-            func.date(Sale.created_at) >= from_date,
-            func.date(Sale.created_at) <= to_date,
+            func.date(_lima) >= from_date,
+            func.date(_lima) <= to_date,
         )
         .group_by(SaleItem.product_name)
         .order_by(func.sum(nc_rev).desc())
@@ -173,8 +176,8 @@ def profit_report(
         .filter(
             Sale.status.in_(SALE_STATUSES),
             Sale.doc_type != "NOTA_VENTA",
-            func.date(Sale.created_at) >= from_date,
-            func.date(Sale.created_at) <= to_date,
+            func.date(_lima) >= from_date,
+            func.date(_lima) <= to_date,
         )
         .group_by(SaleItem.product_code, SaleItem.product_name, SaleItem.brand_name)
         .order_by(func.sum(nc_rev).desc())
