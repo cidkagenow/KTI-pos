@@ -67,6 +67,7 @@ export default function ClientList() {
   const { data: allClients, isLoading } = useQuery({
     queryKey: ['clients'],
     queryFn: () => getClients(),
+    refetchInterval: 30_000,
   });
 
   const clients = useFuzzyFilter(allClients ?? [], search, (c) =>

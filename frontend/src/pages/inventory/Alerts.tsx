@@ -10,6 +10,7 @@ export default function Alerts() {
   const { data: alerts, isLoading } = useQuery({
     queryKey: ['inventory-alerts'],
     queryFn: getAlerts,
+    refetchInterval: 30_000,
   });
 
   const columns: ColumnsType<InventoryItem> = [

@@ -81,6 +81,7 @@ export default function SalesList() {
   const { data, isLoading } = useQuery({
     queryKey: ['sales', filters],
     queryFn: () => getSales(filters),
+    refetchInterval: 5_000,
   });
 
   const { data: warehouses } = useQuery({

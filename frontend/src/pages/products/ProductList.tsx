@@ -65,6 +65,7 @@ export default function ProductList() {
 
   const { data: allProducts, isLoading } = useQuery({
     queryKey: ['products', filterBrand, filterCategory],
+    refetchInterval: 30_000,
     queryFn: () => {
       const params: { brand_id?: number; category_id?: number } = {};
       if (filterBrand) params.brand_id = filterBrand;

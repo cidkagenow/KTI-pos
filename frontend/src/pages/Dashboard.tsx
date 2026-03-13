@@ -36,6 +36,7 @@ export default function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: getDashboard,
+    refetchInterval: 30_000,
   });
 
   const todayStr = dayjs().format('YYYY-MM-DD');

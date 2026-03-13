@@ -32,6 +32,7 @@ export default function Movements() {
   const { data: movements, isLoading } = useQuery({
     queryKey: ['movements', params],
     queryFn: () => getMovements(params),
+    refetchInterval: 30_000,
   });
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });

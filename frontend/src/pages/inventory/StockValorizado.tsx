@@ -27,6 +27,7 @@ export default function StockValorizado() {
   const { data: inventory, isLoading } = useQuery({
     queryKey: ['inventory', warehouseId],
     queryFn: () => getInventory(warehouseId ? { warehouse_id: warehouseId } : undefined),
+    refetchInterval: 30_000,
   });
 
   const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
