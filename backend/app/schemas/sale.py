@@ -97,6 +97,7 @@ class SaleOut(BaseModel):
     notes: str | None
     issue_date: date
     created_at: datetime
+    updated_at: datetime | None = None
     items: list[SaleItemOut]
     ref_sale_id: int | None = None
     nc_motivo_code: str | None = None
@@ -127,6 +128,7 @@ class SaleListOut(BaseModel):
     notes: str | None
     issue_date: date
     created_at: datetime
+    updated_at: datetime | None = None
     sunat_status: str | None = None
     ref_sale_id: int | None = None
     nc_motivo_code: str | None = None

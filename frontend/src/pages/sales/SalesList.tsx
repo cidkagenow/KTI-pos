@@ -176,8 +176,9 @@ export default function SalesList() {
       key: 'issue_date',
       width: 120,
       render: (_: unknown, record: Sale) => {
-        const time = record.created_at
-          ? new Date(record.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+        const ts = record.updated_at || record.created_at;
+        const time = ts
+          ? new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
           : '';
         return (
           <>
