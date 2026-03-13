@@ -390,6 +390,12 @@ export default function SalePrint() {
             <div className="center" style={{ fontSize: 9, marginTop: 4 }}>
               Repres. impresa de comprobante electronico.
             </div>
+            <div className="center" style={{ fontSize: 9 }}>
+              Ver en: https://nubefact.sunat.gob.pe
+            </div>
+            <div className="center" style={{ fontSize: 9 }}>
+              No. Aut.: R.S. N° 155-2017/SUNAT
+            </div>
             {hasHash && (
               <>
                 <div style={{ fontSize: 9, marginTop: 2, wordBreak: 'break-all' }}>
