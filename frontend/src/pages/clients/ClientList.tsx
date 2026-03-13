@@ -63,9 +63,15 @@ export default function ClientList() {
     }
   };
 
-  const { data: clients, isLoading } = useQuery({
-    queryKey: ['clients', search],
-    queryFn: () => getClients(search ? { search } : undefined),
+  const { data: allClients, isLoading } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => getClients(),
+  });
+
+  const clients = (allClients ?? []).filter((c) => {
+    if (!search) return true;
+    const hay = `${c.business_name} ${c.doc_number || ''} ${c.zona || ''}`.toLowerCase();
+    return search.toLowerCase().split(/\s+/).every((word) => hay.includes(word));
   });
 
   const createMutation = useMutation({
