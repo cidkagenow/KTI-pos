@@ -526,6 +526,7 @@ export default function SaleForm() {
           onSearch={handleProductSearch}
           onSelect={(val: string) => handleProductSelect(val, idx)}
           placeholder="Buscar por codigo o nombre"
+          popupMatchSelectWidth={500}
           style={{ width: '100%' }}
         />
       ),
