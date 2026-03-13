@@ -24,6 +24,7 @@ import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
+import useFuzzyFilter from '../../hooks/useFuzzyFilter';
 import type { Product } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -62,16 +63,19 @@ export default function ProductList() {
     },
   });
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ['products', search, filterBrand, filterCategory],
+  const { data: allProducts, isLoading } = useQuery({
+    queryKey: ['products', filterBrand, filterCategory],
     queryFn: () => {
-      const params: { search?: string; brand_id?: number; category_id?: number } = {};
-      if (search) params.search = search;
+      const params: { brand_id?: number; category_id?: number } = {};
       if (filterBrand) params.brand_id = filterBrand;
       if (filterCategory) params.category_id = filterCategory;
       return getProducts(Object.keys(params).length > 0 ? params : undefined);
     },
   });
+
+  const products = useFuzzyFilter(allProducts ?? [], search, (p) =>
+    `${p.code} ${p.name} ${p.brand_name || ''} ${p.category_name || ''}`
+  );
 
   const { data: brands } = useQuery({ queryKey: ['brands'], queryFn: getBrands });
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: getCategories });

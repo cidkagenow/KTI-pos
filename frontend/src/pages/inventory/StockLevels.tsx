@@ -27,6 +27,7 @@ import { formatCurrency } from '../../utils/format';
 import type { InventoryItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
+import useFuzzyFilter from '../../hooks/useFuzzyFilter';
 
 const { Title } = Typography;
 
@@ -70,23 +71,17 @@ export default function StockLevels() {
     }
   };
 
+  const fuzzyFiltered = useFuzzyFilter(inventory ?? [], search, (item) =>
+    `${item.product_code} ${item.product_name}`
+  );
+
   const filteredData = useMemo(() => {
-    let data = inventory ?? [];
-    if (search) {
-      const terms = search.toLowerCase().split(/\s+/);
-      data = data.filter((item) => {
-        const text = `${item.product_code} ${item.product_name}`.toLowerCase();
-        return terms.every((t) => text.includes(t));
-      });
-    }
-    if (lowStockOnly) {
-      data = data.filter((item) => {
-        const product = products?.find((p) => p.id === item.product_id);
-        return product ? item.quantity < product.min_stock : false;
-      });
-    }
-    return data;
-  }, [inventory, search, lowStockOnly, products]);
+    if (!lowStockOnly) return fuzzyFiltered;
+    return fuzzyFiltered.filter((item) => {
+      const product = products?.find((p) => p.id === item.product_id);
+      return product ? item.quantity < product.min_stock : false;
+    });
+  }, [fuzzyFiltered, lowStockOnly, products]);
 
   const stockValorizado = useMemo(() => {
     return (filteredData ?? []).reduce((sum, item) => {
