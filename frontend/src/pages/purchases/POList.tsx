@@ -34,7 +34,7 @@ import {
   receivePurchaseOrder,
   deletePurchaseOrder,
 } from '../../api/purchases';
-import { getWarehouses, getSuppliers } from '../../api/catalogs';
+import { getWarehouses, getSuppliers, createSupplier } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import dayjs from 'dayjs';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -103,6 +103,8 @@ export default function POList() {
   const autoAddItemRef = useRef<() => void>(() => {});
   const enterNavRef = useEnterNavigation(() => handleSubmit(), () => autoAddItemRef.current());
   const [items, setItems] = useState<POLineItem[]>([]);
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierForm] = Form.useForm();
 
   /* ---------- queries ---------- */
   const { data: orders, isLoading } = useQuery({
@@ -151,6 +153,18 @@ export default function POList() {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
     },
     onError: () => message.error('Error al eliminar orden'),
+  });
+
+  const createSupplierMut = useMutation({
+    mutationFn: createSupplier,
+    onSuccess: (newSupplier) => {
+      message.success('Proveedor creado');
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      form.setFieldValue('supplier_id', newSupplier.id);
+      setSupplierModalOpen(false);
+      supplierForm.resetFields();
+    },
+    onError: () => message.error('Error al crear proveedor'),
   });
 
   /* ---------- modal open / close ---------- */
@@ -542,6 +556,21 @@ export default function POList() {
                     value: s.id,
                     label: s.ruc ? `${s.ruc} - ${s.business_name}` : s.business_name,
                   }))}
+                  dropdownRender={(menu) => (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: '4px 0' }} />
+                      <Button
+                        type="text"
+                        icon={<PlusOutlined />}
+                        onClick={() => setSupplierModalOpen(true)}
+                        style={{ width: '100%' }}
+                        size="small"
+                      >
+                        Nuevo Proveedor
+                      </Button>
+                    </>
+                  )}
                 />
               </Form.Item>
             </Col>
@@ -789,6 +818,46 @@ export default function POList() {
             </Row>
           </Col>
         </Row>
+      </Modal>
+
+      {/* ====================== SUPPLIER QUICK-CREATE MODAL ====================== */}
+      <Modal
+        title="Nuevo Proveedor"
+        open={supplierModalOpen}
+        onOk={() => supplierForm.validateFields().then((v) => createSupplierMut.mutate(v))}
+        onCancel={() => { setSupplierModalOpen(false); supplierForm.resetFields(); }}
+        okText="Guardar"
+        cancelText="Cancelar"
+        confirmLoading={createSupplierMut.isPending}
+        width={480}
+        destroyOnClose
+      >
+        <Form form={supplierForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Row gutter={12}>
+            <Col span={10}>
+              <Form.Item name="ruc" label="RUC">
+                <Input maxLength={11} />
+              </Form.Item>
+            </Col>
+            <Col span={14}>
+              <Form.Item name="business_name" label="Razon Social" rules={[{ required: true, message: 'Requerido' }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="phone" label="Telefono">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="city" label="Ciudad">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
       </Modal>
     </div>
   );
