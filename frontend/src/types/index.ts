@@ -152,6 +152,7 @@ export interface Sale {
   notes: string | null;
   issue_date: string;
   created_at: string;
+  updated_at: string | null;
   items: SaleItem[];
   sunat_status?: string | null;
   sunat_description?: string | null;
