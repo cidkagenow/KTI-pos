@@ -8,8 +8,7 @@ import type { Sale } from '../../types';
 const EMPRESA_RUC = '20525996957';
 const EMPRESA_RAZON_SOCIAL = 'INVERSIONES KTI D & E E.I.R.L.';
 const EMPRESA_DIRECCIONES = [
-  'JR. JOSEFINA RAMOS DE COX 453 - CATACAOS',
-  'AV. GRAU 1346 - PIURA',
+  'JR. JOSEFINA RAMOS DE COX 453 - CATACAOS - PIURA',
 ];
 
 /** Convert a number to Spanish words for Peruvian receipts */
