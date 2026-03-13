@@ -160,7 +160,7 @@ export default function ProductList() {
 
   const columns: ColumnsType<Product> = [
     { title: 'Codigo', dataIndex: 'code', key: 'code', width: 80 },
-    { title: 'Nombre', dataIndex: 'name', key: 'name', width: 250, ellipsis: true },
+    { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Marca', dataIndex: 'brand_name', key: 'brand_name', width: 120, render: (v) => v || '-' },
     { title: 'Categoria', dataIndex: 'category_name', key: 'category_name', width: 120, render: (v) => v || '-' },
     { title: 'Presentacion', dataIndex: 'presentation', key: 'presentation', width: 120, render: (v) => v || '-' },
