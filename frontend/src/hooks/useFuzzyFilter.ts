@@ -56,20 +56,30 @@ function fuzzyWordMatch(word: string, text: string): boolean {
  * Returns -1 if no match.
  */
 function fuzzyWordScore(word: string, text: string): number {
-  // Exact substring → best score
-  if (text.includes(word)) return 0;
-
   const textWords = text.split(/\s+/).filter(Boolean);
   const maxDist = word.length <= 3 ? 0 : word.length <= 6 ? 1 : 2;
-  let best = -1;
 
+  // Check for exact substring — score by position (earlier = better)
+  if (text.includes(word)) {
+    // Word starts a text word → best (score 0)
+    for (const tw of textWords) {
+      if (tw.startsWith(word)) return 0;
+    }
+    // Substring but not at word boundary → score 1
+    return 1;
+  }
+
+  let best = -1;
   for (const tw of textWords) {
-    if (tw.includes(word) || (tw.length >= 3 && word.includes(tw))) return 0;
+    if (tw.includes(word) || (tw.length >= 3 && word.includes(tw))) return 1;
     const dist = levenshtein(word, tw);
-    if (dist <= maxDist && (best === -1 || dist < best)) best = dist;
+    if (dist <= maxDist && (best === -1 || dist < best)) best = dist === 0 ? 2 : dist + 2;
     if (tw.length >= word.length) {
       const prefixDist = levenshtein(word, tw.substring(0, word.length));
-      if (prefixDist <= maxDist && (best === -1 || prefixDist < best)) best = prefixDist;
+      if (prefixDist <= maxDist) {
+        const s = prefixDist === 0 ? 2 : prefixDist + 2;
+        if (best === -1 || s < best) best = s;
+      }
     }
   }
   return best;
