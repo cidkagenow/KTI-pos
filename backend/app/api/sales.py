@@ -174,7 +174,7 @@ def list_sales(
 
     total = query.count()
     offset = (page - 1) * limit
-    sales = query.order_by(Sale.created_at.desc()).offset(offset).limit(limit).all()
+    sales = query.order_by(Sale.id.desc()).offset(offset).limit(limit).all()
 
     # Batch-fetch SUNAT statuses for these sales
     sale_ids = [s.id for s in sales]

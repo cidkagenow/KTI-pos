@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider, theme } from 'antd';
@@ -130,7 +131,29 @@ function ThemedApp() {
   );
 }
 
+/** Poll /version.json every 60s — auto-reload when a new build is deployed */
+function useAutoReload() {
+  const knownVersion = useRef<string | null>(null);
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('/version.json?t=' + Date.now());
+        const { v } = await res.json();
+        if (knownVersion.current === null) {
+          knownVersion.current = v;
+        } else if (v !== knownVersion.current) {
+          window.location.reload();
+        }
+      } catch { /* ignore fetch errors */ }
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, []);
+}
+
 export default function App() {
+  useAutoReload();
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
