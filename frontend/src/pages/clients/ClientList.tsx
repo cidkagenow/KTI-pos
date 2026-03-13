@@ -21,6 +21,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClients, createClient, updateClient, deleteClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
+import useFuzzyFilter from '../../hooks/useFuzzyFilter';
 import type { Client } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -68,11 +69,9 @@ export default function ClientList() {
     queryFn: () => getClients(),
   });
 
-  const clients = (allClients ?? []).filter((c) => {
-    if (!search) return true;
-    const hay = `${c.business_name} ${c.doc_number || ''} ${c.zona || ''}`.toLowerCase();
-    return search.toLowerCase().split(/\s+/).every((word) => hay.includes(word));
-  });
+  const clients = useFuzzyFilter(allClients ?? [], search, (c) =>
+    `${c.business_name} ${c.doc_number || ''} ${c.zona || ''}`
+  );
 
   const createMutation = useMutation({
     mutationFn: createClient,
