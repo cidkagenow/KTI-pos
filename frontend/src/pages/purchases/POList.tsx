@@ -25,6 +25,7 @@ import {
   DeleteOutlined,
   CheckOutlined,
   EyeOutlined,
+  StopOutlined,
   SearchOutlined,
   LoadingOutlined,
 } from '@ant-design/icons';
@@ -34,6 +35,7 @@ import {
   createPurchaseOrder,
   updatePurchaseOrder,
   receivePurchaseOrder,
+  cancelPurchaseOrder,
   deletePurchaseOrder,
 } from '../../api/purchases';
 import { getWarehouses, getSuppliers, createSupplier } from '../../api/catalogs';
@@ -150,10 +152,19 @@ export default function POList() {
     onError: () => message.error('Error al recibir orden'),
   });
 
+  const cancelMut = useMutation({
+    mutationFn: cancelPurchaseOrder,
+    onSuccess: () => {
+      message.success('Orden anulada');
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+    onError: () => message.error('Error al anular orden'),
+  });
+
   const deleteMut = useMutation({
     mutationFn: deletePurchaseOrder,
     onSuccess: () => {
-      message.success('Orden eliminada');
+      message.success('Orden eliminada permanentemente');
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
     },
     onError: () => message.error('Error al eliminar orden'),
@@ -483,14 +494,24 @@ export default function POList() {
                 />
               </Popconfirm>
               <Popconfirm
-                title="Eliminar orden?"
-                onConfirm={() => deleteMut.mutate(record.id)}
+                title="Anular orden?"
+                onConfirm={() => cancelMut.mutate(record.id)}
                 okText="Si"
                 cancelText="No"
               >
-                <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                <Button type="link" size="small" icon={<StopOutlined />} style={{ color: '#faad14' }} />
               </Popconfirm>
             </>
+          )}
+          {(record.status === 'DRAFT' || record.status === 'CANCELLED') && (
+            <Popconfirm
+              title="Eliminar permanentemente? No se puede deshacer."
+              onConfirm={() => deleteMut.mutate(record.id)}
+              okText="Si"
+              cancelText="No"
+            >
+              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
           )}
         </Space>
       ),

@@ -21,6 +21,10 @@ export async function receivePurchaseOrder(id: number): Promise<PurchaseOrder> {
   return (await api.post(`/purchase-orders/${id}/receive`)).data;
 }
 
+export async function cancelPurchaseOrder(id: number): Promise<PurchaseOrder> {
+  return (await api.post(`/purchase-orders/${id}/cancel`)).data;
+}
+
 export async function deletePurchaseOrder(id: number): Promise<void> {
   await api.delete(`/purchase-orders/${id}`);
 }

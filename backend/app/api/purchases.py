@@ -328,7 +328,7 @@ def receive_purchase_order(
     return _po_to_out(po)
 
 
-@router.delete("/{po_id}", response_model=PurchaseOrderOut)
+@router.post("/{po_id}/cancel", response_model=PurchaseOrderOut)
 def cancel_purchase_order(
     po_id: int,
     db: Session = Depends(get_db),
@@ -351,3 +351,20 @@ def cancel_purchase_order(
     db.commit()
     db.refresh(po)
     return _po_to_out(po)
+
+
+@router.delete("/{po_id}")
+def delete_purchase_order_permanent(
+    po_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    if po is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden de compra no encontrada")
+    if po.status == "RECEIVED":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se puede eliminar una orden ya recibida")
+    db.query(PurchaseOrderItem).filter(PurchaseOrderItem.purchase_order_id == po_id).delete()
+    db.delete(po)
+    db.commit()
+    return {"ok": True}
