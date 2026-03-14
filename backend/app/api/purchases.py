@@ -357,13 +357,45 @@ def cancel_purchase_order(
 def delete_purchase_order_permanent(
     po_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
-    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    po = (
+        db.query(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.items))
+        .filter(PurchaseOrder.id == po_id)
+        .first()
+    )
     if po is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Orden de compra no encontrada")
+
+    # If received, reverse the stock that was added
     if po.status == "RECEIVED":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se puede eliminar una orden ya recibida")
+        for item in po.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == po.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity -= item.quantity
+
+            movement = InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=po.warehouse_id,
+                movement_type="ADJUSTMENT",
+                quantity=-item.quantity,
+                reference_type="PURCHASE_ORDER",
+                reference_id=po.id,
+                notes=f"Eliminación OC #{po.id} - reversión de stock",
+                created_by=current_user.id,
+            )
+            db.add(movement)
+
+    # Delete related movements, items, then the order
+    db.query(InventoryMovement).filter(
+        InventoryMovement.reference_type == "PURCHASE_ORDER",
+        InventoryMovement.reference_id == po_id,
+    ).delete()
     db.query(PurchaseOrderItem).filter(PurchaseOrderItem.purchase_order_id == po_id).delete()
     db.delete(po)
     db.commit()

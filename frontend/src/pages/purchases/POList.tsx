@@ -503,16 +503,16 @@ export default function POList() {
               </Popconfirm>
             </>
           )}
-          {(record.status === 'DRAFT' || record.status === 'CANCELLED') && (
-            <Popconfirm
-              title="Eliminar permanentemente? No se puede deshacer."
-              onConfirm={() => deleteMut.mutate(record.id)}
-              okText="Si"
-              cancelText="No"
-            >
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
-          )}
+          <Popconfirm
+            title={record.status === 'RECEIVED'
+              ? "Eliminar permanentemente? Se revertira el stock agregado."
+              : "Eliminar permanentemente? No se puede deshacer."}
+            onConfirm={() => deleteMut.mutate(record.id)}
+            okText="Si"
+            cancelText="No"
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },
