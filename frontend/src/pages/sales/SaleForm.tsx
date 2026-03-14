@@ -550,8 +550,27 @@ export default function SaleForm() {
       render: (_: unknown, record: LineItem, idx: number) => {
         const displayValue = record.product_id ? `${record.product_code} - ${record.product_name}` : undefined;
         const firstAvailable = productOptions.find((o) => !o.disabled);
+        const showGhost = !record.product_id && !!firstAvailable;
         return (
-          <div>
+          <div
+            ref={(el) => {
+              if (!el) return;
+              const selector = el.querySelector('.ant-select-selector') as HTMLElement;
+              if (selector) selector.style.setProperty('background', showGhost ? 'transparent' : '', 'important');
+            }}
+            style={{ position: 'relative' }}
+          >
+            {showGhost && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                display: 'flex', alignItems: 'center', paddingLeft: 11,
+                color: 'rgba(255,255,255,0.3)', fontSize: 14,
+                pointerEvents: 'none', zIndex: 0,
+                overflow: 'hidden', whiteSpace: 'nowrap',
+              }}>
+                {firstAvailable.label}
+              </div>
+            )}
             <AutoComplete
               value={displayValue}
               options={productOptions}
@@ -565,13 +584,8 @@ export default function SaleForm() {
               }}
               placeholder="Buscar por codigo o nombre"
               popupMatchSelectWidth={500}
-              style={{ width: '100%' }}
+              style={{ width: '100%', position: 'relative', zIndex: 1 }}
             />
-            {!record.product_id && firstAvailable && (
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                Tab → {firstAvailable.label}
-              </div>
-            )}
           </div>
         );
       },
