@@ -108,6 +108,7 @@ export default function POList() {
   const autoAddItemRef = useRef<() => void>(() => {});
   const enterNavRef = useEnterNavigation(() => handleSubmit(), () => autoAddItemRef.current());
   const [items, setItems] = useState<POLineItem[]>([]);
+  const [poProductSearch, setPoProductSearch] = useState('');
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierForm] = Form.useForm();
   const [supplierLookupLoading, setSupplierLookupLoading] = useState(false);
@@ -721,38 +722,62 @@ export default function POList() {
         {items.map((item, idx) => (
           <Row key={item.key} gutter={6} style={{ marginBottom: 6 }}>
             <Col span={6}>
-              <div style={{ position: 'relative' }}>
-                <Select
-                  showSearch
-                  filterOption={tokenizedFilter}
-                  filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
-                  placeholder="Producto"
-                  value={item.product_id}
-                  onChange={(val) => updateItem(idx, 'product_id', val)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Tab' && !item.product_id && productOptions.length > 0) {
-                      e.preventDefault();
-                      updateItem(idx, 'product_id', productOptions[0].value);
-                    }
-                  }}
-                  options={productOptions}
-                  popupMatchSelectWidth={500}
-                  style={{ width: '100%' }}
-                  size="small"
-                  disabled={viewOnly}
-                />
-                {!item.product_id && productOptions.length > 0 && !viewOnly && (
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                    display: 'flex', alignItems: 'center', paddingLeft: 11,
-                    color: 'rgba(255,255,255,0.25)', fontSize: 12,
-                    pointerEvents: 'none', zIndex: 10,
-                    overflow: 'hidden', whiteSpace: 'nowrap',
-                  }}>
-                    {productOptions[0].label}
+              {(() => {
+                const trimmed = poProductSearch.trim().toLowerCase();
+                const ghostOption = !item.product_id && trimmed.length >= 2
+                  ? productOptions.find((o) => {
+                      const name = o.label.split(' - ').slice(1).join(' - ').toLowerCase();
+                      return name.startsWith(trimmed);
+                    })
+                  : null;
+                const ghostText = ghostOption
+                  ? poProductSearch + ghostOption.label.split(' - ').slice(1).join(' - ').slice(trimmed.length)
+                  : '';
+                return (
+                  <div data-ghost-input={ghostText ? '' : undefined} style={{ position: 'relative' }}>
+                    {ghostText && (
+                      <Input
+                        value={ghostText}
+                        readOnly
+                        tabIndex={-1}
+                        size="small"
+                        style={{
+                          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                          opacity: 0.4, background: 'transparent', borderColor: 'transparent',
+                          pointerEvents: 'none', zIndex: 0,
+                        }}
+                      />
+                    )}
+                    <Select
+                      showSearch
+                      filterOption={tokenizedFilter}
+                      filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
+                      placeholder="Producto"
+                      value={item.product_id}
+                      onChange={(val) => { updateItem(idx, 'product_id', val); setPoProductSearch(''); }}
+                      onSearch={(val) => setPoProductSearch(val)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab' && !item.product_id) {
+                          if (ghostOption) {
+                            e.preventDefault();
+                            updateItem(idx, 'product_id', ghostOption.value);
+                            setPoProductSearch('');
+                          } else if (productOptions.length > 0) {
+                            e.preventDefault();
+                            updateItem(idx, 'product_id', productOptions[0].value);
+                            setPoProductSearch('');
+                          }
+                        }
+                      }}
+                      options={productOptions}
+                      popupMatchSelectWidth={500}
+                      style={{ width: '100%', position: 'relative', zIndex: 1 }}
+                      size="small"
+                      disabled={viewOnly}
+                    />
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </Col>
             <Col span={2}>
               <InputNumber

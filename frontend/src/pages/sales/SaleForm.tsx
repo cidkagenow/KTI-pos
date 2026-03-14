@@ -83,6 +83,7 @@ export default function SaleForm() {
   const enterNavRef = useEnterNavigation(() => facturarRef.current?.focus(), () => autoAddRowRef.current());
   const [items, setItems] = useState<LineItem[]>([newLineItem()]);
   const [productOptions, setProductOptions] = useState<{ value: string; label: string; product: ProductSearch; disabled?: boolean }[]>([]);
+  const [productSearchText, setProductSearchText] = useState('');
   const [clientOptions, setClientOptions] = useState<{ value: number; label: string }[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -193,6 +194,7 @@ export default function SaleForm() {
   }, [isEditing, form]);
 
   const handleProductSearch = useCallback(async (searchText: string) => {
+    setProductSearchText(searchText);
     if (searchText.length < 2) {
       setProductOptions([]);
       return;
@@ -550,35 +552,51 @@ export default function SaleForm() {
       render: (_: unknown, record: LineItem, idx: number) => {
         const displayValue = record.product_id ? `${record.product_code} - ${record.product_name}` : undefined;
         const firstAvailable = productOptions.find((o) => !o.disabled);
-        const showGhost = !record.product_id && !!firstAvailable;
+        // Ghost: find first product whose name starts with typed text
+        const trimmed = productSearchText.trim().toLowerCase();
+        const ghostProduct = !record.product_id && trimmed.length >= 2 && firstAvailable
+          ? productOptions.find((o) => !o.disabled && o.product.name.toLowerCase().startsWith(trimmed))
+          : null;
+        const ghostText = ghostProduct
+          ? productSearchText + ghostProduct.product.name.slice(trimmed.length)
+          : '';
         return (
-          <div style={{ position: 'relative' }}>
+          <div data-ghost-input={ghostText ? '' : undefined} style={{ position: 'relative' }}>
+            {ghostText && (
+              <Input
+                value={ghostText}
+                readOnly
+                tabIndex={-1}
+                style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  opacity: 0.4, background: 'transparent', borderColor: 'transparent',
+                  pointerEvents: 'none', zIndex: 0,
+                }}
+              />
+            )}
             <AutoComplete
               value={displayValue}
               options={productOptions}
               onSearch={handleProductSearch}
-              onSelect={(val: string) => handleProductSelect(val, idx)}
+              onSelect={(val: string) => {
+                handleProductSelect(val, idx);
+                setProductSearchText('');
+              }}
               onKeyDown={(e) => {
-                if (e.key === 'Tab' && firstAvailable && !record.product_id) {
+                if (e.key === 'Tab' && ghostProduct && !record.product_id) {
+                  e.preventDefault();
+                  handleProductSelect(ghostProduct.value, idx);
+                  setProductSearchText('');
+                } else if (e.key === 'Tab' && firstAvailable && !record.product_id) {
                   e.preventDefault();
                   handleProductSelect(firstAvailable.value, idx);
+                  setProductSearchText('');
                 }
               }}
               placeholder="Buscar por codigo o nombre"
               popupMatchSelectWidth={500}
-              style={{ width: '100%' }}
+              style={{ width: '100%', position: 'relative', zIndex: 1 }}
             />
-            {showGhost && (
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                display: 'flex', alignItems: 'center', paddingLeft: 11,
-                color: 'rgba(255,255,255,0.25)', fontSize: 14,
-                pointerEvents: 'none', zIndex: 10,
-                overflow: 'hidden', whiteSpace: 'nowrap',
-              }}>
-                {firstAvailable.label}
-              </div>
-            )}
           </div>
         );
       },

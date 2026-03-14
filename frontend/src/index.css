@@ -6,3 +6,13 @@ body {
 .ant-layout {
   min-height: 100vh;
 }
+
+/* Ghost text autocomplete: make Select/AutoComplete selector transparent */
+[data-ghost-input] .ant-select-selector {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+[data-ghost-input] .ant-select-selection-search-input {
+  background-color: transparent !important;
+  background: transparent !important;
+}
