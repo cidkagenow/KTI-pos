@@ -550,10 +550,12 @@ export default function SaleForm() {
       render: (_: unknown, record: LineItem, idx: number) => {
         const displayValue = record.product_id ? `${record.product_code} - ${record.product_name}` : undefined;
         const firstAvailable = productOptions.find((o) => !o.disabled);
+        const showGhost = !record.product_id && firstAvailable;
         return (
           <div style={{ position: 'relative' }}>
-            {!record.product_id && firstAvailable && (
+            {showGhost && (
               <div
+                className="product-ghost-text"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -565,9 +567,10 @@ export default function SaleForm() {
                   display: 'flex',
                   alignItems: 'center',
                   paddingLeft: 11,
-                  color: 'rgba(255,255,255,0.25)',
+                  color: 'rgba(255,255,255,0.3)',
                   overflow: 'hidden',
                   whiteSpace: 'nowrap',
+                  fontSize: 14,
                 }}
               >
                 {firstAvailable.label}
@@ -587,6 +590,7 @@ export default function SaleForm() {
               placeholder="Buscar por codigo o nombre"
               popupMatchSelectWidth={500}
               style={{ width: '100%' }}
+              className={showGhost ? 'autocomplete-ghost' : undefined}
             />
           </div>
         );
@@ -996,6 +1000,9 @@ export default function SaleForm() {
       <style>{`
         .row-stock-warning td {
           background-color: #fffbe6 !important;
+        }
+        .autocomplete-ghost .ant-select-selector {
+          background: transparent !important;
         }
       `}</style>
 

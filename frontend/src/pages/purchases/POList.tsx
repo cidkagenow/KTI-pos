@@ -721,25 +721,50 @@ export default function POList() {
         {items.map((item, idx) => (
           <Row key={item.key} gutter={6} style={{ marginBottom: 6 }}>
             <Col span={6}>
-              <Select
-                showSearch
-                filterOption={tokenizedFilter}
-                filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
-                placeholder="Producto"
-                value={item.product_id}
-                onChange={(val) => updateItem(idx, 'product_id', val)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Tab' && !item.product_id && productOptions.length > 0) {
-                    e.preventDefault();
-                    updateItem(idx, 'product_id', productOptions[0].value);
-                  }
-                }}
-                options={productOptions}
-                popupMatchSelectWidth={500}
-                style={{ width: '100%' }}
-                size="small"
-                disabled={viewOnly}
-              />
+              <div style={{ position: 'relative' }}>
+                {!item.product_id && productOptions.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      pointerEvents: 'none',
+                      zIndex: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingLeft: 11,
+                      color: 'rgba(255,255,255,0.3)',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      fontSize: 12,
+                    }}
+                  >
+                    {productOptions[0].label}
+                  </div>
+                )}
+                <Select
+                  showSearch
+                  filterOption={tokenizedFilter}
+                  filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
+                  placeholder="Producto"
+                  value={item.product_id}
+                  onChange={(val) => updateItem(idx, 'product_id', val)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && !item.product_id && productOptions.length > 0) {
+                      e.preventDefault();
+                      updateItem(idx, 'product_id', productOptions[0].value);
+                    }
+                  }}
+                  options={productOptions}
+                  popupMatchSelectWidth={500}
+                  style={{ width: '100%' }}
+                  size="small"
+                  disabled={viewOnly}
+                  className={!item.product_id ? 'select-ghost' : undefined}
+                />
+              </div>
             </Col>
             <Col span={2}>
               <InputNumber
@@ -938,6 +963,12 @@ export default function POList() {
           </Row>
         </Form>
       </Modal>
+
+      <style>{`
+        .select-ghost .ant-select-selector {
+          background: transparent !important;
+        }
+      `}</style>
     </div>
   );
 }
