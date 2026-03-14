@@ -19,7 +19,7 @@ const MOVEMENT_TYPES = [
 ];
 
 export default function Movements() {
-  const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
   const [productId, setProductId] = useState<number | undefined>(undefined);
   const [movementType, setMovementType] = useState<string | undefined>(undefined);
 
@@ -96,6 +96,7 @@ export default function Movements() {
             allowClear
             placeholder="Almacen"
             style={{ width: 180 }}
+            value={warehouseId}
             onChange={(val) => setWarehouseId(val)}
             options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
           />

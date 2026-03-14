@@ -21,7 +21,7 @@ import type { ColumnsType } from 'antd/es/table';
 const { Title } = Typography;
 
 export default function StockValorizado() {
-  const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
   const [search, setSearch] = useState('');
 
   const { data: inventory, isLoading } = useQuery({
@@ -117,6 +117,7 @@ export default function StockValorizado() {
             allowClear
             placeholder="Filtrar por almacen"
             style={{ width: 200 }}
+            value={warehouseId}
             onChange={(val) => setWarehouseId(val)}
             options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
           />
