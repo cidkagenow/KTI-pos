@@ -15,8 +15,7 @@ const MOVEMENT_TYPES = [
   { value: 'SALE', label: 'Venta' },
   { value: 'PURCHASE', label: 'Compra' },
   { value: 'ADJUSTMENT', label: 'Ajuste' },
-  { value: 'TRANSFER_IN', label: 'Transferencia entrada' },
-  { value: 'TRANSFER_OUT', label: 'Transferencia salida' },
+  { value: 'TRANSFER', label: 'Transferencia' },
 ];
 
 export default function Movements() {
@@ -56,10 +55,10 @@ export default function Movements() {
       width: 100,
       align: 'right',
       render: (val: number, record: InventoryMovement) => {
-        const isNegative = ['SALE', 'TRANSFER_OUT'].includes(record.movement_type);
+        const isNegative = val < 0;
         return (
           <span style={{ color: isNegative ? '#cf1322' : '#389e0d' }}>
-            {isNegative ? `-${Math.abs(val)}` : `+${val}`}
+            {isNegative ? `${val}` : `+${val}`}
           </span>
         );
       },

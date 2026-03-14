@@ -17,10 +17,10 @@ import {
   Card,
   Statistic,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInventory, adjustStock } from '../../api/inventory';
+import { getInventory, adjustStock, transferStock } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
@@ -38,7 +38,9 @@ export default function StockLevels() {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [form] = Form.useForm();
+  const [transferForm] = Form.useForm();
   const enterNavRef = useEnterNavigation(() => handleAdjust());
 
   const { data: inventory, isLoading } = useQuery({
@@ -63,6 +65,32 @@ export default function StockLevels() {
     },
     onError: () => message.error('Error al ajustar stock'),
   });
+
+  const transferMutation = useMutation({
+    mutationFn: transferStock,
+    onSuccess: async () => {
+      message.success('Transferencia realizada');
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['inventory'] }),
+        queryClient.refetchQueries({ queryKey: ['products'] }),
+      ]);
+      setTransferModalOpen(false);
+      transferForm.resetFields();
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail || 'Error al transferir stock';
+      message.error(detail);
+    },
+  });
+
+  const handleTransfer = async () => {
+    try {
+      const values = await transferForm.validateFields();
+      transferMutation.mutate(values);
+    } catch {
+      // validation failed
+    }
+  };
 
   const handleAdjust = async () => {
     try {
@@ -127,9 +155,14 @@ export default function StockLevels() {
           <Title level={3} style={{ margin: 0 }}>Stock por Almacen</Title>
         </Col>
         <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdjustModalOpen(true)}>
-            Ajustar Stock
-          </Button>
+          <Space>
+            <Button icon={<SwapOutlined />} onClick={() => setTransferModalOpen(true)}>
+              Transferir
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdjustModalOpen(true)}>
+              Ajustar Stock
+            </Button>
+          </Space>
         </Col>
       </Row>
 
@@ -218,6 +251,54 @@ export default function StockLevels() {
           </Form.Item>
         </Form>
         </div>
+      </Modal>
+
+      {/* ---- Transfer Modal ---- */}
+      <Modal
+        title="Transferir Stock"
+        open={transferModalOpen}
+        onOk={handleTransfer}
+        onCancel={() => { setTransferModalOpen(false); transferForm.resetFields(); }}
+        okText="Transferir"
+        cancelText="Cancelar"
+        confirmLoading={transferMutation.isPending}
+      >
+        <Form form={transferForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="product_id" label="Producto" rules={[{ required: true, message: 'Requerido' }]}>
+            <Select
+              showSearch
+              placeholder="Seleccionar producto"
+              filterOption={tokenizedFilter}
+              filterSort={(a, b, info) => tokenizedFilterSort(a, b, info)}
+              popupMatchSelectWidth={500}
+              options={products?.filter((p) => p.is_active).map((p) => ({
+                value: p.id,
+                label: `${p.code} - ${p.name}`,
+              }))}
+            />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="from_warehouse_id" label="Desde Almacen" rules={[{ required: true, message: 'Requerido' }]}>
+                <Select
+                  placeholder="Origen"
+                  options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="to_warehouse_id" label="Hacia Almacen" rules={[{ required: true, message: 'Requerido' }]}>
+                <Select
+                  placeholder="Destino"
+                  options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="quantity" label="Cantidad" rules={[{ required: true, message: 'Requerido' }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
