@@ -16,7 +16,8 @@ import {
   message,
   Popconfirm,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, createProduct, updateProduct, deleteProduct } from '../../api/products';
 import { getBrands, getCategories } from '../../api/catalogs';
@@ -280,13 +281,13 @@ export default function ProductList() {
         </Col>
         <Col>
           <Space>
-            <Input
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              suggestion={products.length > 0 ? products[0].name : undefined}
               placeholder="Buscar productos..."
-              prefix={<SearchOutlined />}
-              allowClear
+              style={{ width: 250 }}
               autoFocus
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 220 }}
             />
             <Select
               placeholder="Marca"

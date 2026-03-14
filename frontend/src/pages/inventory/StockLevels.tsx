@@ -17,7 +17,8 @@ import {
   Card,
   Statistic,
 } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
+import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getInventory, adjustStock } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
@@ -134,12 +135,11 @@ export default function StockLevels() {
 
       <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Input
-            placeholder="Buscar por codigo o nombre..."
-            prefix={<SearchOutlined />}
-            allowClear
+          <SearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
+            suggestion={fuzzyFiltered.length > 0 ? fuzzyFiltered[0].product_name : undefined}
+            placeholder="Buscar por codigo o nombre..."
             style={{ width: 250 }}
           />
         </Col>

@@ -17,6 +17,7 @@ import {
   Tabs,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, LoadingOutlined } from '@ant-design/icons';
+import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getClients, createClient, updateClient, deleteClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { useAuth } from '../../contexts/AuthContext';
@@ -353,13 +354,13 @@ export default function ClientList() {
         </Col>
         <Col>
           <Space>
-            <Input
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              suggestion={clients.length > 0 ? clients[0].business_name : undefined}
               placeholder="Buscar clientes..."
-              prefix={<SearchOutlined />}
-              allowClear
-              autoFocus
-              onChange={(e) => setSearch(e.target.value)}
               style={{ width: 250 }}
+              autoFocus
             />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               Nuevo Cliente
