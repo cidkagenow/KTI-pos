@@ -34,7 +34,7 @@ const { Title } = Typography;
 
 export default function StockLevels() {
   const queryClient = useQueryClient();
-  const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
@@ -179,8 +179,9 @@ export default function StockLevels() {
         <Col>
           <Select
             allowClear
-            placeholder="Filtrar por almacen"
+            placeholder="Todos los almacenes"
             style={{ width: 200 }}
+            value={warehouseId}
             onChange={(val) => setWarehouseId(val)}
             options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
           />
