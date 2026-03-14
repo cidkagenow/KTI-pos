@@ -6,8 +6,8 @@ export async function getInventory(params?: any): Promise<InventoryItem[]> {
   return data;
 }
 
-export async function getAlerts(): Promise<InventoryItem[]> {
-  const { data } = await api.get('/inventory/alerts');
+export async function getAlerts(params?: any): Promise<InventoryItem[]> {
+  const { data } = await api.get('/inventory/alerts', { params });
   return data;
 }
 

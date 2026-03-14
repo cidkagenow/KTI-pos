@@ -63,17 +63,19 @@ def list_inventory(
 
 @router.get("/alerts", response_model=list[InventoryOut])
 def low_stock_alerts(
+    warehouse_id: int | None = Query(None),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    inventories = (
+    query = (
         db.query(Inventory)
         .join(Product)
         .join(Warehouse)
         .filter(Inventory.quantity <= Product.min_stock)
-        .order_by(Product.name)
-        .all()
     )
+    if warehouse_id is not None:
+        query = query.filter(Inventory.warehouse_id == warehouse_id)
+    inventories = query.order_by(Product.name).all()
     return [_inv_to_out(inv) for inv in inventories]
 
 

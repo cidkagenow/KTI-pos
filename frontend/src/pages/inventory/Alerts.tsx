@@ -1,17 +1,23 @@
-import { Table, Tag, Typography, Spin } from 'antd';
+import { useState } from 'react';
+import { Table, Tag, Typography, Spin, Select, Row, Col } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getAlerts } from '../../api/inventory';
+import { getWarehouses } from '../../api/catalogs';
 import type { InventoryItem } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
 
 export default function Alerts() {
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
+
   const { data: alerts, isLoading } = useQuery({
-    queryKey: ['inventory-alerts'],
-    queryFn: getAlerts,
+    queryKey: ['inventory-alerts', warehouseId],
+    queryFn: () => getAlerts(warehouseId ? { warehouse_id: warehouseId } : undefined),
     refetchInterval: 30_000,
   });
+
+  const { data: warehouses } = useQuery({ queryKey: ['warehouses'], queryFn: getWarehouses });
 
   const columns: ColumnsType<InventoryItem> = [
     { title: 'Codigo', dataIndex: 'product_code', key: 'product_code', width: 100 },
@@ -42,6 +48,19 @@ export default function Alerts() {
       <Title level={3} style={{ marginBottom: 16 }}>
         Alertas de Stock Bajo
       </Title>
+
+      <Row style={{ marginBottom: 16 }}>
+        <Col>
+          <Select
+            allowClear
+            placeholder="Todos los almacenes"
+            style={{ width: 200 }}
+            value={warehouseId}
+            onChange={(val) => setWarehouseId(val)}
+            options={warehouses?.map((w) => ({ value: w.id, label: w.name }))}
+          />
+        </Col>
+      </Row>
 
       {alerts && alerts.length === 0 ? (
         <Typography.Text type="secondary">
