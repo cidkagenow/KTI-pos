@@ -728,6 +728,12 @@ export default function POList() {
                 placeholder="Producto"
                 value={item.product_id}
                 onChange={(val) => updateItem(idx, 'product_id', val)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && !item.product_id && productOptions.length > 0) {
+                    e.preventDefault();
+                    updateItem(idx, 'product_id', productOptions[0].value);
+                  }
+                }}
                 options={productOptions}
                 popupMatchSelectWidth={500}
                 style={{ width: '100%' }}

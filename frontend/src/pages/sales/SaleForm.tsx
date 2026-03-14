@@ -547,17 +547,50 @@ export default function SaleForm() {
       title: 'Producto',
       key: 'product',
       width: 300,
-      render: (_: unknown, record: LineItem, idx: number) => (
-        <AutoComplete
-          value={record.product_id ? `${record.product_code} - ${record.product_name}` : undefined}
-          options={productOptions}
-          onSearch={handleProductSearch}
-          onSelect={(val: string) => handleProductSelect(val, idx)}
-          placeholder="Buscar por codigo o nombre"
-          popupMatchSelectWidth={500}
-          style={{ width: '100%' }}
-        />
-      ),
+      render: (_: unknown, record: LineItem, idx: number) => {
+        const displayValue = record.product_id ? `${record.product_code} - ${record.product_name}` : undefined;
+        const firstAvailable = productOptions.find((o) => !o.disabled);
+        return (
+          <div style={{ position: 'relative' }}>
+            {!record.product_id && firstAvailable && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: 11,
+                  color: 'rgba(255,255,255,0.25)',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {firstAvailable.label}
+              </div>
+            )}
+            <AutoComplete
+              value={displayValue}
+              options={productOptions}
+              onSearch={handleProductSearch}
+              onSelect={(val: string) => handleProductSelect(val, idx)}
+              onKeyDown={(e) => {
+                if (e.key === 'Tab' && firstAvailable && !record.product_id) {
+                  e.preventDefault();
+                  handleProductSelect(firstAvailable.value, idx);
+                }
+              }}
+              placeholder="Buscar por codigo o nombre"
+              popupMatchSelectWidth={500}
+              style={{ width: '100%' }}
+            />
+          </div>
+        );
+      },
     },
     {
       title: 'Marca',
