@@ -109,7 +109,7 @@ export default function StockLevels() {
     if (!lowStockOnly) return fuzzyFiltered;
     return fuzzyFiltered.filter((item) => {
       const product = products?.find((p) => p.id === item.product_id);
-      return product ? item.quantity < product.min_stock : false;
+      return product ? item.quantity <= product.min_stock : false;
     });
   }, [fuzzyFiltered, lowStockOnly, products]);
 
@@ -138,7 +138,7 @@ export default function StockLevels() {
       width: 110,
       render: (_: unknown, record: InventoryItem) => {
         const product = products?.find((p) => p.id === record.product_id);
-        const isLow = product ? record.quantity < product.min_stock : false;
+        const isLow = product ? record.quantity <= product.min_stock : false;
         return (
           <Tag color={isLow ? 'red' : 'green'}>
             {isLow ? 'Stock Bajo' : 'Normal'}
