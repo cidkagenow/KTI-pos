@@ -322,7 +322,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/nota-credito/new?ref_sale_id=${record.id}`)}
             />
           )}
-          {isAdmin && (record.status === 'EMITIDO' || (record.status === 'FACTURADO' && (record.doc_type === 'BOLETA' ? record.sunat_status === 'ACEPTADO' : true))) && (
+          {isAdmin && (record.status === 'EMITIDO' || record.status === 'FACTURADO') && (
             <Button
               type="link"
               size="small"
@@ -331,10 +331,7 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {(isAdmin
-            ? (record.status === 'PREVENTA' || record.status === 'EMITIDO'
-              || (record.status === 'FACTURADO' && (!record.sunat_status || record.sunat_status === 'PENDIENTE' || record.sunat_status === 'NO_ENVIADA')))
-            : record.status === 'PREVENTA') && (
+          {(isAdmin ? (record.status === 'PREVENTA' || record.status === 'EMITIDO') : record.status === 'PREVENTA') && (
             <Button
               type="link"
               size="small"
