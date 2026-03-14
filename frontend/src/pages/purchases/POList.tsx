@@ -728,7 +728,6 @@ export default function POList() {
               <InputNumber
                 min={0}
                 step={0.01}
-                precision={2}
                 value={item.unit_cost}
                 onChange={(val) => updateItem(idx, 'unit_cost', val ?? 0)}
                 style={{ width: '100%' }}
