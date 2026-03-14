@@ -1124,7 +1124,9 @@ def delete_sale(
         )
     allowed_statuses = ("PREVENTA", "EMITIDO") if _user.role == "ADMIN" else ("PREVENTA",)
     # Admin can also delete FACTURADO sales not yet sent to SUNAT
-    unsent_sunat = sale.sunat_status in (None, "PENDIENTE", "NO_ENVIADA")
+    sunat_doc = db.query(SunatDocument).filter(SunatDocument.sale_id == sale.id).first()
+    sunat_st = sunat_doc.sunat_status if sunat_doc else None
+    unsent_sunat = sunat_st in (None, "PENDIENTE", "NO_ENVIADA")
     can_delete = (
         sale.status in allowed_statuses
         or (_user.role == "ADMIN" and sale.status == "FACTURADO" and unsent_sunat)
