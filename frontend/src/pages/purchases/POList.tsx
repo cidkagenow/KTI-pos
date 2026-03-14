@@ -721,25 +721,7 @@ export default function POList() {
         {items.map((item, idx) => (
           <Row key={item.key} gutter={6} style={{ marginBottom: 6 }}>
             <Col span={6}>
-              <div
-                ref={(el) => {
-                  if (!el) return;
-                  const selector = el.querySelector('.ant-select-selector') as HTMLElement;
-                  if (selector) selector.style.setProperty('background', !item.product_id ? 'transparent' : '', 'important');
-                }}
-                style={{ position: 'relative' }}
-              >
-                {!item.product_id && productOptions.length > 0 && (
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                    display: 'flex', alignItems: 'center', paddingLeft: 11,
-                    color: 'rgba(255,255,255,0.3)', fontSize: 12,
-                    pointerEvents: 'none', zIndex: 0,
-                    overflow: 'hidden', whiteSpace: 'nowrap',
-                  }}>
-                    {productOptions[0].label}
-                  </div>
-                )}
+              <div style={{ position: 'relative' }}>
                 <Select
                   showSearch
                   filterOption={tokenizedFilter}
@@ -755,10 +737,21 @@ export default function POList() {
                   }}
                   options={productOptions}
                   popupMatchSelectWidth={500}
-                  style={{ width: '100%', position: 'relative', zIndex: 1 }}
+                  style={{ width: '100%' }}
                   size="small"
                   disabled={viewOnly}
                 />
+                {!item.product_id && productOptions.length > 0 && !viewOnly && (
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    display: 'flex', alignItems: 'center', paddingLeft: 11,
+                    color: 'rgba(255,255,255,0.25)', fontSize: 12,
+                    pointerEvents: 'none', zIndex: 10,
+                    overflow: 'hidden', whiteSpace: 'nowrap',
+                  }}>
+                    {productOptions[0].label}
+                  </div>
+                )}
               </div>
             </Col>
             <Col span={2}>

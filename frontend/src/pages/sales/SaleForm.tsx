@@ -552,25 +552,7 @@ export default function SaleForm() {
         const firstAvailable = productOptions.find((o) => !o.disabled);
         const showGhost = !record.product_id && !!firstAvailable;
         return (
-          <div
-            ref={(el) => {
-              if (!el) return;
-              const selector = el.querySelector('.ant-select-selector') as HTMLElement;
-              if (selector) selector.style.setProperty('background', showGhost ? 'transparent' : '', 'important');
-            }}
-            style={{ position: 'relative' }}
-          >
-            {showGhost && (
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                display: 'flex', alignItems: 'center', paddingLeft: 11,
-                color: 'rgba(255,255,255,0.3)', fontSize: 14,
-                pointerEvents: 'none', zIndex: 0,
-                overflow: 'hidden', whiteSpace: 'nowrap',
-              }}>
-                {firstAvailable.label}
-              </div>
-            )}
+          <div style={{ position: 'relative' }}>
             <AutoComplete
               value={displayValue}
               options={productOptions}
@@ -584,8 +566,19 @@ export default function SaleForm() {
               }}
               placeholder="Buscar por codigo o nombre"
               popupMatchSelectWidth={500}
-              style={{ width: '100%', position: 'relative', zIndex: 1 }}
+              style={{ width: '100%' }}
             />
+            {showGhost && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                display: 'flex', alignItems: 'center', paddingLeft: 11,
+                color: 'rgba(255,255,255,0.25)', fontSize: 14,
+                pointerEvents: 'none', zIndex: 10,
+                overflow: 'hidden', whiteSpace: 'nowrap',
+              }}>
+                {firstAvailable.label}
+              </div>
+            )}
           </div>
         );
       },
