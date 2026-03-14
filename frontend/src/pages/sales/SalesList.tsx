@@ -331,7 +331,10 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {(isAdmin ? (record.status === 'PREVENTA' || record.status === 'EMITIDO') : record.status === 'PREVENTA') && (
+          {(isAdmin
+            ? (record.status === 'PREVENTA' || record.status === 'EMITIDO'
+              || (record.status === 'FACTURADO' && (!record.sunat_status || record.sunat_status === 'PENDIENTE' || record.sunat_status === 'NO_ENVIADA')))
+            : record.status === 'PREVENTA') && (
             <Button
               type="link"
               size="small"

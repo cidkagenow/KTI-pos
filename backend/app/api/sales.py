@@ -1123,13 +1123,38 @@ def delete_sale(
             detail="Venta no encontrada",
         )
     allowed_statuses = ("PREVENTA", "EMITIDO") if _user.role == "ADMIN" else ("PREVENTA",)
-    if sale.status not in allowed_statuses:
+    # Admin can also delete FACTURADO sales not yet sent to SUNAT
+    unsent_sunat = sale.sunat_status in (None, "PENDIENTE", "NO_ENVIADA")
+    can_delete = (
+        sale.status in allowed_statuses
+        or (_user.role == "ADMIN" and sale.status == "FACTURADO" and unsent_sunat)
+    )
+    if not can_delete:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden eliminar preventas" if _user.role != "ADMIN" else "Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
+            detail="Solo se pueden eliminar ventas que no hayan sido enviadas a SUNAT",
         )
 
-    # Preventas/emitidos never deducted stock — hard delete from DB
+    # If FACTURADO, return stock before deleting
+    if sale.status == "FACTURADO":
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity += item.quantity
+
+        # Delete related inventory movements
+        db.query(InventoryMovement).filter(
+            InventoryMovement.reference_type == "SALE",
+            InventoryMovement.reference_id == sale.id,
+        ).delete()
+
+        # Delete related sunat documents
+        db.query(SunatDocument).filter(SunatDocument.sale_id == sale.id).delete()
+
     for item in sale.items:
         db.delete(item)
     db.delete(sale)
