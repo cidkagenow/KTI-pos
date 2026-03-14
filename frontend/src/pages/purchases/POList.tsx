@@ -75,6 +75,12 @@ interface POLineItem {
   line_total: number;
 }
 
+/* ---------- helpers ---------- */
+function formatPrecise(value: number): string {
+  const decimals = (value.toString().split('.')[1] || '').length;
+  return `S/ ${value.toFixed(Math.max(2, decimals))}`;
+}
+
 /* ---------- line-level math ---------- */
 function calcLineTotal(item: POLineItem): number {
   const price =
@@ -82,7 +88,8 @@ function calcLineTotal(item: POLineItem): number {
     (1 - (item.discount_pct1 || 0) / 100) *
     (1 - (item.discount_pct2 || 0) / 100) *
     (1 - (item.discount_pct3 || 0) / 100);
-  return Math.round((item.quantity * price + item.quantity * (item.flete_unit || 0)) * 100) / 100;
+  // Keep full precision — round only to avoid floating-point noise (6 dp)
+  return Math.round((item.quantity * price + item.quantity * (item.flete_unit || 0)) * 1000000) / 1000000;
 }
 
 function emptyLineItem(): POLineItem {
@@ -322,13 +329,13 @@ export default function POList() {
     const sumLines = items.reduce((sum, item) => sum + item.line_total, 0);
     if (igvIncluded) {
       // Prices include IGV => back-calculate
-      const base = Math.round((sumLines / 1.18) * 100) / 100;
-      const igv = Math.round((sumLines - base) * 100) / 100;
+      const base = Math.round((sumLines / 1.18) * 1000000) / 1000000;
+      const igv = Math.round((sumLines - base) * 1000000) / 1000000;
       return { opGravada: base, igvAmount: igv, orderTotal: sumLines };
     } else {
       // Prices exclude IGV => add IGV
-      const igv = Math.round(sumLines * 0.18 * 100) / 100;
-      return { opGravada: sumLines, igvAmount: igv, orderTotal: Math.round((sumLines + igv) * 100) / 100 };
+      const igv = Math.round(sumLines * 0.18 * 1000000) / 1000000;
+      return { opGravada: sumLines, igvAmount: igv, orderTotal: Math.round((sumLines + igv) * 1000000) / 1000000 };
     }
   }, [items, igvIncluded]);
 
@@ -809,7 +816,7 @@ export default function POList() {
             </Col>
             <Col span={3} data-enter-skip>
               <Input
-                value={formatCurrency(item.line_total)}
+                value={formatPrecise(item.line_total)}
                 readOnly
                 style={{ textAlign: 'right' }}
                 size="small"
@@ -848,11 +855,11 @@ export default function POList() {
           <Col span={10}>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>Op. Gravada:</Text>
-              <Text>{formatCurrency(opGravada)}</Text>
+              <Text>{formatPrecise(opGravada)}</Text>
             </Row>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>IGV (18%):</Text>
-              <Text>{formatCurrency(igvAmount)}</Text>
+              <Text>{formatPrecise(igvAmount)}</Text>
             </Row>
             <Divider style={{ margin: '4px 0' }} />
             <Row justify="space-between">
@@ -860,7 +867,7 @@ export default function POList() {
                 Total:
               </Text>
               <Text strong style={{ fontSize: 15 }}>
-                {formatCurrency(orderTotal)}
+                {formatPrecise(orderTotal)}
               </Text>
             </Row>
           </Col>

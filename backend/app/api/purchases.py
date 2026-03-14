@@ -29,7 +29,7 @@ def _calc_item_total(qty: int, unit_cost: float, d1: float = 0, d2: float = 0, d
     if d3:
         price = price * (1 - Decimal(str(d3)) / 100)
     line = Decimal(str(qty)) * price + Decimal(str(flete)) * Decimal(str(qty))
-    return line.quantize(Decimal("0.01"))
+    return line.quantize(Decimal("0.000001")).normalize()
 
 
 def _po_to_out(po: PurchaseOrder) -> PurchaseOrderOut:
@@ -316,7 +316,7 @@ def receive_purchase_order(
             quantity=item.quantity,
             reference_type="PURCHASE_ORDER",
             reference_id=po.id,
-            notes=f"Recepción OC #{po.id}",
+            notes=f"Recepción OC #{po.id}" + (f" | {po.notes}" if po.notes else ""),
             created_by=current_user.id,
         )
         db.add(movement)

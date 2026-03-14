@@ -101,12 +101,12 @@ class PurchaseOrderItem(Base):
     product_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     product_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False)
     discount_pct1: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=0)
     discount_pct2: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=0)
     discount_pct3: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=0)
-    flete_unit: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), default=0)
-    line_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    flete_unit: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), default=0)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False)
 
     purchase_order: Mapped["PurchaseOrder"] = relationship(back_populates="items")
     product: Mapped["Product"] = relationship()  # noqa: F821
