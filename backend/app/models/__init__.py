@@ -10,6 +10,7 @@ from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem
 from app.models.sunat import SunatDocument
 from app.models.chat import ChatMessage
 from app.models.trabajador import Trabajador, Asistencia
+from app.models.online_order import OnlineOrder, OnlineOrderItem
 
 __all__ = [
     "User",
@@ -30,4 +31,6 @@ __all__ = [
     "ChatMessage",
     "Trabajador",
     "Asistencia",
+    "OnlineOrder",
+    "OnlineOrderItem",
 ]
