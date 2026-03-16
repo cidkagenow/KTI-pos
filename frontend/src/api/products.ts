@@ -29,3 +29,8 @@ export async function searchProducts(q: string): Promise<ProductSearch[]> {
   const { data } = await api.get('/products/search', { params: { q } });
   return data;
 }
+
+export async function syncOnlineProducts(): Promise<{ synced_products: number }> {
+  const { data } = await api.post('/products/sync-online');
+  return data;
+}

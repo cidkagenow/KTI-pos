@@ -17,10 +17,10 @@ import {
   message,
   Popconfirm,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../../api/products';
+import { getProducts, createProduct, updateProduct, deleteProduct, syncOnlineProducts } from '../../api/products';
 import { getBrands, getCategories } from '../../api/catalogs';
 import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
@@ -111,6 +111,14 @@ export default function ProductList() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: () => message.error('Error al eliminar producto'),
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: syncOnlineProducts,
+    onSuccess: (data) => {
+      message.success(`Sincronizado: ${data.synced_products} productos enviados a la tienda web`);
+    },
+    onError: () => message.error('Error al sincronizar con la tienda web'),
   });
 
   const openCreate = () => {
@@ -322,9 +330,18 @@ export default function ProductList() {
               options={categories?.map((c) => ({ value: c.id, label: c.name }))}
             />
             {isAdmin && (
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                Nuevo Producto
-              </Button>
+              <>
+                <Button
+                  icon={<CloudUploadOutlined />}
+                  onClick={() => syncMutation.mutate()}
+                  loading={syncMutation.isPending}
+                >
+                  Sincronizar Tienda Web
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  Nuevo Producto
+                </Button>
+              </>
             )}
           </Space>
         </Col>
