@@ -45,6 +45,7 @@ class ProductOut(BaseModel):
     on_order_qty: int | None = None
     on_order_eta: date | None = None
     is_active: bool
+    is_online: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,6 +61,7 @@ class ProductCreate(BaseModel):
     cost_price: float | None = None
     min_stock: int = 0
     comentario: str | None = None
+    is_online: bool = False
 
 
 class ProductUpdate(BaseModel):
@@ -74,6 +76,7 @@ class ProductUpdate(BaseModel):
     min_stock: int | None = None
     comentario: str | None = None
     is_active: bool | None = None
+    is_online: bool | None = None
 
 
 class ProductSearch(BaseModel):

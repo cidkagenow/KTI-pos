@@ -59,6 +59,7 @@ export interface Product {
   on_order_qty: number | null;
   on_order_eta: string | null;
   is_active: boolean;
+  is_online: boolean;
 }
 
 export interface ProductSearch {
@@ -306,4 +307,46 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   limit: number;
+}
+
+// Online Orders
+export interface OnlineOrderItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  product_code: string;
+  product_name: string;
+  brand_name: string | null;
+  presentation: string | null;
+}
+
+export interface OnlineOrder {
+  id: number;
+  order_code: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  payment_method: string;
+  payment_reference: string | null;
+  subtotal: number;
+  igv_amount: number;
+  total: number;
+  status: string;
+  confirmed_at: string | null;
+  ready_at: string | null;
+  picked_up_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  created_at: string;
+  items: OnlineOrderItem[];
+}
+
+export interface OnlineOrderStats {
+  pendiente: number;
+  confirmado: number;
+  listo: number;
+  recogido: number;
+  cancelado: number;
 }

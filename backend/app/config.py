@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
 
+    # Store Server (separate 24/7 VM)
+    STORE_SERVER_URL: str = ""
+    STORE_API_KEY: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"

@@ -7,6 +7,7 @@ import {
   Form,
   Select,
   InputNumber,
+  Switch,
   Space,
   Tag,
   Tooltip,
@@ -16,7 +17,7 @@ import {
   message,
   Popconfirm,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined } from '@ant-design/icons';
 import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, createProduct, updateProduct, deleteProduct } from '../../api/products';
@@ -131,6 +132,7 @@ export default function ProductList() {
       cost_price: product.cost_price,
       min_stock: product.min_stock,
       comentario: product.comentario,
+      is_online: product.is_online,
     });
     setModalOpen(true);
   };
@@ -223,6 +225,14 @@ export default function ProductList() {
       width: 150,
       ellipsis: true,
       render: (v: string | null) => v || '-',
+    },
+    {
+      title: 'Web',
+      key: 'is_online',
+      width: 50,
+      align: 'center',
+      render: (_: unknown, record: Product) =>
+        record.is_online ? <GlobalOutlined style={{ color: '#1890ff' }} /> : null,
     },
     {
       title: 'Estado',
@@ -414,9 +424,14 @@ export default function ProductList() {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={24}>
+            <Col span={18}>
               <Form.Item name="comentario" label="Comentario">
                 <Input.TextArea rows={2} placeholder="Nota o comentario sobre el producto" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="is_online" label="Visible en Tienda Web" valuePropName="checked" initialValue={false}>
+                <Switch />
               </Form.Item>
             </Col>
           </Row>

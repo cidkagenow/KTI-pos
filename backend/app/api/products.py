@@ -11,6 +11,7 @@ from app.models.purchase import PurchaseOrder, PurchaseOrderItem
 from app.models.user import User
 from app.schemas.product import ProductOut, ProductCreate, ProductUpdate, ProductSearch
 from app.api.deps import get_current_user, require_admin
+from app.config import settings
 
 router = APIRouter()
 
@@ -67,6 +68,7 @@ def _product_to_out(product: Product, db: Session) -> ProductOut:
         on_order_qty=on_order_qty,
         on_order_eta=on_order_eta,
         is_active=product.is_active,
+        is_online=product.is_online,
     )
 
 
@@ -193,6 +195,7 @@ def list_products(
             on_order_qty=on_order_qty,
             on_order_eta=on_order_eta,
             is_active=p.is_active,
+            is_online=p.is_online,
         ))
     return results
 
@@ -257,6 +260,28 @@ def update_product(
     db.commit()
     db.refresh(product)
     return _product_to_out(product, db)
+
+
+@router.post("/sync-online")
+def sync_online_products(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Push all is_online products to the standalone store server."""
+    if not settings.STORE_SERVER_URL:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servidor de tienda no configurado (STORE_SERVER_URL)",
+        )
+    from app.services.store_sync import sync_products_to_store
+    try:
+        result = sync_products_to_store(db)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Error al sincronizar con servidor de tienda: {str(e)}",
+        )
 
 
 @router.delete("/{product_id}", response_model=ProductOut)

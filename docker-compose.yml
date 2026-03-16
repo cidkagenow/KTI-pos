@@ -37,7 +37,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     ports:
       - "80:80"
     volumes:

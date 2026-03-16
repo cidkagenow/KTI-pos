@@ -26,6 +26,7 @@ import NotaCreditoForm from './pages/sales/NotaCreditoForm';
 import ChatHistory from './pages/chat/ChatHistory';
 import TrabajadorList from './pages/trabajadores/TrabajadorList';
 import AsistenciaPage from './pages/trabajadores/AsistenciaPage';
+import OnlineOrderList from './pages/online-orders/OnlineOrderList';
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />
         <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
+        <Route path="online-orders" element={<AdminRoute><OnlineOrderList /></AdminRoute>} />
         <Route path="chat-history" element={<AdminRoute><ChatHistory /></AdminRoute>} />
       </Route>
     </Routes>

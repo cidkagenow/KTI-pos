@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Layout, Menu, Button, Dropdown, Space, theme } from 'antd';
+import { Layout, Menu, Button, Dropdown, Space, Badge, theme } from 'antd';
 import {
   DashboardOutlined,
   ShoppingCartOutlined,
@@ -18,10 +18,13 @@ import {
   CloudUploadOutlined,
   MessageOutlined,
   IdcardOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getOnlineOrderStats } from '../../api/onlineOrders';
 import ChatWidget from '../Chat/ChatWidget';
 
 const { Header, Sider, Content } = Layout;
@@ -33,6 +36,14 @@ export default function AppLayout() {
   const { user, logout, isAdmin } = useAuth();
   const { isDark, toggle: toggleTheme } = useTheme();
   const { token: themeToken } = theme.useToken();
+
+  const { data: onlineStats } = useQuery({
+    queryKey: ['online-order-stats'],
+    queryFn: getOnlineOrderStats,
+    refetchInterval: 15_000,
+    enabled: isAdmin,
+  });
+  const pendingCount = onlineStats?.pendiente ?? 0;
 
   const menuItems = [
     ...(isAdmin
@@ -76,6 +87,13 @@ export default function AppLayout() {
     },
     ...(isAdmin
       ? [
+          {
+            key: '/online-orders',
+            icon: <GlobalOutlined />,
+            label: pendingCount > 0 ? (
+              <span>Pedidos Online <Badge count={pendingCount} size="small" offset={[4, -2]} /></span>
+            ) : 'Pedidos Online',
+          },
           {
             key: '/purchase-orders',
             icon: <ShoppingOutlined />,
@@ -128,6 +146,7 @@ export default function AppLayout() {
     if (path === '/inventory/stock-valorizado') return '/inventory/stock-valorizado';
     if (path.startsWith('/inventory')) return '/inventory';
     if (path.startsWith('/clients')) return '/clients';
+    if (path.startsWith('/online-orders')) return '/online-orders';
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
     if (path.startsWith('/sunat')) return '/sunat';
     if (path === '/trabajadores/asistencia') return '/trabajadores/asistencia';
