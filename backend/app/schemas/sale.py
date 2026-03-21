@@ -100,6 +100,8 @@ class SaleOut(BaseModel):
     updated_at: datetime | None = None
     items: list[SaleItemOut]
     ref_sale_id: int | None = None
+    ref_sale_series: str | None = None
+    ref_sale_doc_number: int | None = None
     nc_motivo_code: str | None = None
     nc_motivo_text: str | None = None
     sunat_hash: str | None = None

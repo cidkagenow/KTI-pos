@@ -89,9 +89,12 @@ export default function SalePrint() {
     ? `${sale.series}-${String(sale.doc_number).padStart(7, '0')}`
     : `PRE-${sale.id}`;
 
-  const issueDate = new Date(sale.created_at);
+  // Use issue_date for the date (must match XML sent to SUNAT)
+  // Time comes from created_at since issue_date is date-only
+  const issueDate = new Date(sale.issue_date + 'T00:00:00');
   const dateStr = issueDate.toLocaleDateString('es-PE');
-  const timeStr = issueDate.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  const createdAt = new Date(sale.created_at);
+  const timeStr = createdAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
   const isNotaVenta = sale.doc_type === 'NOTA_VENTA';
 
@@ -259,7 +262,9 @@ export default function SalePrint() {
             </div>
             {sale.ref_sale_id && (
               <div className="center" style={{ fontSize: 10 }}>
-                Ref: Documento original #{sale.ref_sale_id}
+                Ref: {sale.ref_sale_series && sale.ref_sale_doc_number
+                  ? `${sale.ref_sale_series}-${String(sale.ref_sale_doc_number).padStart(7, '0')}`
+                  : `Doc. #${sale.ref_sale_id}`}
               </div>
             )}
           </>

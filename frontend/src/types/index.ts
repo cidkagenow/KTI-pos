@@ -159,6 +159,8 @@ export interface Sale {
   sunat_description?: string | null;
   sunat_hash?: string | null;
   ref_sale_id?: number | null;
+  ref_sale_series?: string | null;
+  ref_sale_doc_number?: number | null;
   nc_motivo_code?: string | null;
   nc_motivo_text?: string | null;
 }

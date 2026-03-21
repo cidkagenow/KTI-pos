@@ -518,6 +518,12 @@ def get_sale(
             detail="Venta no encontrada",
         )
     out = _sale_to_out(sale)
+    # Populate ref_sale series/doc_number for NC print receipts
+    if sale.ref_sale_id:
+        ref_sale = db.query(Sale).filter(Sale.id == sale.ref_sale_id).first()
+        if ref_sale:
+            out.ref_sale_series = ref_sale.series
+            out.ref_sale_doc_number = ref_sale.doc_number
     # Fetch sunat_hash from SunatDocument (prefer the one with a hash)
     sunat_doc = (
         db.query(SunatDocument)
