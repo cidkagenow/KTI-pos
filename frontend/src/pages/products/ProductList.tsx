@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Table,
   Button,
@@ -20,7 +20,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, updateProduct, deleteProduct, syncOnlineProducts } from '../../api/products';
+import { getProducts, createProduct, updateProduct, deleteProduct, syncOnlineProducts, getNextProductCode } from '../../api/products';
 import { getBrands, getCategories } from '../../api/catalogs';
 import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
@@ -42,6 +42,7 @@ export default function ProductList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
+  const nameInputRef = useRef<any>(null);
   const enterNavRef = useEnterNavigation(() => handleSubmit());
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [editingStockValue, setEditingStockValue] = useState<number>(0);
@@ -121,10 +122,15 @@ export default function ProductList() {
     onError: () => message.error('Error al sincronizar con la tienda web'),
   });
 
-  const openCreate = () => {
+  const openCreate = async () => {
     setEditingProduct(null);
     form.resetFields();
     setModalOpen(true);
+    try {
+      const code = await getNextProductCode();
+      form.setFieldValue('code', code);
+    } catch { /* user can type manually */ }
+    setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
   const openEdit = (product: Product) => {
@@ -372,12 +378,12 @@ export default function ProductList() {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="code" label="Codigo" rules={[{ required: true, message: 'Requerido' }]}>
-                <Input />
+                <Input disabled={!editingProduct} />
               </Form.Item>
             </Col>
             <Col span={16}>
               <Form.Item name="name" label="Nombre" rules={[{ required: true, message: 'Requerido' }]}>
-                <Input />
+                <Input ref={nameInputRef} />
               </Form.Item>
             </Col>
           </Row>

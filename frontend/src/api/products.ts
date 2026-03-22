@@ -25,6 +25,11 @@ export async function deleteProduct(id: number): Promise<void> {
   await api.delete(`/products/${id}`);
 }
 
+export async function getNextProductCode(): Promise<string> {
+  const { data } = await api.get('/products/next-code');
+  return data.code;
+}
+
 export async function searchProducts(q: string): Promise<ProductSearch[]> {
   const { data } = await api.get('/products/search', { params: { q } });
   return data;

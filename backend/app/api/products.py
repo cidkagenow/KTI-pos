@@ -200,6 +200,23 @@ def list_products(
     return results
 
 
+@router.get("/next-code")
+def next_product_code(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get the next available numeric product code (zero-padded to 5 digits)."""
+    from sqlalchemy import func, cast, Integer
+    # Find max numeric code among all products
+    max_code = (
+        db.query(func.max(cast(Product.code, Integer)))
+        .filter(Product.code.regexp_match(r'^\d+$'))
+        .scalar()
+    )
+    next_num = (max_code or 0) + 1
+    return {"code": str(next_num).zfill(5)}
+
+
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 def create_product(
     data: ProductCreate,
