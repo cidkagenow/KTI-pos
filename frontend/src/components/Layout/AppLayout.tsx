@@ -86,15 +86,15 @@ export default function AppLayout() {
       icon: <TeamOutlined />,
       label: 'Clientes',
     },
+    {
+      key: '/online-orders',
+      icon: <GlobalOutlined />,
+      label: pendingCount > 0 ? (
+        <span>Pedidos Online <Badge count={pendingCount} size="small" offset={[4, -2]} /></span>
+      ) : 'Pedidos Online',
+    },
     ...(isAdmin
       ? [
-          {
-            key: '/online-orders',
-            icon: <GlobalOutlined />,
-            label: pendingCount > 0 ? (
-              <span>Pedidos Online <Badge count={pendingCount} size="small" offset={[4, -2]} /></span>
-            ) : 'Pedidos Online',
-          },
           {
             key: '/purchase-orders',
             icon: <ShoppingOutlined />,

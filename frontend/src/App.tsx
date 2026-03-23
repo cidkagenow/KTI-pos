@@ -72,7 +72,7 @@ function AppRoutes() {
         <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />
         <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
-        <Route path="online-orders" element={<AdminRoute><OnlineOrderList /></AdminRoute>} />
+        <Route path="online-orders" element={<OnlineOrderList />} />
         <Route path="chat-history" element={<AdminRoute><ChatHistory /></AdminRoute>} />
       </Route>
     </Routes>
