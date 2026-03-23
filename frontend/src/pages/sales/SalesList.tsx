@@ -304,7 +304,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/${record.id}`)}
             />
           )}
-          {isAdmin && record.doc_type === 'NOTA_VENTA' && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
+          {isAdmin && record.doc_type === 'NOTA_VENTA' && record.status === 'PREVENTA' && (
             <Button
               type="link"
               size="small"
@@ -331,7 +331,7 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {(isAdmin ? (record.status === 'PREVENTA' || record.status === 'EMITIDO') : record.status === 'PREVENTA') && (
+          {record.status === 'PREVENTA' && (
             <Button
               type="link"
               size="small"
