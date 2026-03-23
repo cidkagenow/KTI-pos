@@ -89,6 +89,7 @@ export interface DocumentSeries {
   series: string;
   next_number: number;
   is_active: boolean;
+  is_default: boolean;
 }
 
 export interface SaleItem {

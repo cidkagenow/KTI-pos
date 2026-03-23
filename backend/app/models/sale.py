@@ -29,6 +29,7 @@ class DocumentSeries(Base):
     series: Mapped[str] = mapped_column(String(10), nullable=False)
     next_number: Mapped[int] = mapped_column(Integer, default=1)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     def __repr__(self) -> str:
         return (

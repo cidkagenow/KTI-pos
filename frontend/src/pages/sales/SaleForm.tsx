@@ -161,10 +161,12 @@ export default function SaleForm() {
     if (isEditing) return;
     if (!docSeries || !warehouses) return;
 
-    // Serie: first active BOLETA series
-    const boletaSeries = docSeries.filter((s) => s.is_active && s.doc_type === 'BOLETA');
-    if (boletaSeries.length > 0) {
-      form.setFieldValue('doc_type_series', `${boletaSeries[0].doc_type}|${boletaSeries[0].series}`);
+    // Serie: default BOLETA series, or first active BOLETA series
+    const defaultBoleta = docSeries.find((s) => s.is_active && s.doc_type === 'BOLETA' && s.is_default);
+    const firstBoleta = docSeries.find((s) => s.is_active && s.doc_type === 'BOLETA');
+    const selectedSeries = defaultBoleta || firstBoleta;
+    if (selectedSeries) {
+      form.setFieldValue('doc_type_series', `${selectedSeries.doc_type}|${selectedSeries.series}`);
     }
 
     // Almacen: first warehouse matching "principal", else first

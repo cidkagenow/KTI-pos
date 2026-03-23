@@ -9,6 +9,7 @@ class DocumentSeriesOut(BaseModel):
     series: str
     next_number: int
     is_active: bool
+    is_default: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

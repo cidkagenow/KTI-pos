@@ -34,6 +34,7 @@ import {
   getDocumentSeries,
   createDocumentSeries,
   updateDocumentSeries,
+  setDefaultSeries,
   getSuppliers,
   createSupplier,
   updateSupplier,
@@ -322,6 +323,17 @@ function SupplierTab() {
    Settings Page
    ============================================================ */
 export default function Settings() {
+  const queryClient = useQueryClient();
+
+  const setDefaultMut = useMutation({
+    mutationFn: (id: number) => setDefaultSeries(id),
+    onSuccess: () => {
+      message.success('Serie predeterminada actualizada');
+      queryClient.invalidateQueries({ queryKey: ['doc-series'] });
+    },
+    onError: () => message.error('Error al actualizar serie predeterminada'),
+  });
+
   const brandColumns: ColumnsType<Brand> = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     {
@@ -366,6 +378,25 @@ export default function Settings() {
       key: 'is_active',
       width: 80,
       render: (v: boolean) => <Tag color={v ? 'green' : 'red'}>{v ? 'Activo' : 'Inactivo'}</Tag>,
+    },
+    {
+      title: 'Predeterminada',
+      key: 'is_default',
+      width: 120,
+      align: 'center',
+      render: (_: unknown, record: DocumentSeries) =>
+        record.is_default ? (
+          <Tag color="blue">Predeterminada</Tag>
+        ) : (
+          <Button
+            size="small"
+            type="link"
+            loading={setDefaultMut.isPending}
+            onClick={() => setDefaultMut.mutate(record.id)}
+          >
+            Usar por defecto
+          </Button>
+        ),
     },
   ];
 

@@ -61,6 +61,10 @@ export async function updateDocumentSeries(id: number, data: any): Promise<Docum
   return (await api.put(`/catalogs/document-series/${id}`, data)).data;
 }
 
+export async function setDefaultSeries(id: number): Promise<DocumentSeries> {
+  return (await api.post(`/catalogs/document-series/${id}/set-default`)).data;
+}
+
 export async function getSuppliers(): Promise<Supplier[]> { return (await api.get('/catalogs/suppliers')).data; }
 export async function createSupplier(data: any): Promise<Supplier> { return (await api.post('/catalogs/suppliers', data)).data; }
 export async function updateSupplier(id: number, data: any): Promise<Supplier> { return (await api.put(`/catalogs/suppliers/${id}`, data)).data; }
