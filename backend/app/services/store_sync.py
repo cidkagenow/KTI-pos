@@ -18,10 +18,10 @@ def _base_url() -> str:
 
 
 def sync_products_to_store(db: Session) -> dict:
-    """Push all is_online=true products (with their brands/categories) to the store server."""
+    """Push all active products (with their brands/categories and is_online flag) to the store server."""
     products = (
         db.query(Product)
-        .filter(Product.is_active == True, Product.is_online == True)
+        .filter(Product.is_active == True)
         .all()
     )
 
@@ -67,6 +67,7 @@ def sync_products_to_store(db: Session) -> dict:
                 "presentation": p.presentation,
                 "unit_price": float(p.unit_price),
                 "in_stock": stock_map.get(p.id, 0) > 0,
+                "is_online": p.is_online,
             }
             for p in products
         ],
