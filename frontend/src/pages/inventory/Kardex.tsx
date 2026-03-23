@@ -5,6 +5,7 @@ import { getKardex } from '../../api/inventory';
 import { getWarehouses } from '../../api/catalogs';
 import { getProducts } from '../../api/products';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
+import { useTheme } from '../../contexts/ThemeContext';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -52,6 +53,7 @@ const fmtCost = (v: number) => (v === 0 ? '' : v.toLocaleString('es-PE', { minim
 const fmtTotal = (v: number) => (v === 0 ? '' : v.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
 export default function Kardex() {
+  const { isDark } = useTheme();
   const [productId, setProductId] = useState<number | undefined>(undefined);
   const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
@@ -103,9 +105,8 @@ export default function Kardex() {
     });
   }
 
-  const cellStyle = (bg: string) => ({
-    style: { backgroundColor: bg },
-  });
+  const entradaBg = isDark ? 'rgba(56, 158, 13, 0.15)' : '#f6ffed';
+  const salidaBg = isDark ? 'rgba(250, 173, 20, 0.15)' : '#fffbe6';
 
   const columns: ColumnsType<KardexEntry & { _key: string }> = [
     {
@@ -152,7 +153,7 @@ export default function Kardex() {
           key: 'entrada_qty',
           width: 80,
           align: 'right' as const,
-          onCell: () => cellStyle('#f6ffed'),
+          onCell: () => ({ style: { backgroundColor: entradaBg } }),
           render: fmtQty,
         },
         {
@@ -161,7 +162,7 @@ export default function Kardex() {
           key: 'entrada_cost_unit',
           width: 90,
           align: 'right' as const,
-          onCell: () => cellStyle('#f6ffed'),
+          onCell: () => ({ style: { backgroundColor: entradaBg } }),
           render: fmtCost,
         },
         {
@@ -170,7 +171,7 @@ export default function Kardex() {
           key: 'entrada_cost_total',
           width: 100,
           align: 'right' as const,
-          onCell: () => cellStyle('#f6ffed'),
+          onCell: () => ({ style: { backgroundColor: entradaBg } }),
           render: fmtTotal,
         },
       ],
@@ -184,7 +185,7 @@ export default function Kardex() {
           key: 'salida_qty',
           width: 80,
           align: 'right' as const,
-          onCell: () => cellStyle('#fffbe6'),
+          onCell: () => ({ style: { backgroundColor: salidaBg } }),
           render: fmtQty,
         },
         {
@@ -193,7 +194,7 @@ export default function Kardex() {
           key: 'salida_cost_unit',
           width: 90,
           align: 'right' as const,
-          onCell: () => cellStyle('#fffbe6'),
+          onCell: () => ({ style: { backgroundColor: salidaBg } }),
           render: fmtCost,
         },
         {
@@ -202,7 +203,7 @@ export default function Kardex() {
           key: 'salida_cost_total',
           width: 100,
           align: 'right' as const,
-          onCell: () => cellStyle('#fffbe6'),
+          onCell: () => ({ style: { backgroundColor: salidaBg } }),
           render: fmtTotal,
         },
       ],
