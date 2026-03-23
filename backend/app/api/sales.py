@@ -710,6 +710,30 @@ def emitir_nota_venta(
     sale.status = "EMITIDO"
     sale.issue_date = date.today()
 
+    # Deduct stock (same as facturar)
+    for item in sale.items:
+        inv = (
+            db.query(Inventory)
+            .filter(
+                Inventory.product_id == item.product_id,
+                Inventory.warehouse_id == sale.warehouse_id,
+            )
+            .first()
+        )
+        if inv:
+            inv.quantity -= item.quantity
+        db.add(InventoryMovement(
+            product_id=item.product_id,
+            warehouse_id=sale.warehouse_id,
+            movement_type="SALE",
+            quantity=-item.quantity,
+            reference_type="SALE",
+            reference_id=sale.id,
+            notes=f"Venta #{sale.series}-{sale.doc_number}",
+            created_by=_user.id,
+        ))
+    db.flush()
+
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)
@@ -1030,8 +1054,9 @@ def void_sale(
                 detail="No se puede anular esta boleta hoy. El resumen diario ya fue aceptado por SUNAT. Puede anularla a partir de mañana.",
             )
 
-    # Return stock only for FACTURADO sales (preventas/emitidos never deducted stock)
-    if sale.status == "FACTURADO" and sale.doc_type not in ("NOTA_VENTA", "NOTA_CREDITO"):
+    # Return stock for FACTURADO (boleta/factura) and EMITIDO (nota de venta)
+    if (sale.status == "FACTURADO" and sale.doc_type not in ("NOTA_VENTA", "NOTA_CREDITO")) or \
+       (sale.status == "EMITIDO" and sale.doc_type == "NOTA_VENTA"):
         # BOLETA/FACTURA: return stock that was deducted at facturar
         for item in sale.items:
             inv = (
