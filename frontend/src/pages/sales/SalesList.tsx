@@ -296,7 +296,7 @@ export default function SalesList() {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/sales/${record.id}`)}
           />
-          {(record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
+          {record.status === 'PREVENTA' && (
             <Button
               type="link"
               size="small"
@@ -340,6 +340,46 @@ export default function SalesList() {
               onClick={() => handleDelete(record)}
             />
           )}
+          {/* Ventas: emitir NV without print */}
+          {!isAdmin && record.status === 'PREVENTA' && record.doc_type === 'NOTA_VENTA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<PrinterOutlined />}
+              title="Emitir Nota de Venta"
+              onClick={async () => {
+                try {
+                  await emitirNotaVenta(record.id);
+                  message.success('Nota de Venta emitida');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
+                }
+              }}
+            />
+          )}
+          {/* Ventas: facturar + print (non-NV) */}
+          {!isAdmin && record.status === 'PREVENTA' && record.doc_type !== 'NOTA_VENTA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<PrinterOutlined />}
+              disabled={record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total}
+              title={record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total ? 'Efectivo insuficiente' : undefined}
+              onClick={async () => {
+                try {
+                  await facturarSale(record.id);
+                  message.success('Venta facturada');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al facturar');
+                  return;
+                }
+                window.open(`/sales/${record.id}/print`, '_blank');
+              }}
+            />
+          )}
+          {/* Admin: full emitir/facturar + print for all */}
           {isAdmin && (() => {
             const isPreventa = record.status === 'PREVENTA';
             const isNV = record.doc_type === 'NOTA_VENTA';
