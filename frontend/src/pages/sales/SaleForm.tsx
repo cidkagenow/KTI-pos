@@ -161,10 +161,10 @@ export default function SaleForm() {
     if (isEditing) return;
     if (!docSeries || !warehouses) return;
 
-    // Serie: default BOLETA series, or first active BOLETA series
-    const defaultBoleta = docSeries.find((s) => s.is_active && s.doc_type === 'BOLETA' && s.is_default);
+    // Serie: single global default, or first active BOLETA series
+    const globalDefault = docSeries.find((s) => s.is_active && s.is_default);
     const firstBoleta = docSeries.find((s) => s.is_active && s.doc_type === 'BOLETA');
-    const selectedSeries = defaultBoleta || firstBoleta;
+    const selectedSeries = globalDefault || firstBoleta;
     if (selectedSeries) {
       form.setFieldValue('doc_type_series', `${selectedSeries.doc_type}|${selectedSeries.series}`);
     }

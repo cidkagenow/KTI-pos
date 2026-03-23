@@ -351,25 +351,28 @@ def update_document_series(
     return DocumentSeriesOut.model_validate(ds)
 
 
-@router.post("/document-series/{series_id}/set-default", response_model=DocumentSeriesOut)
-def set_default_series(
+@router.post("/document-series/{series_id}/toggle-default", response_model=DocumentSeriesOut)
+def toggle_default_series(
     series_id: int,
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
 ):
-    """Set a series as default for its doc_type. Unsets other defaults of same type."""
+    """Toggle a series as the single default. Only one default across all types."""
     ds = db.query(DocumentSeries).filter(DocumentSeries.id == series_id).first()
     if ds is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Serie no encontrada",
         )
-    # Unset all other defaults for this doc_type
-    db.query(DocumentSeries).filter(
-        DocumentSeries.doc_type == ds.doc_type,
-        DocumentSeries.id != series_id,
-    ).update({"is_default": False})
-    ds.is_default = True
+    if ds.is_default:
+        # Turn off — no default
+        ds.is_default = False
+    else:
+        # Unset ALL other defaults (across all doc types)
+        db.query(DocumentSeries).filter(
+            DocumentSeries.id != series_id,
+        ).update({"is_default": False})
+        ds.is_default = True
     db.commit()
     db.refresh(ds)
     return DocumentSeriesOut.model_validate(ds)

@@ -10,6 +10,7 @@ import {
   Select,
   Space,
   Tag,
+  Switch,
   Typography,
   Row,
   Col,
@@ -34,7 +35,7 @@ import {
   getDocumentSeries,
   createDocumentSeries,
   updateDocumentSeries,
-  setDefaultSeries,
+  toggleDefaultSeries,
   getSuppliers,
   createSupplier,
   updateSupplier,
@@ -325,8 +326,8 @@ function SupplierTab() {
 export default function Settings() {
   const queryClient = useQueryClient();
 
-  const setDefaultMut = useMutation({
-    mutationFn: (id: number) => setDefaultSeries(id),
+  const toggleDefaultMut = useMutation({
+    mutationFn: (id: number) => toggleDefaultSeries(id),
     onSuccess: () => {
       message.success('Serie predeterminada actualizada');
       queryClient.invalidateQueries({ queryKey: ['doc-series'] });
@@ -384,19 +385,14 @@ export default function Settings() {
       key: 'is_default',
       width: 120,
       align: 'center',
-      render: (_: unknown, record: DocumentSeries) =>
-        record.is_default ? (
-          <Tag color="blue">Predeterminada</Tag>
-        ) : (
-          <Button
-            size="small"
-            type="link"
-            loading={setDefaultMut.isPending}
-            onClick={() => setDefaultMut.mutate(record.id)}
-          >
-            Usar por defecto
-          </Button>
-        ),
+      render: (_: unknown, record: DocumentSeries) => (
+        <Switch
+          checked={record.is_default}
+          loading={toggleDefaultMut.isPending}
+          onChange={() => toggleDefaultMut.mutate(record.id)}
+          size="small"
+        />
+      ),
     },
   ];
 
