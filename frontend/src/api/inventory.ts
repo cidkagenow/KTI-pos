@@ -25,3 +25,13 @@ export async function getMovements(params?: any): Promise<InventoryMovement[]> {
   const { data } = await api.get('/inventory/movements', { params });
   return data;
 }
+
+export async function getKardex(params: {
+  product_id: number;
+  warehouse_id?: number;
+  date_from?: string;
+  date_to?: string;
+}) {
+  const { data } = await api.get('/inventory/kardex', { params });
+  return data;
+}

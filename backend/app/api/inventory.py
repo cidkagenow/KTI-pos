@@ -1,9 +1,14 @@
+from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func
 
 from app.database import get_db
 from app.models.inventory import Inventory, InventoryMovement
 from app.models.product import Product
+from app.models.purchase import PurchaseOrder
+from app.models.sale import Sale
 from app.models.warehouse import Warehouse
 from app.models.user import User
 from app.schemas.inventory import (
@@ -11,6 +16,8 @@ from app.schemas.inventory import (
     InventoryAdjust,
     InventoryTransfer,
     MovementOut,
+    KardexEntry,
+    KardexResponse,
 )
 from app.api.deps import get_current_user, require_admin
 
@@ -239,6 +246,151 @@ def transfer_stock(
         "from": _inv_to_out(from_inv).model_dump(),
         "to": _inv_to_out(to_inv).model_dump(),
     }
+
+
+@router.get("/kardex", response_model=KardexResponse)
+def get_kardex(
+    product_id: int = Query(...),
+    warehouse_id: int | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
+
+    cost_price = float(product.cost_price or 0)
+
+    # Determine warehouse name
+    warehouse_name: str | None = None
+    if warehouse_id is not None:
+        wh = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
+        if wh:
+            warehouse_name = wh.name
+
+    # Build base query for this product
+    base_q = db.query(InventoryMovement).filter(
+        InventoryMovement.product_id == product_id,
+    )
+    if warehouse_id is not None:
+        base_q = base_q.filter(InventoryMovement.warehouse_id == warehouse_id)
+
+    # Calculate initial balance (movements before date_from)
+    initial_balance_qty: float = 0.0
+    if date_from is not None:
+        initial_sum = (
+            base_q.filter(
+                sa_func.date(InventoryMovement.created_at) < date_from
+            )
+            .with_entities(sa_func.coalesce(sa_func.sum(InventoryMovement.quantity), 0))
+            .scalar()
+        )
+        initial_balance_qty = float(initial_sum)
+
+    initial_balance_cost = initial_balance_qty * cost_price
+
+    # Fetch movements in range
+    movements_q = base_q
+    if date_from is not None:
+        movements_q = movements_q.filter(
+            sa_func.date(InventoryMovement.created_at) >= date_from
+        )
+    if date_to is not None:
+        movements_q = movements_q.filter(
+            sa_func.date(InventoryMovement.created_at) <= date_to
+        )
+
+    movements = movements_q.order_by(InventoryMovement.created_at.asc()).all()
+
+    # Pre-fetch sale references in bulk
+    sale_ref_ids = [
+        m.reference_id
+        for m in movements
+        if m.reference_type == "sale" and m.reference_id is not None
+    ]
+    sale_map: dict[int, Sale] = {}
+    if sale_ref_ids:
+        sales = db.query(Sale).filter(Sale.id.in_(sale_ref_ids)).all()
+        sale_map = {s.id: s for s in sales}
+
+    # Pre-fetch purchase order references in bulk
+    po_ref_ids = [
+        m.reference_id
+        for m in movements
+        if m.reference_type == "purchase_order" and m.reference_id is not None
+    ]
+    po_map: dict[int, PurchaseOrder] = {}
+    if po_ref_ids:
+        pos = db.query(PurchaseOrder).filter(PurchaseOrder.id.in_(po_ref_ids)).all()
+        po_map = {p.id: p for p in pos}
+
+    # Doc type mapping for sales
+    sale_doc_type_map = {
+        "FACTURA": "01",
+        "BOLETA": "03",
+        "NOTA_CREDITO": "07",
+        "NOTA_VENTA": "NV",
+    }
+
+    running_qty = initial_balance_qty
+    entries: list[KardexEntry] = []
+
+    for mov in movements:
+        qty = float(mov.quantity)
+        entrada_qty = qty if qty > 0 else 0.0
+        salida_qty = abs(qty) if qty < 0 else 0.0
+        entrada_cost_total = entrada_qty * cost_price
+        salida_cost_total = salida_qty * cost_price
+        running_qty += qty
+
+        # Resolve document reference
+        doc_type: str | None = None
+        doc_series: str | None = None
+        doc_number: str | None = None
+
+        if mov.reference_type == "sale" and mov.reference_id in sale_map:
+            sale = sale_map[mov.reference_id]
+            doc_type = sale_doc_type_map.get(sale.doc_type, sale.doc_type)
+            doc_series = sale.series
+            doc_number = str(sale.doc_number) if sale.doc_number is not None else None
+        elif mov.reference_type == "purchase_order" and mov.reference_id in po_map:
+            po = po_map[mov.reference_id]
+            doc_type = "OC"
+            doc_series = None
+            doc_number = str(po.id)
+
+        entries.append(
+            KardexEntry(
+                date=mov.created_at.strftime("%Y-%m-%d"),
+                movement_type=mov.movement_type,
+                doc_type=doc_type,
+                doc_series=doc_series,
+                doc_number=doc_number,
+                entrada_qty=entrada_qty,
+                entrada_cost_unit=cost_price if entrada_qty > 0 else 0.0,
+                entrada_cost_total=entrada_cost_total,
+                salida_qty=salida_qty,
+                salida_cost_unit=cost_price if salida_qty > 0 else 0.0,
+                salida_cost_total=salida_cost_total,
+                saldo_qty=running_qty,
+                saldo_cost_unit=cost_price,
+                saldo_cost_total=running_qty * cost_price,
+            )
+        )
+
+    return KardexResponse(
+        product_code=product.code,
+        product_name=product.name,
+        warehouse_name=warehouse_name,
+        initial_balance_qty=initial_balance_qty,
+        initial_balance_cost=initial_balance_cost,
+        entries=entries,
+    )
 
 
 @router.get("/movements", response_model=list[MovementOut])

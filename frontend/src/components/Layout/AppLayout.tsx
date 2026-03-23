@@ -76,6 +76,7 @@ export default function AppLayout() {
               { key: '/inventory/movements', label: 'Movimientos' },
               { key: '/inventory/alerts', label: 'Alertas' },
               { key: '/inventory/stock-valorizado', label: 'Stock Valorizado' },
+              { key: '/inventory/kardex', label: 'Kardex' },
             ],
           },
         ]
@@ -144,6 +145,7 @@ export default function AppLayout() {
     if (path === '/inventory/movements') return '/inventory/movements';
     if (path === '/inventory/alerts') return '/inventory/alerts';
     if (path === '/inventory/stock-valorizado') return '/inventory/stock-valorizado';
+    if (path === '/inventory/kardex') return '/inventory/kardex';
     if (path.startsWith('/inventory')) return '/inventory';
     if (path.startsWith('/clients')) return '/clients';
     if (path.startsWith('/online-orders')) return '/online-orders';
