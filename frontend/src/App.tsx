@@ -28,6 +28,7 @@ import ChatHistory from './pages/chat/ChatHistory';
 import TrabajadorList from './pages/trabajadores/TrabajadorList';
 import AsistenciaPage from './pages/trabajadores/AsistenciaPage';
 import OnlineOrderList from './pages/online-orders/OnlineOrderList';
+import WebChatLogs from './pages/online-orders/WebChatLogs';
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
         <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
         <Route path="online-orders" element={<OnlineOrderList />} />
+        <Route path="web-chat-logs" element={<AdminRoute><WebChatLogs /></AdminRoute>} />
         <Route path="chat-history" element={<AdminRoute><ChatHistory /></AdminRoute>} />
       </Route>
     </Routes>

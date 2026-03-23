@@ -16,7 +16,7 @@ from app.models.product import Product
 from app.models.sale import DocumentSeries, Sale, SaleItem
 from app.models.online_order import OnlineOrder, OnlineOrderItem
 from app.schemas.online_order import CancelRequest
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 from app.services.store_sync import proxy_store_request
 from app.utils.igv import calc_igv
 
@@ -276,6 +276,20 @@ def cancel_order(
             f"/api/v1/orders/{order_id}/cancel",
             json={"reason": body.reason, "staff_name": user.full_name},
         )
+        return _proxy_response(resp)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
+
+
+@router.get("/chat-logs")
+def get_web_chat_logs(
+    limit: int = Query(200, ge=1, le=1000),
+    _user: User = Depends(require_admin),
+):
+    """Proxy chat logs from the web store."""
+    _ensure_store_configured()
+    try:
+        resp = proxy_store_request("GET", "/api/v1/chat/logs", params={"limit": limit})
         return _proxy_response(resp)
     except Exception:
         raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")

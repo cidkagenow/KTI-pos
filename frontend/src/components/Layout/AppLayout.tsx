@@ -130,6 +130,11 @@ export default function AppLayout() {
             label: 'Historial Chat',
           },
           {
+            key: '/web-chat-logs',
+            icon: <GlobalOutlined />,
+            label: 'Chat Web',
+          },
+          {
             key: '/settings',
             icon: <SettingOutlined />,
             label: 'Configuracion',
@@ -155,6 +160,7 @@ export default function AppLayout() {
     if (path.startsWith('/trabajadores')) return '/trabajadores';
     if (path.startsWith('/users')) return '/users';
     if (path.startsWith('/chat-history')) return '/chat-history';
+    if (path.startsWith('/web-chat-logs')) return '/web-chat-logs';
     if (path.startsWith('/settings')) return '/settings';
     if (path.startsWith('/reports')) return '/reports';
     return '/';
