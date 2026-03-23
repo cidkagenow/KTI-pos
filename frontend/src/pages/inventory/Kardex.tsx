@@ -76,26 +76,28 @@ export default function Kardex() {
   // Build table data: initial balance row + entries
   const tableData: (KardexEntry & { _key: string })[] = [];
   if (kardexData) {
-    // Initial balance row
-    tableData.push({
-      _key: 'initial',
-      date: params.date_from || '',
-      movement_type: 'SALDO_INICIAL',
-      doc_type: null,
-      doc_series: null,
-      doc_number: null,
-      entrada_qty: 0,
-      entrada_cost_unit: 0,
-      entrada_cost_total: 0,
-      salida_qty: 0,
-      salida_cost_unit: 0,
-      salida_cost_total: 0,
-      saldo_qty: kardexData.initial_balance_qty,
-      saldo_cost_unit: kardexData.initial_balance_qty !== 0
-        ? kardexData.initial_balance_cost / kardexData.initial_balance_qty
-        : 0,
-      saldo_cost_total: kardexData.initial_balance_cost,
-    });
+    // Show initial balance row only when date filter is applied
+    if (dateRange) {
+      tableData.push({
+        _key: 'initial',
+        date: params.date_from || '',
+        movement_type: 'SALDO_INICIAL',
+        doc_type: null,
+        doc_series: null,
+        doc_number: null,
+        entrada_qty: 0,
+        entrada_cost_unit: 0,
+        entrada_cost_total: 0,
+        salida_qty: 0,
+        salida_cost_unit: 0,
+        salida_cost_total: 0,
+        saldo_qty: kardexData.initial_balance_qty,
+        saldo_cost_unit: kardexData.initial_balance_qty !== 0
+          ? kardexData.initial_balance_cost / kardexData.initial_balance_qty
+          : 0,
+        saldo_cost_total: kardexData.initial_balance_cost,
+      });
+    }
     kardexData.entries.forEach((e, i) => {
       tableData.push({ ...e, _key: `entry-${i}` });
     });

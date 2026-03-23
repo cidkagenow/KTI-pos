@@ -281,11 +281,13 @@ def get_kardex(
         base_q = base_q.filter(InventoryMovement.warehouse_id == warehouse_id)
 
     # Calculate initial balance (movements before date_from)
+    # Use Lima timezone for date comparison (created_at is stored as UTC)
+    _lima = sa_func.timezone("America/Lima", InventoryMovement.created_at)
     initial_balance_qty: float = 0.0
     if date_from is not None:
         initial_sum = (
             base_q.filter(
-                sa_func.date(InventoryMovement.created_at) < date_from
+                sa_func.date(_lima) < date_from
             )
             .with_entities(sa_func.coalesce(sa_func.sum(InventoryMovement.quantity), 0))
             .scalar()
@@ -298,11 +300,11 @@ def get_kardex(
     movements_q = base_q
     if date_from is not None:
         movements_q = movements_q.filter(
-            sa_func.date(InventoryMovement.created_at) >= date_from
+            sa_func.date(_lima) >= date_from
         )
     if date_to is not None:
         movements_q = movements_q.filter(
-            sa_func.date(InventoryMovement.created_at) <= date_to
+            sa_func.date(_lima) <= date_to
         )
 
     movements = movements_q.order_by(InventoryMovement.created_at.asc()).all()
@@ -311,7 +313,7 @@ def get_kardex(
     sale_ref_ids = [
         m.reference_id
         for m in movements
-        if m.reference_type == "sale" and m.reference_id is not None
+        if m.reference_type == "SALE" and m.reference_id is not None
     ]
     sale_map: dict[int, Sale] = {}
     if sale_ref_ids:
@@ -322,7 +324,7 @@ def get_kardex(
     po_ref_ids = [
         m.reference_id
         for m in movements
-        if m.reference_type == "purchase_order" and m.reference_id is not None
+        if m.reference_type == "PURCHASE_ORDER" and m.reference_id is not None
     ]
     po_map: dict[int, PurchaseOrder] = {}
     if po_ref_ids:
@@ -340,6 +342,9 @@ def get_kardex(
     running_qty = initial_balance_qty
     entries: list[KardexEntry] = []
 
+    from zoneinfo import ZoneInfo
+    tz_lima = ZoneInfo("America/Lima")
+
     for mov in movements:
         qty = float(mov.quantity)
         entrada_qty = qty if qty > 0 else 0.0
@@ -353,12 +358,12 @@ def get_kardex(
         doc_series: str | None = None
         doc_number: str | None = None
 
-        if mov.reference_type == "sale" and mov.reference_id in sale_map:
+        if mov.reference_type == "SALE" and mov.reference_id in sale_map:
             sale = sale_map[mov.reference_id]
             doc_type = sale_doc_type_map.get(sale.doc_type, sale.doc_type)
             doc_series = sale.series
             doc_number = str(sale.doc_number) if sale.doc_number is not None else None
-        elif mov.reference_type == "purchase_order" and mov.reference_id in po_map:
+        elif mov.reference_type == "PURCHASE_ORDER" and mov.reference_id in po_map:
             po = po_map[mov.reference_id]
             doc_type = "OC"
             doc_series = None
@@ -366,7 +371,7 @@ def get_kardex(
 
         entries.append(
             KardexEntry(
-                date=mov.created_at.strftime("%Y-%m-%d"),
+                date=mov.created_at.astimezone(tz_lima).strftime("%Y-%m-%d") if mov.created_at.tzinfo else mov.created_at.strftime("%Y-%m-%d"),
                 movement_type=mov.movement_type,
                 doc_type=doc_type,
                 doc_series=doc_series,
