@@ -498,6 +498,7 @@ export default function Settings() {
                     { value: 'FACTURA', label: 'Factura' },
                     { value: 'NOTA_CREDITO', label: 'Nota de Crédito' },
                     { value: 'NOTA_VENTA', label: 'Nota de Venta' },
+                    { value: 'PROFORMA', label: 'Proforma' },
                   ]}
                 />
               </Form.Item>

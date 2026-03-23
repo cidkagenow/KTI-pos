@@ -24,7 +24,7 @@ import {
 import { PlusOutlined, DeleteOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta, deleteSale } from '../../api/sales';
+import { createSale, updateSale, getSale, facturarSale, emitirNotaVenta, emitirProforma, deleteSale } from '../../api/sales';
 import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
@@ -528,11 +528,53 @@ export default function SaleForm() {
     }
   };
 
+  const handleEmitirProforma = async () => {
+    if (savingRef.current) return;
+    try {
+      await form.validateFields();
+    } catch {
+      return;
+    }
+    const validItems = items.filter((item) => item.product_id);
+    if (validItems.length === 0) {
+      message.error('Agregue al menos un producto');
+      return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      let saleId: number;
+      const payload = buildPayload();
+      if (isEditing) {
+        await updateSale(Number(id), payload);
+        saleId = Number(id);
+      } else {
+        const created = await createSale(payload);
+        saleId = created.id;
+      }
+      // Only call emitir if not already emitted
+      if (!isEditing || existingSale?.status === 'PREVENTA') {
+        await emitirProforma(saleId);
+      }
+      message.success('Proforma emitida');
+      if (isAdmin) {
+        window.open(`/sales/${saleId}/print`, '_blank');
+      }
+      navigate('/sales/list');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      message.error(detail || 'Error al emitir la Proforma');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
   const seriesOptions = (docSeries ?? [])
     .filter((s) => s.is_active && s.doc_type !== 'NOTA_CREDITO')
     .map((s) => ({
       value: `${s.doc_type}|${s.series}`,
-      label: `${{ BOLETA: 'BV', FACTURA: 'FT', NOTA_CREDITO: 'NC', NOTA_VENTA: 'NV' }[s.doc_type] || s.doc_type} / ${s.series}`,
+      label: `${{ BOLETA: 'BV', FACTURA: 'FT', NOTA_CREDITO: 'NC', NOTA_VENTA: 'NV', PROFORMA: 'PF' }[s.doc_type] || s.doc_type} / ${s.series}`,
     }));
 
   const maxDiscountPct = Form.useWatch('max_discount_pct', form) ?? 0;
@@ -904,7 +946,7 @@ export default function SaleForm() {
 
           <div style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
-              {currentDocType !== 'NOTA_VENTA' && (
+              {currentDocType !== 'NOTA_VENTA' && currentDocType !== 'PROFORMA' && (
                 <Button
                   icon={<SaveOutlined />}
                   onClick={handleSavePreVenta}
@@ -916,7 +958,7 @@ export default function SaleForm() {
                   Guardar como PreVenta
                 </Button>
               )}
-              {currentDocType === 'NOTA_VENTA' && isEditing && (
+              {(currentDocType === 'NOTA_VENTA' || currentDocType === 'PROFORMA') && isEditing && (
                 <Button
                   icon={<SaveOutlined />}
                   onClick={handleSavePreVenta}
@@ -940,7 +982,20 @@ export default function SaleForm() {
                   Emitir Nota de Venta
                 </Button>
               )}
-              {isAdmin && currentDocType !== 'NOTA_VENTA' && (
+              {currentDocType === 'PROFORMA' && (
+                <Button
+                  ref={facturarRef}
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  onClick={handleEmitirProforma}
+                  loading={saving}
+                  block
+                  size="large"
+                >
+                  Emitir Proforma
+                </Button>
+              )}
+              {isAdmin && currentDocType !== 'NOTA_VENTA' && currentDocType !== 'PROFORMA' && (
                 <Button
                   ref={facturarRef}
                   type="primary"

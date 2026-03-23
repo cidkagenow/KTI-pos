@@ -82,9 +82,11 @@ export default function SalePrint() {
     ? 'NOTA DE CREDITO'
     : sale.doc_type === 'NOTA_VENTA'
       ? 'NOTA DE VENTA'
-      : sale.doc_type === 'BOLETA'
-        ? 'BOLETA DE VENTA ELECTRONICA'
-        : 'FACTURA ELECTRONICA';
+      : sale.doc_type === 'PROFORMA'
+        ? 'PROFORMA'
+        : sale.doc_type === 'BOLETA'
+          ? 'BOLETA DE VENTA ELECTRONICA'
+          : 'FACTURA ELECTRONICA';
   const docNumber = sale.doc_number
     ? `${sale.series}-${String(sale.doc_number).padStart(7, '0')}`
     : `PRE-${sale.id}`;
@@ -96,7 +98,7 @@ export default function SalePrint() {
   const createdAt = new Date(sale.created_at);
   const timeStr = createdAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
-  const isNotaVenta = sale.doc_type === 'NOTA_VENTA';
+  const isNonFiscal = sale.doc_type === 'NOTA_VENTA' || sale.doc_type === 'PROFORMA';
 
   // QR data for SUNAT (facturas=01, boletas=03, NC=07)
   const docTypeCode = sale.doc_type === 'FACTURA' ? '01'
@@ -106,7 +108,7 @@ export default function SalePrint() {
     : sale.client_doc_type === 'DNI' ? '1'
     : sale.client_doc_type === 'CE' ? '4'
     : sale.client_doc_type === 'PASAPORTE' ? '7' : '0';
-  const hasHash = !isNotaVenta && sale.sunat_hash;
+  const hasHash = !isNonFiscal && sale.sunat_hash;
   const qrData = hasHash
     ? [
         EMPRESA_RUC,
@@ -228,7 +230,7 @@ export default function SalePrint() {
         <div className="center bold" style={{ fontSize: 13 }}>
           {EMPRESA_RAZON_SOCIAL}
         </div>
-        {!isNotaVenta && (
+        {!isNonFiscal && (
           <>
             <div className="center" style={{ fontSize: 10, marginTop: 4 }}>
               RUC: {EMPRESA_RUC}
@@ -249,7 +251,7 @@ export default function SalePrint() {
         </div>
         <div className="center bold">N° {docNumber}</div>
 
-        {isNotaVenta && (
+        {isNonFiscal && (
           <div className="center" style={{ fontSize: 9, marginTop: 4, border: '1px dashed #000', padding: '2px 4px' }}>
             DOCUMENTO NO FISCAL
           </div>
@@ -331,7 +333,7 @@ export default function SalePrint() {
         {/* Totals */}
         <div className="total-section">
           <hr className="divider" />
-          {!isNotaVenta && (
+          {!isNonFiscal && (
             <>
               <div className="total-row">
                 <span>Op. Gravadas (S/):</span>
@@ -381,7 +383,7 @@ export default function SalePrint() {
           Vendedor: {sale.seller_name}
         </div>
 
-        {isNotaVenta ? (
+        {isNonFiscal ? (
           <>
             <div className="center" style={{ fontSize: 9, marginTop: 4 }}>
               Este documento no es comprobante de pago

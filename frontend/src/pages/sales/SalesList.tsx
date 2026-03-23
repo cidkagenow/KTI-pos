@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta } from '../../api/sales';
+import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta, emitirProforma } from '../../api/sales';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getActiveTrabajadores } from '../../api/trabajadores';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -122,13 +122,13 @@ export default function SalesList() {
     mutationFn: ({ id, targetDocType, targetSeries }: { id: number; targetDocType: string; targetSeries: string }) =>
       convertirSale(id, targetDocType, targetSeries),
     onSuccess: () => {
-      message.success('Nota de Venta convertida correctamente');
+      message.success('Documento convertido correctamente');
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       setConvertirModalOpen(false);
     },
     onError: (err: any) => {
       const detail = err?.response?.data?.detail;
-      message.error(detail || 'Error al convertir la nota de venta');
+      message.error(detail || 'Error al convertir el documento');
     },
   });
 
@@ -210,6 +210,9 @@ export default function SalesList() {
         if (record.doc_type === 'NOTA_VENTA') {
           const nvTag = record.status === 'EMITIDO' ? <Tag color="cyan">N.VENTA</Tag> : <Tag color="cyan">N.VENTA</Tag>;
           return <>{nvTag}{docNum}</>;
+        }
+        if (record.doc_type === 'PROFORMA') {
+          return <><Tag color="geekblue">PROFORMA</Tag>{docNum}</>;
         }
         return `${record.doc_type}/${docNum}`;
       },
@@ -296,7 +299,7 @@ export default function SalesList() {
             icon={<EyeOutlined />}
             onClick={() => navigate(`/sales/${record.id}`)}
           />
-          {record.status === 'PREVENTA' && (
+          {(record.status === 'PREVENTA' || (record.status === 'EMITIDO' && record.doc_type === 'PROFORMA')) && (
             <Button
               type="link"
               size="small"
@@ -304,7 +307,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/${record.id}`)}
             />
           )}
-          {isAdmin && record.doc_type === 'NOTA_VENTA' && record.status === 'PREVENTA' && (
+          {isAdmin && (record.doc_type === 'NOTA_VENTA' || record.doc_type === 'PROFORMA') && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
             <Button
               type="link"
               size="small"
@@ -331,7 +334,7 @@ export default function SalesList() {
               onClick={() => handleVoid(record)}
             />
           )}
-          {record.status === 'PREVENTA' && (
+          {(record.status === 'PREVENTA' || (record.status === 'EMITIDO' && record.doc_type === 'PROFORMA')) && (
             <Button
               type="link"
               size="small"
@@ -340,7 +343,7 @@ export default function SalesList() {
               onClick={() => handleDelete(record)}
             />
           )}
-          {/* Ventas: emitir NV without print */}
+          {/* Ventas: emitir NV/PROFORMA without print */}
           {!isAdmin && record.status === 'PREVENTA' && record.doc_type === 'NOTA_VENTA' && (
             <Button
               type="link"
@@ -358,8 +361,25 @@ export default function SalesList() {
               }}
             />
           )}
-          {/* Ventas: facturar + print (non-NV) */}
-          {!isAdmin && record.status === 'PREVENTA' && record.doc_type !== 'NOTA_VENTA' && (
+          {!isAdmin && record.status === 'PREVENTA' && record.doc_type === 'PROFORMA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<PrinterOutlined />}
+              title="Emitir Proforma"
+              onClick={async () => {
+                try {
+                  await emitirProforma(record.id);
+                  message.success('Proforma emitida');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al emitir Proforma');
+                }
+              }}
+            />
+          )}
+          {/* Ventas: facturar + print (non-NV, non-PROFORMA) */}
+          {!isAdmin && record.status === 'PREVENTA' && record.doc_type !== 'NOTA_VENTA' && record.doc_type !== 'PROFORMA' && (
             <Button
               type="link"
               size="small"
@@ -383,8 +403,10 @@ export default function SalesList() {
           {isAdmin && (() => {
             const isPreventa = record.status === 'PREVENTA';
             const isNV = record.doc_type === 'NOTA_VENTA';
+            const isPF = record.doc_type === 'PROFORMA';
+            const isNonFiscal = isNV || isPF;
             const cashShort = record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total;
-            const disabled = isPreventa && !isNV && cashShort;
+            const disabled = isPreventa && !isNonFiscal && cashShort;
             const title = disabled ? 'Efectivo insuficiente' : undefined;
             return (
               <Button
@@ -402,6 +424,15 @@ export default function SalesList() {
                         queryClient.invalidateQueries({ queryKey: ['sales'] });
                       } catch (err: any) {
                         message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
+                        return;
+                      }
+                    } else if (isPF) {
+                      try {
+                        await emitirProforma(record.id);
+                        message.success('Proforma emitida');
+                        queryClient.invalidateQueries({ queryKey: ['sales'] });
+                      } catch (err: any) {
+                        message.error(err?.response?.data?.detail || 'Error al emitir Proforma');
                         return;
                       }
                     } else {
@@ -470,6 +501,7 @@ export default function SalesList() {
               { value: 'FACTURA', label: 'Factura' },
               { value: 'NOTA_CREDITO', label: 'N. Credito' },
               { value: 'NOTA_VENTA', label: 'N. Venta' },
+              { value: 'PROFORMA', label: 'Proforma' },
             ]}
           />
         </Col>
@@ -533,7 +565,7 @@ export default function SalesList() {
       />
 
       <Modal
-        title="Convertir Nota de Venta"
+        title="Convertir a Boleta/Factura"
         open={convertirModalOpen}
         onCancel={() => setConvertirModalOpen(false)}
         onOk={() => {

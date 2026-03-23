@@ -252,7 +252,7 @@ def create_sale(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Producto con ID {item_in.product_id} no encontrado",
             )
-        if data.doc_type != "NOTA_VENTA":
+        if data.doc_type not in ("NOTA_VENTA", "PROFORMA"):
             total_stock = _get_total_stock(db, product.id)
             if total_stock <= 0:
                 raise HTTPException(
@@ -554,7 +554,7 @@ def update_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    if sale.status != "PREVENTA":
+    if sale.status != "PREVENTA" and not (sale.status == "EMITIDO" and sale.doc_type == "PROFORMA"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Solo se pueden editar ventas en estado PREVENTA",
@@ -582,7 +582,7 @@ def update_sale(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Producto con ID {item_in.product_id} no encontrado",
             )
-        if sale.doc_type != "NOTA_VENTA":
+        if sale.doc_type not in ("NOTA_VENTA", "PROFORMA"):
             total_stock = _get_total_stock(db, product.id)
             if total_stock <= 0:
                 raise HTTPException(
@@ -739,6 +739,63 @@ def emitir_nota_venta(
     return _sale_to_out(sale)
 
 
+@router.post("/{sale_id}/emitir-proforma", response_model=SaleOut)
+def emitir_proforma(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Emit (finalize) a Proforma: assigns doc_number, sets status=EMITIDO. No stock deduction, no SUNAT."""
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if sale is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Venta no encontrada",
+        )
+    if sale.doc_type != "PROFORMA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden emitir Proformas con este endpoint",
+        )
+    if sale.status != "PREVENTA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden emitir Proformas en estado PREVENTA",
+        )
+
+    # Assign document number from PROFORMA series
+    doc_series = (
+        db.query(DocumentSeries)
+        .filter(
+            DocumentSeries.doc_type == "PROFORMA",
+            DocumentSeries.series == sale.series,
+            DocumentSeries.is_active == True,
+        )
+        .with_for_update()
+        .first()
+    )
+    if doc_series is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Serie de Proforma no encontrada o inactiva",
+        )
+    sale.doc_number = doc_series.next_number
+    doc_series.next_number += 1
+    sale.status = "EMITIDO"
+    sale.issue_date = date.today()
+
+    # No stock deduction for proformas
+
+    db.commit()
+    db.refresh(sale)
+    return _sale_to_out(sale)
+
+
 @router.post("/{sale_id}/facturar", response_model=dict)
 def facturar_sale(
     sale_id: int,
@@ -770,6 +827,12 @@ def facturar_sale(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Las Notas de Venta no se pueden facturar directamente. Use 'Convertir' para cambiarla a Boleta o Factura primero.",
+        )
+
+    if sale.doc_type == "PROFORMA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Las Proformas no se pueden facturar directamente. Use 'Convertir' para cambiarla a Boleta o Factura primero.",
         )
 
     # Block facturar-ing boletas if today's resumen was already sent
@@ -1140,11 +1203,17 @@ def delete_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    allowed_statuses = ("PREVENTA", "EMITIDO") if _user.role == "ADMIN" else ("PREVENTA",)
+    # PROFORMA in EMITIDO never deducted stock, allow delete for all users
+    if sale.doc_type == "PROFORMA":
+        allowed_statuses = ("PREVENTA", "EMITIDO")
+    elif _user.role == "ADMIN":
+        allowed_statuses = ("PREVENTA", "EMITIDO")
+    else:
+        allowed_statuses = ("PREVENTA",)
     if sale.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden eliminar preventas" if _user.role != "ADMIN" else "Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
+            detail="Solo se pueden eliminar preventas" if _user.role != "ADMIN" and sale.doc_type != "PROFORMA" else "Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
         )
 
     # Preventas/emitidos never deducted stock — hard delete from DB
@@ -1174,10 +1243,10 @@ def convertir_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    if sale.doc_type != "NOTA_VENTA":
+    if sale.doc_type not in ("NOTA_VENTA", "PROFORMA"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden convertir Notas de Venta",
+            detail="Solo se pueden convertir Notas de Venta o Proformas",
         )
     if sale.status not in ("PREVENTA", "EMITIDO"):
         raise HTTPException(
@@ -1221,8 +1290,9 @@ def convertir_sale(
             detail=f"Serie {data.target_series} no encontrada o inactiva para {data.target_doc_type}",
         )
 
-    # Save original NV reference for audit
-    original_ref = f"NV {sale.series}-{sale.doc_number or sale.id}"
+    # Save original reference for audit
+    ref_prefix = "NV" if sale.doc_type == "NOTA_VENTA" else "PF"
+    original_ref = f"{ref_prefix} {sale.series}-{sale.doc_number or sale.id}"
     sale.notes = f"[Convertido de {original_ref}] {sale.notes or ''}".strip()
 
     # Change doc_type/series, reset to PREVENTA — doc_number assigned later at facturar

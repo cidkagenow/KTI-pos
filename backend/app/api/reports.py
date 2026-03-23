@@ -40,7 +40,7 @@ def dashboard(
             )
             .filter(
                 Sale.status.in_(SALE_STATUSES),
-
+                Sale.doc_type != "PROFORMA",
                 func.date(_lima) >= from_date,
             )
             .first()
@@ -100,6 +100,7 @@ def sales_by_period(
         )
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "PROFORMA",
             func.date(_lima) >= from_date,
             func.date(_lima) <= to_date,
         )
@@ -133,6 +134,7 @@ def top_products(
         .join(Sale, SaleItem.sale_id == Sale.id)
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "PROFORMA",
             func.date(_lima) >= from_date,
             func.date(_lima) <= to_date,
         )
@@ -173,6 +175,7 @@ def profit_report(
         .join(Sale, SaleItem.sale_id == Sale.id)
         .filter(
             Sale.status.in_(SALE_STATUSES),
+            Sale.doc_type != "PROFORMA",
             func.date(_lima) >= from_date,
             func.date(_lima) <= to_date,
         )
