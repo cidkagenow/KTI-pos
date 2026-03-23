@@ -98,32 +98,19 @@ def confirm_order(
 @router.post("/{order_id}/ready")
 def mark_ready(
     order_id: int,
-    _user: User = Depends(get_current_user),
-):
-    _ensure_store_configured()
-    try:
-        resp = proxy_store_request("POST", f"/api/v1/orders/{order_id}/ready")
-        return _proxy_response(resp)
-    except Exception:
-        raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
-
-
-@router.post("/{order_id}/picked-up")
-def mark_picked_up(
-    order_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _ensure_store_configured()
     try:
-        resp = proxy_store_request("POST", f"/api/v1/orders/{order_id}/picked-up")
+        resp = proxy_store_request("POST", f"/api/v1/orders/{order_id}/ready")
     except Exception:
         raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
 
     if resp.status_code >= 400:
         return _proxy_response(resp)
 
-    # --- Auto-create BOLETA PREVENTA from the picked-up order ---
+    # --- Auto-create BOLETA PREVENTA when order is ready ---
     order_data = resp.json()
     pos_sale_id = None
     try:
@@ -137,6 +124,19 @@ def mark_picked_up(
     if pos_sale_id:
         response_body["pos_sale_id"] = pos_sale_id
     return JSONResponse(status_code=resp.status_code, content=response_body)
+
+
+@router.post("/{order_id}/picked-up")
+def mark_picked_up(
+    order_id: int,
+    _user: User = Depends(get_current_user),
+):
+    _ensure_store_configured()
+    try:
+        resp = proxy_store_request("POST", f"/api/v1/orders/{order_id}/picked-up")
+        return _proxy_response(resp)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
 
 
 def _create_sale_from_order(db: Session, order_data: dict, user: User) -> int | None:
