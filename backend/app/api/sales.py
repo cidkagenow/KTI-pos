@@ -554,10 +554,10 @@ def update_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Venta no encontrada",
         )
-    if sale.status not in ("PREVENTA", "EMITIDO"):
+    if sale.status != "PREVENTA":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden editar ventas en estado PREVENTA o EMITIDO",
+            detail="Solo se pueden editar ventas en estado PREVENTA",
         )
 
     # Validate client
