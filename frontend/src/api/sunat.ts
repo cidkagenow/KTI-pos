@@ -6,6 +6,11 @@ export async function enviarFactura(saleId: number): Promise<SunatDocument> {
   return data;
 }
 
+export async function enviarTodasFacturas(): Promise<{ enviadas: number; aceptadas: number; rechazadas: number; errores: number }> {
+  const { data } = await api.post('/sunat/facturas/enviar-todas');
+  return data;
+}
+
 export async function reenviarFactura(saleId: number): Promise<SunatDocument> {
   const { data } = await api.post(`/sunat/facturas/${saleId}/reenviar`);
   return data;

@@ -861,27 +861,27 @@ def facturar_sale(
     sunat_description = None
     sunat_hash = None
     if sale.doc_type == "FACTURA":
+        # Sign XML only (sent later from Envio SUNAT panel)
         try:
-            from app.services.sunat_service import send_factura_to_sunat
-            from app.services.email_service import send_factura_email
+            from app.services.sunat_service import sign_document
 
-            parsed = send_factura_to_sunat(sale)
+            parsed = sign_document(sale)
 
             now = datetime.now(timezone.utc)
             doc = SunatDocument(
                 sale_id=sale.id,
                 doc_category="FACTURA",
                 reference_date=now,
-                sunat_status=parsed.get("sunat_status", "ERROR"),
+                sunat_status=parsed.get("sunat_status", "PENDIENTE"),
                 sunat_description=parsed.get("sunat_description"),
                 sunat_hash=parsed.get("sunat_hash"),
-                sunat_cdr_url=parsed.get("sunat_cdr_url"),
+                sunat_cdr_url="",
                 sunat_xml_url=parsed.get("sunat_xml_url"),
-                sunat_pdf_url=parsed.get("sunat_pdf_url"),
-                ticket=parsed.get("ticket"),
+                sunat_pdf_url="",
+                ticket="",
                 raw_request="",
-                raw_response=json.dumps(parsed, ensure_ascii=False),
-                attempt_count=1,
+                raw_response="",
+                attempt_count=0,
                 last_attempt_at=now,
                 sent_by=_user.id,
             )
@@ -892,22 +892,8 @@ def facturar_sale(
             sunat_description = doc.sunat_description
             sunat_hash = doc.sunat_hash
 
-            # Auto-email if accepted
-            if doc.sunat_status == "ACEPTADO" and sale.client.email:
-                try:
-                    send_factura_email(
-                        client_email=sale.client.email,
-                        client_name=sale.client.business_name,
-                        doc_series=sale.series,
-                        doc_number=sale.doc_number,
-                        pdf_url=doc.sunat_pdf_url or "",
-                        xml_url=doc.sunat_xml_url or "",
-                    )
-                except Exception as e:
-                    logger.error("Email failed for sale %s: %s", sale.id, str(e))
-
         except Exception as e:
-            logger.error("SUNAT send failed for sale %s: %s", sale.id, str(e))
+            logger.error("SUNAT sign failed for sale %s: %s", sale.id, str(e))
             sunat_status = "ERROR"
             sunat_description = str(e)
 

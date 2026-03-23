@@ -35,6 +35,7 @@ import {
   getResumenBoletas,
   enviarBajaMasiva,
   getPendingBajas,
+  enviarTodasFacturas,
 } from '../../api/sunat';
 import type { PendingBaja } from '../../api/sunat';
 import type { ResumenBoleta } from '../../api/sunat';
@@ -84,6 +85,19 @@ function FacturasTab() {
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.detail || 'Error al reenviar factura');
+    },
+  });
+
+  const enviarTodasMut = useMutation({
+    mutationFn: () => enviarTodasFacturas(),
+    onSuccess: (result) => {
+      message.success(
+        `Enviadas: ${result.enviadas} | Aceptadas: ${result.aceptadas} | Rechazadas: ${result.rechazadas} | Errores: ${result.errores}`
+      );
+      queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.detail || 'Error al enviar facturas');
     },
   });
 
@@ -215,6 +229,21 @@ function FacturasTab() {
               { value: 'RECHAZADO', label: 'Rechazado' },
             ]}
           />
+        </Col>
+        <Col>
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            loading={enviarTodasMut.isPending}
+            onClick={() =>
+              Modal.confirm({
+                title: 'Enviar todas las facturas y NC pendientes a SUNAT?',
+                onOk: () => enviarTodasMut.mutate(),
+              })
+            }
+          >
+            Enviar Todas las Pendientes
+          </Button>
         </Col>
       </Row>
       <Table

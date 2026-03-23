@@ -149,6 +149,59 @@ def enviar_factura(
     return _doc_to_out(doc)
 
 
+@router.post("/facturas/enviar-todas")
+def enviar_todas_facturas(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Send all pending facturas and NCs to SUNAT in bulk."""
+    # Find FACTURA sales with PENDIENTE sunat status
+    pending_factura_docs = (
+        db.query(SunatDocument)
+        .filter(
+            SunatDocument.doc_category.in_(["FACTURA", "NOTA_CREDITO"]),
+            SunatDocument.sunat_status == "PENDIENTE",
+            SunatDocument.sale_id.isnot(None),
+        )
+        .all()
+    )
+
+    if not pending_factura_docs:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No hay facturas pendientes de envio")
+
+    results = {"enviadas": 0, "aceptadas": 0, "rechazadas": 0, "errores": 0}
+
+    for sunat_doc in pending_factura_docs:
+        sale = (
+            db.query(Sale)
+            .options(joinedload(Sale.items), joinedload(Sale.client))
+            .filter(Sale.id == sunat_doc.sale_id)
+            .first()
+        )
+        if not sale:
+            continue
+
+        try:
+            if sunat_doc.doc_category == "NOTA_CREDITO":
+                doc = _send_and_record_nc(sale, current_user, db)
+            else:
+                doc = _send_and_record_factura(sale, current_user, db)
+            db.flush()
+            results["enviadas"] += 1
+            if doc.sunat_status == "ACEPTADO":
+                results["aceptadas"] += 1
+            elif doc.sunat_status == "RECHAZADO":
+                results["rechazadas"] += 1
+            else:
+                results["errores"] += 1
+        except Exception as e:
+            logger.error("Bulk send failed for sale %s: %s", sunat_doc.sale_id, str(e))
+            results["errores"] += 1
+
+    db.commit()
+    return results
+
+
 @router.post("/facturas/{sale_id}/reenviar", response_model=SunatDocumentOut)
 def reenviar_factura(
     sale_id: int,
