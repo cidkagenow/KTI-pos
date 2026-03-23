@@ -124,38 +124,12 @@ def _doc_to_out(doc: SunatDocument) -> SunatDocumentOut:
 # ── Endpoints ──────────────────────────────────────────────────────
 
 
-@router.post("/facturas/{sale_id}/enviar", response_model=SunatDocumentOut)
-def enviar_factura(
-    sale_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    sale = (
-        db.query(Sale)
-        .options(joinedload(Sale.items), joinedload(Sale.client))
-        .filter(Sale.id == sale_id)
-        .first()
-    )
-    if not sale:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Venta no encontrada")
-    if sale.status != "FACTURADO":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La venta debe estar FACTURADA")
-    if sale.doc_type != "FACTURA":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Solo facturas se envian individualmente")
-
-    doc = _send_and_record_factura(sale, current_user, db)
-    db.commit()
-    db.refresh(doc)
-    return _doc_to_out(doc)
-
-
 @router.post("/facturas/enviar-todas")
 def enviar_todas_facturas(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     """Send all pending facturas and NCs to SUNAT in bulk."""
-    # Find FACTURA sales with PENDIENTE sunat status
     pending_factura_docs = (
         db.query(SunatDocument)
         .filter(
@@ -174,7 +148,7 @@ def enviar_todas_facturas(
     for sunat_doc in pending_factura_docs:
         sale = (
             db.query(Sale)
-            .options(joinedload(Sale.items), joinedload(Sale.client))
+            .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.ref_sale).joinedload(Sale.client))
             .filter(Sale.id == sunat_doc.sale_id)
             .first()
         )
@@ -200,6 +174,31 @@ def enviar_todas_facturas(
 
     db.commit()
     return results
+
+
+@router.post("/facturas/{sale_id}/enviar", response_model=SunatDocumentOut)
+def enviar_factura(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items), joinedload(Sale.client))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if not sale:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Venta no encontrada")
+    if sale.status != "FACTURADO":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La venta debe estar FACTURADA")
+    if sale.doc_type != "FACTURA":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Solo facturas se envian individualmente")
+
+    doc = _send_and_record_factura(sale, current_user, db)
+    db.commit()
+    db.refresh(doc)
+    return _doc_to_out(doc)
 
 
 @router.post("/facturas/{sale_id}/reenviar", response_model=SunatDocumentOut)

@@ -898,26 +898,27 @@ def facturar_sale(
             sunat_description = str(e)
 
     elif sale.doc_type == "NOTA_CREDITO":
+        # Sign XML only (sent later from Envio SUNAT panel)
         try:
-            from app.services.sunat_service import send_nota_credito_to_sunat
+            from app.services.sunat_service import sign_credit_note
 
-            parsed = send_nota_credito_to_sunat(sale)
+            parsed = sign_credit_note(sale)
 
             now = datetime.now(timezone.utc)
             doc = SunatDocument(
                 sale_id=sale.id,
                 doc_category="NOTA_CREDITO",
                 reference_date=now,
-                sunat_status=parsed.get("sunat_status", "ERROR"),
+                sunat_status=parsed.get("sunat_status", "PENDIENTE"),
                 sunat_description=parsed.get("sunat_description"),
                 sunat_hash=parsed.get("sunat_hash"),
-                sunat_cdr_url=parsed.get("sunat_cdr_url"),
+                sunat_cdr_url="",
                 sunat_xml_url=parsed.get("sunat_xml_url"),
-                sunat_pdf_url=parsed.get("sunat_pdf_url"),
-                ticket=parsed.get("ticket"),
+                sunat_pdf_url="",
+                ticket="",
                 raw_request="",
-                raw_response=json.dumps(parsed, ensure_ascii=False),
-                attempt_count=1,
+                raw_response="",
+                attempt_count=0,
                 last_attempt_at=now,
                 sent_by=_user.id,
             )
@@ -929,7 +930,7 @@ def facturar_sale(
             sunat_hash = doc.sunat_hash
 
         except Exception as e:
-            logger.error("SUNAT NC send failed for sale %s: %s", sale.id, str(e))
+            logger.error("SUNAT NC sign failed for sale %s: %s", sale.id, str(e))
             sunat_status = "ERROR"
             sunat_description = str(e)
 

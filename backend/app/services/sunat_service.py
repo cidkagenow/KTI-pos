@@ -157,6 +157,30 @@ def send_factura_to_sunat(sale: Sale) -> dict:
     return process_sunat_response(soap_result, filename, signed_xml)
 
 
+def sign_credit_note(sale: Sale) -> dict:
+    """
+    Sign credit note XML without sending to SUNAT.
+    Returns dict with sunat_hash and sunat_xml_url.
+    """
+    filename = get_credit_note_filename(sale)
+    logger.info("Signing credit note XML (no send): %s", filename)
+
+    xml_bytes = build_credit_note_xml(sale)
+    signed_xml = sign_xml(xml_bytes)
+    xml_path = _save_xml(filename, signed_xml)
+    xml_hash = _xml_hash(signed_xml)
+
+    return {
+        "sunat_status": "PENDIENTE",
+        "sunat_description": "Firmado, pendiente de envio",
+        "sunat_hash": xml_hash,
+        "sunat_xml_url": xml_path,
+        "sunat_cdr_url": "",
+        "sunat_pdf_url": "",
+        "ticket": "",
+    }
+
+
 def send_nota_credito_to_sunat(sale: Sale) -> dict:
     """
     Send a credit note to SUNAT via sendBill (synchronous, like facturas).
