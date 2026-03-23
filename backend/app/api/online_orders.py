@@ -65,6 +65,20 @@ def order_stats(
         raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
 
 
+@router.get("/chat-logs")
+def get_web_chat_logs(
+    limit: int = Query(200, ge=1, le=1000),
+    _user: User = Depends(require_admin),
+):
+    """Proxy chat logs from the web store."""
+    _ensure_store_configured()
+    try:
+        resp = proxy_store_request("GET", "/api/v1/chat/logs", params={"limit": limit})
+        return _proxy_response(resp)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
+
+
 @router.get("/{order_id}")
 def get_online_order(
     order_id: int,
@@ -281,15 +295,3 @@ def cancel_order(
         raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
 
 
-@router.get("/chat-logs")
-def get_web_chat_logs(
-    limit: int = Query(200, ge=1, le=1000),
-    _user: User = Depends(require_admin),
-):
-    """Proxy chat logs from the web store."""
-    _ensure_store_configured()
-    try:
-        resp = proxy_store_request("GET", "/api/v1/chat/logs", params={"limit": limit})
-        return _proxy_response(resp)
-    except Exception:
-        raise HTTPException(status_code=502, detail="Servidor de tienda no disponible")
