@@ -72,6 +72,8 @@ def _sale_to_list_out(sale: Sale, sunat_status: str | None = None) -> SaleListOu
         updated_at=sale.updated_at,
         sunat_status=sunat_status,
         ref_sale_id=sale.ref_sale_id,
+        ref_sale_series=sale.ref_sale.series if sale.ref_sale else None,
+        ref_sale_doc_number=sale.ref_sale.doc_number if sale.ref_sale else None,
         nc_motivo_code=sale.nc_motivo_code,
     )
 
@@ -150,6 +152,7 @@ def list_sales(
             joinedload(Sale.client),
             joinedload(Sale.seller),
             joinedload(Sale.trabajador),
+            joinedload(Sale.ref_sale),
         )
     )
     _lima = sa_func.timezone("America/Lima", Sale.created_at)

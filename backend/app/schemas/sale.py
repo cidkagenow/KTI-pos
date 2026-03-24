@@ -134,6 +134,8 @@ class SaleListOut(BaseModel):
     updated_at: datetime | None = None
     sunat_status: str | None = None
     ref_sale_id: int | None = None
+    ref_sale_series: str | None = None
+    ref_sale_doc_number: int | None = None
     nc_motivo_code: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
