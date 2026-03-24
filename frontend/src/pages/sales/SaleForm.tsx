@@ -593,14 +593,24 @@ export default function SaleForm() {
       width: 300,
       render: (_: unknown, record: LineItem, idx: number) => (
         <AutoComplete
-          value={record.product_id ? `${record.product_code} - ${record.product_name}` : undefined}
+          value={record.product_id ? `${record.product_code} - ${record.product_name}` : record.product_code || undefined}
           options={productOptions}
           onSearch={handleProductSearch}
           onSelect={(val: string) => handleProductSelect(val, idx)}
           onChange={(val: string) => {
-            if (!val || val.trim() === '') {
+            if (record.product_id) {
+              // User is editing a selected product — clear it so they can search again
               const newItems = [...items];
-              newItems[idx] = { ...newItems[idx], product_id: null, product_code: '', product_name: '', brand_name: null, presentation: null, unit_price: 0, wholesale_price: null, cost_price: null, stock: 0 };
+              newItems[idx] = { ...newItems[idx], product_id: null, product_code: val || '', product_name: '', brand_name: null, presentation: null, unit_price: 0, wholesale_price: null, cost_price: null, stock: 0 };
+              setItems(newItems);
+              if (val && val.length >= 2) handleProductSearch(val);
+            } else if (!val || val.trim() === '') {
+              const newItems = [...items];
+              newItems[idx] = { ...newItems[idx], product_code: '' };
+              setItems(newItems);
+            } else {
+              const newItems = [...items];
+              newItems[idx] = { ...newItems[idx], product_code: val };
               setItems(newItems);
             }
           }}
