@@ -55,7 +55,7 @@ const fmtTotal = (v: number) => (v === 0 ? '' : v.toLocaleString('es-PE', { mini
 export default function Kardex() {
   const { isDark } = useTheme();
   const [productId, setProductId] = useState<number | undefined>(undefined);
-  const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 
   const params: any = {};
