@@ -597,6 +597,14 @@ export default function SaleForm() {
           options={productOptions}
           onSearch={handleProductSearch}
           onSelect={(val: string) => handleProductSelect(val, idx)}
+          onChange={(val: string) => {
+            if (!val || val.trim() === '') {
+              const newItems = [...items];
+              newItems[idx] = { ...newItems[idx], product_id: null, product_code: '', product_name: '', brand_name: null, presentation: null, unit_price: 0, wholesale_price: null, cost_price: null, stock: 0 };
+              setItems(newItems);
+            }
+          }}
+          allowClear
           placeholder="Buscar por codigo o nombre"
           popupMatchSelectWidth={500}
           style={{ width: '100%' }}
