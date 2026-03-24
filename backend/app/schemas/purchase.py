@@ -11,6 +11,7 @@ class SupplierOut(BaseModel):
     phone: str | None
     email: str | None
     address: str | None
+    credit_days: int = 30
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -22,6 +23,7 @@ class SupplierCreate(BaseModel):
     phone: str | None = None
     email: str | None = None
     address: str | None = None
+    credit_days: int = 30
 
 
 class PurchaseOrderItemIn(BaseModel):

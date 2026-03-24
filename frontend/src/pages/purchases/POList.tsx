@@ -938,6 +938,13 @@ export default function POList() {
               </Form.Item>
             </Col>
           </Row>
+          <Row gutter={12}>
+            <Col span={8}>
+              <Form.Item name="credit_days" label="Dias de Credito" initialValue={30}>
+                <InputNumber min={1} max={365} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 

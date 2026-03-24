@@ -22,6 +22,7 @@ import UserList from './pages/users/UserList';
 import Settings from './pages/settings/Settings';
 import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
+import CuentasPorPagar from './pages/purchases/CuentasPorPagar';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
 import ChatHistory from './pages/chat/ChatHistory';
@@ -67,6 +68,7 @@ function AppRoutes() {
         <Route path="inventory/stock-valorizado" element={<AdminRoute><StockValorizado /></AdminRoute>} />
         <Route path="inventory/kardex" element={<AdminRoute><Kardex /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />
+        <Route path="cuentas-por-pagar" element={<AdminRoute><CuentasPorPagar /></AdminRoute>} />
         <Route path="sunat" element={<AdminRoute><SunatPanel /></AdminRoute>} />
         <Route path="trabajadores" element={<AdminRoute><TrabajadorList /></AdminRoute>} />
         <Route path="trabajadores/asistencia" element={<AdminRoute><AsistenciaPage /></AdminRoute>} />

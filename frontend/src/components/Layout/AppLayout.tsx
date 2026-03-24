@@ -19,6 +19,7 @@ import {
   MessageOutlined,
   IdcardOutlined,
   GlobalOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -101,6 +102,11 @@ export default function AppLayout() {
             label: 'Compras',
           },
           {
+            key: '/cuentas-por-pagar',
+            icon: <DollarOutlined />,
+            label: 'Ctas por Pagar',
+          },
+          {
             key: '/sunat',
             icon: <CloudUploadOutlined />,
             label: 'Envio SUNAT',
@@ -155,6 +161,7 @@ export default function AppLayout() {
     if (path.startsWith('/clients')) return '/clients';
     if (path.startsWith('/online-orders')) return '/online-orders';
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
+    if (path.startsWith('/cuentas-por-pagar')) return '/cuentas-por-pagar';
     if (path.startsWith('/sunat')) return '/sunat';
     if (path === '/trabajadores/asistencia') return '/trabajadores/asistencia';
     if (path.startsWith('/trabajadores')) return '/trabajadores';
