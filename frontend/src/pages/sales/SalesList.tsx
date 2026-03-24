@@ -307,15 +307,7 @@ export default function SalesList() {
               onClick={() => navigate(`/sales/${record.id}`)}
             />
           )}
-          {isAdmin && (record.doc_type === 'NOTA_VENTA' || record.doc_type === 'PROFORMA') && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && (
-            <Button
-              type="link"
-              size="small"
-              icon={<SwapOutlined />}
-              title="Convertir a Boleta/Factura"
-              onClick={() => handleConvertir(record)}
-            />
-          )}
+          {/* Convertir removed — NV stays as NV, user creates new sale if needed */}
           {isAdmin && record.status === 'FACTURADO' && record.doc_type !== 'NOTA_CREDITO' && record.sunat_status === 'ACEPTADO' && (
             <Button
               type="link"
@@ -564,65 +556,7 @@ export default function SalesList() {
         size="small"
       />
 
-      <Modal
-        title="Convertir a Boleta/Factura"
-        open={convertirModalOpen}
-        onCancel={() => setConvertirModalOpen(false)}
-        onOk={() => {
-          if (!convertirSaleRecord || !convertirTargetSeries) {
-            message.warning('Seleccione una serie de destino');
-            return;
-          }
-          convertirMutation.mutate({
-            id: convertirSaleRecord.id,
-            targetDocType: convertirTargetType,
-            targetSeries: convertirTargetSeries,
-          });
-        }}
-        okText="Convertir"
-        okButtonProps={{
-          disabled: !!(convertirSaleRecord && convertirSaleRecord.payment_method === 'EFECTIVO' && (convertirSaleRecord.cash_received ?? 0) < convertirSaleRecord.total),
-        }}
-        cancelText="Cancelar"
-        confirmLoading={convertirMutation.isPending}
-      >
-        {convertirSaleRecord && (
-          <div ref={enterNavRef} style={{ marginTop: 16 }}>
-            {convertirSaleRecord.payment_method === 'EFECTIVO' && (convertirSaleRecord.cash_received ?? 0) < convertirSaleRecord.total && (
-              <p style={{ color: '#ff4d4f' }}>
-                Efectivo insuficiente (S/ {(convertirSaleRecord.cash_received ?? 0).toFixed(2)} / S/ {convertirSaleRecord.total.toFixed(2)}). Edite la nota de venta primero.
-              </p>
-            )}
-            <p>
-              Convertir <strong>{convertirSaleRecord.doc_number !== null ? `${convertirSaleRecord.series}-${String(convertirSaleRecord.doc_number).padStart(7, '0')}` : `PRE-${convertirSaleRecord.id}`}</strong> a:
-            </p>
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', marginBottom: 4 }}>Tipo de documento:</label>
-              <Select
-                value={convertirTargetType}
-                onChange={(val) => { setConvertirTargetType(val); setConvertirTargetSeries(''); }}
-                style={{ width: '100%' }}
-                options={[
-                  { value: 'BOLETA', label: 'Boleta' },
-                  { value: 'FACTURA', label: 'Factura' },
-                ]}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: 4 }}>Serie:</label>
-              <Select
-                value={convertirTargetSeries || undefined}
-                onChange={(val) => setConvertirTargetSeries(val)}
-                style={{ width: '100%' }}
-                placeholder="Seleccionar serie"
-                options={(docSeries ?? [])
-                  .filter((s) => s.is_active && s.doc_type === convertirTargetType)
-                  .map((s) => ({ value: s.series, label: `${s.series} (Sig: ${s.next_number})` }))}
-              />
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* Convertir modal removed — NV stays as NV */}
     </div>
   );
 }
