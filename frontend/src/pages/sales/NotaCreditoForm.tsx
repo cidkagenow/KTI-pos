@@ -18,7 +18,7 @@ import { CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getSale, createNotaCredito, facturarSale, getNCAvailable } from '../../api/sales';
-import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
+import { calcLineTotal, calcIGV, formatCurrency, round2 } from '../../utils/format';
 import type { Sale } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
@@ -102,7 +102,7 @@ export default function NotaCreditoForm() {
     item.return_quantity > 0 ? calcLineTotal(item.return_quantity, item.unit_price, item.discount_pct) : 0;
 
   const selectedItems = items.filter((i) => i.selected && i.return_quantity > 0);
-  const grandTotal = selectedItems.reduce((sum, i) => sum + getLineTotal(i), 0);
+  const grandTotal = round2(selectedItems.reduce((sum, i) => sum + getLineTotal(i), 0));
   const { base: subtotal, igv: igvAmount, total } = calcIGV(grandTotal);
   const totalDevolucion = selectedItems.reduce((sum, i) => sum + i.return_quantity, 0);
 

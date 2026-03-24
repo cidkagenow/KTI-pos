@@ -16,12 +16,18 @@ export function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('es-PE');
 }
 
+/** Round to 2 decimal places (avoids floating point accumulation errors) */
+export function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export function calcIGV(totalWithIGV: number): { base: number; igv: number; total: number } {
-  const base = Math.round((totalWithIGV / 1.18) * 100) / 100;
-  const igv = Math.round((totalWithIGV - base) * 100) / 100;
-  return { base, igv, total: totalWithIGV };
+  const total = round2(totalWithIGV);
+  const base = round2(total / 1.18);
+  const igv = round2(total - base);
+  return { base, igv, total };
 }
 
 export function calcLineTotal(quantity: number, unitPrice: number, discountPct: number): number {
-  return Math.round(quantity * unitPrice * (1 - discountPct / 100) * 100) / 100;
+  return round2(quantity * unitPrice * (1 - discountPct / 100));
 }

@@ -29,7 +29,7 @@ import { searchProducts } from '../../api/products';
 import { searchClients, createClient, lookupRUC, lookupDNI } from '../../api/clients';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getActiveTrabajadores } from '../../api/trabajadores';
-import { calcLineTotal, calcIGV, formatCurrency } from '../../utils/format';
+import { calcLineTotal, calcIGV, formatCurrency, round2 } from '../../utils/format';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import type { ProductSearch, Client } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -361,7 +361,7 @@ export default function SaleForm() {
     });
   };
 
-  const totalWithIGV = items.reduce((sum, item) => sum + item.line_total, 0);
+  const totalWithIGV = round2(items.reduce((sum, item) => sum + item.line_total, 0));
   const { base: subtotal, igv: igvAmount, total } = calcIGV(totalWithIGV);
   const cashChange = paymentMethod === 'EFECTIVO' ? Math.max(0, cashReceived - total) : 0;
   const cashInsufficient = paymentMethod === 'EFECTIVO' && total > 0 && cashReceived < total;

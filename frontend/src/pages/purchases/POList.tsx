@@ -42,7 +42,7 @@ import { getWarehouses, getSuppliers, createSupplier } from '../../api/catalogs'
 import { lookupRUC } from '../../api/clients';
 import { getProducts } from '../../api/products';
 import dayjs from 'dayjs';
-import { formatCurrency, formatDate } from '../../utils/format';
+import { formatCurrency, formatDate, round2 } from '../../utils/format';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
 import type { PurchaseOrder, PurchaseOrderItem } from '../../types';
@@ -77,8 +77,7 @@ interface POLineItem {
 
 /* ---------- helpers ---------- */
 function formatPrecise(value: number): string {
-  const decimals = (value.toString().split('.')[1] || '').length;
-  return `S/ ${value.toFixed(Math.max(2, decimals))}`;
+  return `S/ ${round2(value).toFixed(2)}`;
 }
 
 /* ---------- line-level math ---------- */
@@ -88,8 +87,7 @@ function calcLineTotal(item: POLineItem): number {
     (1 - (item.discount_pct1 || 0) / 100) *
     (1 - (item.discount_pct2 || 0) / 100) *
     (1 - (item.discount_pct3 || 0) / 100);
-  // Keep full precision — round only to avoid floating-point noise (6 dp)
-  return Math.round((item.quantity * price + item.quantity * (item.flete_unit || 0)) * 1000000) / 1000000;
+  return round2(item.quantity * price + item.quantity * (item.flete_unit || 0));
 }
 
 function emptyLineItem(): POLineItem {
@@ -326,16 +324,16 @@ export default function POList() {
   const igvIncluded = Form.useWatch('igv_included', form) ?? true;
 
   const { opGravada, igvAmount, orderTotal } = useMemo(() => {
-    const sumLines = items.reduce((sum, item) => sum + item.line_total, 0);
+    const sumLines = round2(items.reduce((sum, item) => sum + item.line_total, 0));
     if (igvIncluded) {
       // Prices include IGV => back-calculate
-      const base = Math.round((sumLines / 1.18) * 1000000) / 1000000;
-      const igv = Math.round((sumLines - base) * 1000000) / 1000000;
+      const base = round2(sumLines / 1.18);
+      const igv = round2(sumLines - base);
       return { opGravada: base, igvAmount: igv, orderTotal: sumLines };
     } else {
       // Prices exclude IGV => add IGV
-      const igv = Math.round(sumLines * 0.18 * 1000000) / 1000000;
-      return { opGravada: sumLines, igvAmount: igv, orderTotal: Math.round((sumLines + igv) * 1000000) / 1000000 };
+      const igv = round2(sumLines * 0.18);
+      return { opGravada: sumLines, igvAmount: igv, orderTotal: round2(sumLines + igv) };
     }
   }, [items, igvIncluded]);
 
