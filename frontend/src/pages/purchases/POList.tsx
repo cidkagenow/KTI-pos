@@ -76,8 +76,10 @@ interface POLineItem {
 }
 
 /* ---------- helpers ---------- */
-function formatPrecise(value: number): string {
-  return `S/ ${round2(value).toFixed(2)}`;
+function formatPrecise(value: number, forceRound2 = false): string {
+  if (forceRound2) return `S/ ${round2(value).toFixed(2)}`;
+  const decimals = (value.toString().split('.')[1] || '').length;
+  return `S/ ${value.toFixed(Math.max(2, Math.min(decimals, 3)))}`;
 }
 
 /* ---------- line-level math ---------- */
@@ -87,7 +89,8 @@ function calcLineTotal(item: POLineItem): number {
     (1 - (item.discount_pct1 || 0) / 100) *
     (1 - (item.discount_pct2 || 0) / 100) *
     (1 - (item.discount_pct3 || 0) / 100);
-  return round2(item.quantity * price + item.quantity * (item.flete_unit || 0));
+  // Keep line-level precision (3dp) — only totals are rounded to 2dp
+  return Math.round((item.quantity * price + item.quantity * (item.flete_unit || 0)) * 1000) / 1000;
 }
 
 function emptyLineItem(): POLineItem {
@@ -853,11 +856,11 @@ export default function POList() {
           <Col span={10}>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>Op. Gravada:</Text>
-              <Text>{formatPrecise(opGravada)}</Text>
+              <Text>{formatPrecise(opGravada, true)}</Text>
             </Row>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>IGV (18%):</Text>
-              <Text>{formatPrecise(igvAmount)}</Text>
+              <Text>{formatPrecise(igvAmount, true)}</Text>
             </Row>
             <Divider style={{ margin: '4px 0' }} />
             <Row justify="space-between">
@@ -865,7 +868,7 @@ export default function POList() {
                 Total:
               </Text>
               <Text strong style={{ fontSize: 15 }}>
-                {formatPrecise(orderTotal)}
+                {formatPrecise(orderTotal, true)}
               </Text>
             </Row>
           </Col>
