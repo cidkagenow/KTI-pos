@@ -365,6 +365,17 @@ function ResumenBoletasTab() {
       width: 200,
     },
     {
+      title: 'Referencia',
+      key: 'ref',
+      width: 180,
+      render: (_: unknown, r: Sale) => {
+        if (r.doc_type === 'NOTA_CREDITO' && r.ref_sale_series && r.ref_sale_doc_number) {
+          return `BOLETA/${r.ref_sale_series}-${String(r.ref_sale_doc_number).padStart(7, '0')}`;
+        }
+        return '-';
+      },
+    },
+    {
       title: 'Cliente',
       dataIndex: 'client_name',
       key: 'client_name',
