@@ -118,6 +118,7 @@ def sync_products_to_store(db: Session, force_full: bool = False) -> dict:
                 "unit_price": float(p.unit_price),
                 "in_stock": stock_map.get(p.id, 0) > 0,
                 "is_online": p.is_online,
+                "image_path": p.image_path,
             }
             for p in products
         ],

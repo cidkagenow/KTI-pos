@@ -39,3 +39,12 @@ export async function syncOnlineProducts(): Promise<{ synced_products: number }>
   const { data } = await api.post('/products/sync-online');
   return data;
 }
+
+export async function uploadProductImage(productId: number, file: File): Promise<Product> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post(`/products/${productId}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}

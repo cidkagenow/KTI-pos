@@ -1,6 +1,8 @@
+import os
+import shutil
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -12,6 +14,8 @@ from app.models.user import User
 from app.schemas.product import ProductOut, ProductCreate, ProductUpdate, ProductSearch
 from app.api.deps import get_current_user, require_admin
 from app.config import settings
+
+UPLOAD_DIR = "/app/uploads/products"
 
 router = APIRouter()
 
@@ -50,6 +54,7 @@ def _product_to_out(product: Product, db: Session) -> ProductOut:
     on_order_qty, on_order_eta = (None, None)
     if total_stock <= 0:
         on_order_qty, on_order_eta = _get_pending_order_info(db, product.id)
+    image_url = f"/uploads/products/{product.image_path}" if product.image_path else None
     return ProductOut(
         id=product.id,
         code=product.code,
@@ -69,6 +74,7 @@ def _product_to_out(product: Product, db: Session) -> ProductOut:
         on_order_eta=on_order_eta,
         is_active=product.is_active,
         is_online=product.is_online,
+        image_url=image_url,
     )
 
 
@@ -177,6 +183,7 @@ def list_products(
     for p in products:
         total_stock = stock_map.get(p.id, 0)
         on_order_qty, on_order_eta = order_map.get(p.id, (None, None))
+        image_url = f"/uploads/products/{p.image_path}" if p.image_path else None
         results.append(ProductOut(
             id=p.id,
             code=p.code,
@@ -196,6 +203,7 @@ def list_products(
             on_order_eta=on_order_eta,
             is_active=p.is_active,
             is_online=p.is_online,
+            image_url=image_url,
         ))
     return results
 
@@ -314,6 +322,33 @@ def deactivate_product(
             detail="Producto no encontrado",
         )
     product.is_active = False
+    db.commit()
+    db.refresh(product)
+    return _product_to_out(product, db)
+
+
+@router.post("/{product_id}/image", response_model=ProductOut)
+def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imagenes JPG, PNG o WebP")
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    filename = f"{product.id}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    product.image_path = filename
     db.commit()
     db.refresh(product)
     return _product_to_out(product, db)

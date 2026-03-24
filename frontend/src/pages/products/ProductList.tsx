@@ -14,13 +14,15 @@ import {
   Typography,
   Row,
   Col,
+  Upload,
+  Image,
   message,
   Popconfirm,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, GlobalOutlined, CloudUploadOutlined, CameraOutlined } from '@ant-design/icons';
 import SearchInput from '../../components/SearchInput';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, updateProduct, deleteProduct, syncOnlineProducts, getNextProductCode } from '../../api/products';
+import { getProducts, createProduct, updateProduct, deleteProduct, syncOnlineProducts, getNextProductCode, uploadProductImage } from '../../api/products';
 import { getBrands, getCategories } from '../../api/catalogs';
 import { adjustStock } from '../../api/inventory';
 import { formatCurrency } from '../../utils/format';
@@ -46,6 +48,7 @@ export default function ProductList() {
   const enterNavRef = useEnterNavigation(() => handleSubmit());
   const [editingStockId, setEditingStockId] = useState<number | null>(null);
   const [editingStockValue, setEditingStockValue] = useState<number>(0);
+  const [previewId, setPreviewId] = useState<number | null>(null);
 
   const adjustMutation = useMutation({
     mutationFn: (data: { product_id: number; new_quantity: number }) =>
@@ -177,6 +180,30 @@ export default function ProductList() {
   };
 
   const columns: ColumnsType<Product> = [
+    {
+      title: '',
+      key: 'image',
+      width: 50,
+      render: (_: unknown, record: Product) =>
+        record.image_url ? (
+          <Image
+            src={record.image_url}
+            width={36}
+            height={36}
+            style={{ objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+            preview={{
+              visible: previewId === record.id,
+              onVisibleChange: (vis) => setPreviewId(vis ? record.id : null),
+              mask: false,
+            }}
+            fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iMzYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjM2IiBmaWxsPSIjZjBmMGYwIi8+PC9zdmc+"
+          />
+        ) : (
+          <div style={{ width: 36, height: 36, borderRadius: 4, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CameraOutlined style={{ color: '#bbb', fontSize: 14 }} />
+          </div>
+        ),
+    },
     { title: 'Codigo', dataIndex: 'code', key: 'code', width: 80 },
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Marca', dataIndex: 'brand_name', key: 'brand_name', width: 120, render: (v) => v || '-' },
@@ -375,6 +402,39 @@ export default function ProductList() {
       >
         <div ref={enterNavRef}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          {editingProduct && (
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+              {editingProduct.image_url ? (
+                <Image
+                  src={editingProduct.image_url}
+                  width={80}
+                  height={80}
+                  style={{ objectFit: 'cover', borderRadius: 8 }}
+                />
+              ) : (
+                <div style={{ width: 80, height: 80, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CameraOutlined style={{ fontSize: 24, color: '#bbb' }} />
+                </div>
+              )}
+              <Upload
+                accept="image/jpeg,image/png,image/webp"
+                showUploadList={false}
+                customRequest={async ({ file, onSuccess, onError }) => {
+                  try {
+                    await uploadProductImage(editingProduct.id, file as File);
+                    message.success('Imagen actualizada');
+                    queryClient.invalidateQueries({ queryKey: ['products'] });
+                    onSuccess?.(null);
+                  } catch {
+                    message.error('Error al subir imagen');
+                    onError?.(new Error('Upload failed'));
+                  }
+                }}
+              >
+                <Button icon={<CameraOutlined />} size="small">Cambiar Imagen</Button>
+              </Upload>
+            </div>
+          )}
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="code" label="Codigo" rules={[{ required: true, message: 'Requerido' }]}>

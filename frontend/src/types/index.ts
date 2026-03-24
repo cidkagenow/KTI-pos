@@ -60,6 +60,7 @@ export interface Product {
   on_order_eta: string | null;
   is_active: boolean;
   is_online: boolean;
+  image_url: string | null;
 }
 
 export interface ProductSearch {

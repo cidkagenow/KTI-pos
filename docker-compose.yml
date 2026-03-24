@@ -34,6 +34,7 @@ services:
       - ./backend:/app
       - ./certs:/app/certs:ro
       - sunat_files:/app/sunat_files
+      - product_images:/app/uploads/products
     restart: unless-stopped
 
   frontend:
@@ -44,6 +45,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - product_images:/usr/share/nginx/uploads/products:ro
     depends_on:
       - backend
     restart: unless-stopped
@@ -51,3 +53,4 @@ services:
 volumes:
   pgdata:
   sunat_files:
+  product_images:

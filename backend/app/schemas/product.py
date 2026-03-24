@@ -46,6 +46,7 @@ class ProductOut(BaseModel):
     on_order_eta: date | None = None
     is_active: bool
     is_online: bool
+    image_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
