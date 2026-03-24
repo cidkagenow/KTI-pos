@@ -3,6 +3,7 @@ import logging
 from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -285,7 +286,8 @@ def enviar_nota_credito(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Send a nota de credito to SUNAT."""
+    """Send a nota de credito (for factura) to SUNAT via sendBill.
+    NC-boletas (B-series) go in Resumen Diario instead."""
     sale = (
         db.query(Sale)
         .options(
@@ -302,6 +304,8 @@ def enviar_nota_credito(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "La venta no es una nota de credito")
     if sale.status != "FACTURADO":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "La nota de credito debe estar FACTURADA")
+    if sale.series and sale.series.startswith("B"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Las NC de boletas se envian en el Resumen Diario, no individualmente")
 
     doc = _send_and_record_nc(sale, current_user, db)
     db.commit()
@@ -314,19 +318,23 @@ def enviar_todas_notas_credito(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Send all pending notas de credito to SUNAT in bulk."""
+    """Send all pending NC-facturas to SUNAT in bulk via sendBill.
+    NC-boletas (B-series) go in Resumen Diario instead."""
+    # Only NC-facturas (F-series) — NC-boletas go in Resumen Diario
     pending_nc_docs = (
         db.query(SunatDocument)
+        .join(Sale, SunatDocument.sale_id == Sale.id)
         .filter(
             SunatDocument.doc_category == "NOTA_CREDITO",
             SunatDocument.sunat_status == "PENDIENTE",
             SunatDocument.sale_id.isnot(None),
+            Sale.series.like("F%"),
         )
         .all()
     )
 
     if not pending_nc_docs:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No hay notas de credito pendientes de envio")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No hay notas de credito (factura) pendientes de envio")
 
     results = {"enviadas": 0, "aceptadas": 0, "rechazadas": 0, "errores": 0}
 
@@ -359,20 +367,25 @@ def enviar_todas_notas_credito(
 
 
 def _get_pending_boletas(db: Session, fecha: date):
-    """Get boletas pending to send to SUNAT for a given date.
+    """Get boletas and NC-boletas pending to send to SUNAT for a given date.
+    NC-boletas (series starting with B) go in Resumen Diario per SUNAT manual.
     Returns (boletas_nuevas, boletas_anuladas) after filtering."""
+    # Boletas + NC-boletas (NC with B-series = references a boleta → goes in Resumen Diario)
     boletas_nuevas = (
         db.query(Sale)
         .options(joinedload(Sale.client))
         .filter(
-            Sale.doc_type == "BOLETA",
             Sale.status == "FACTURADO",
             Sale.issue_date == fecha,
+            or_(
+                Sale.doc_type == "BOLETA",
+                and_(Sale.doc_type == "NOTA_CREDITO", Sale.series.like("B%")),
+            ),
         )
         .all()
     )
 
-    # Anuladas: no date filter — they can be sent in any resumen after acceptance
+    # Anuladas: only boletas (NC-boletas don't get voided via resumen separately)
     boletas_anuladas = (
         db.query(Sale)
         .options(joinedload(Sale.client))

@@ -588,8 +588,9 @@ def build_summary_xml(fecha: date, sales: list[Sale], correlativo: int = 1,
         line = _sub(root, "sac", "SummaryDocumentsLine", ns_map=NS_SUMMARY)
         _sub(line, "cbc", "LineID", str(idx), ns_map=NS_SUMMARY)
 
-        # Document type (03 = boleta)
-        _sub(line, "cbc", "DocumentTypeCode", "03", ns_map=NS_SUMMARY)
+        # Document type: 03=boleta, 07=nota de credito
+        doc_type_code = "07" if sale.doc_type == "NOTA_CREDITO" else "03"
+        _sub(line, "cbc", "DocumentTypeCode", doc_type_code, ns_map=NS_SUMMARY)
 
         # v1.1: full document ID
         doc_id = f"{sale.series}-{sale.doc_number}"
