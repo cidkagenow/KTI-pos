@@ -276,17 +276,18 @@ function ResumenBoletasTab() {
 
   const fechaStr = fecha.format('YYYY-MM-DD');
 
-  // Show boletas for the selected date (both facturado and anulado)
+  // Show boletas + NC-boletas for the selected date
   const { data: boletasData, isLoading: loadingBoletas } = useQuery({
     queryKey: ['boletas-dia', fechaStr],
-    queryFn: () =>
-      getSales({
-        doc_type: 'BOLETA',
-        status: 'FACTURADO,ANULADO',
-        date_from: fechaStr,
-        date_to: fechaStr,
-        limit: 200,
-      }),
+    queryFn: async () => {
+      const [boletas, ncs] = await Promise.all([
+        getSales({ doc_type: 'BOLETA', status: 'FACTURADO,ANULADO', date_from: fechaStr, date_to: fechaStr, limit: 200 }),
+        getSales({ doc_type: 'NOTA_CREDITO', status: 'FACTURADO', date_from: fechaStr, date_to: fechaStr, limit: 200 }),
+      ]);
+      // Only include NC-boletas (B-series)
+      const ncBoletas = (ncs.data || []).filter((s: Sale) => s.series?.startsWith('B'));
+      return { ...boletas, data: [...(boletas.data || []), ...ncBoletas] };
+    },
   });
 
   // Get pending boletas count from backend (filters already-sent ones)
@@ -357,8 +358,10 @@ function ResumenBoletasTab() {
     {
       title: 'Documento',
       key: 'doc',
-      render: (_: unknown, r: Sale) =>
-        `BOLETA/${r.series}-${String(r.doc_number).padStart(7, '0')}`,
+      render: (_: unknown, r: Sale) => {
+        const prefix = r.doc_type === 'NOTA_CREDITO' ? 'N.CREDITO' : 'BOLETA';
+        return `${prefix}/${r.series}-${String(r.doc_number).padStart(7, '0')}`;
+      },
       width: 200,
     },
     {
@@ -480,7 +483,7 @@ function ResumenBoletasTab() {
         </Col>
       </Row>
 
-      <Title level={5}>Boletas del {fecha.format('DD/MM/YYYY')}</Title>
+      <Title level={5}>Boletas y NC-Boletas del {fecha.format('DD/MM/YYYY')}</Title>
       <Table
         columns={boletaColumns}
         dataSource={boletas}
@@ -994,9 +997,12 @@ function NotasCreditoTab() {
           </Button>
         </Col>
       </Row>
+      <p style={{ marginBottom: 12, color: '#888', fontSize: 12 }}>
+        Solo NC de facturas (F-series). Las NC de boletas (B-series) se envian en el Resumen Diario.
+      </p>
       <Table
         columns={columns}
-        dataSource={data?.data ?? []}
+        dataSource={(data?.data ?? []).filter((d: SunatDocument) => !d.series || !d.series.startsWith('B'))}
         rowKey="id"
         loading={isLoading}
         pagination={{
