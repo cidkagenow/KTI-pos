@@ -75,6 +75,11 @@ export async function enviarNotaCredito(saleId: number): Promise<SunatDocument> 
   return data;
 }
 
+export async function enviarTodasNotasCredito(): Promise<{ enviadas: number; aceptadas: number; rechazadas: number; errores: number }> {
+  const { data } = await api.post('/sunat/nota-credito/enviar-todas');
+  return data;
+}
+
 export interface ResumenBoleta {
   sale_id: number;
   doc_number: string;

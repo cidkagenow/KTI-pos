@@ -129,11 +129,11 @@ def enviar_todas_facturas(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Send all pending facturas and NCs to SUNAT in bulk."""
+    """Send all pending facturas to SUNAT in bulk."""
     pending_factura_docs = (
         db.query(SunatDocument)
         .filter(
-            SunatDocument.doc_category.in_(["FACTURA", "NOTA_CREDITO"]),
+            SunatDocument.doc_category == "FACTURA",
             SunatDocument.sunat_status == "PENDIENTE",
             SunatDocument.sale_id.isnot(None),
         )
@@ -307,6 +307,55 @@ def enviar_nota_credito(
     db.commit()
     db.refresh(doc)
     return _doc_to_out(doc)
+
+
+@router.post("/nota-credito/enviar-todas")
+def enviar_todas_notas_credito(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Send all pending notas de credito to SUNAT in bulk."""
+    pending_nc_docs = (
+        db.query(SunatDocument)
+        .filter(
+            SunatDocument.doc_category == "NOTA_CREDITO",
+            SunatDocument.sunat_status == "PENDIENTE",
+            SunatDocument.sale_id.isnot(None),
+        )
+        .all()
+    )
+
+    if not pending_nc_docs:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No hay notas de credito pendientes de envio")
+
+    results = {"enviadas": 0, "aceptadas": 0, "rechazadas": 0, "errores": 0}
+
+    for sunat_doc in pending_nc_docs:
+        sale = (
+            db.query(Sale)
+            .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.ref_sale).joinedload(Sale.client))
+            .filter(Sale.id == sunat_doc.sale_id)
+            .first()
+        )
+        if not sale:
+            continue
+
+        try:
+            doc = _send_and_record_nc(sale, current_user, db)
+            db.flush()
+            results["enviadas"] += 1
+            if doc.sunat_status == "ACEPTADO":
+                results["aceptadas"] += 1
+            elif doc.sunat_status == "RECHAZADO":
+                results["rechazadas"] += 1
+            else:
+                results["errores"] += 1
+        except Exception as e:
+            logger.error("Bulk NC send failed for sale %s: %s", sunat_doc.sale_id, str(e))
+            results["errores"] += 1
+
+    db.commit()
+    return results
 
 
 def _get_pending_boletas(db: Session, fecha: date):

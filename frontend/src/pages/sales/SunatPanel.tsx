@@ -32,6 +32,7 @@ import {
   checkTicketStatus,
   getPendingBoletas,
   enviarNotaCredito,
+  enviarTodasNotasCredito,
   getResumenBoletas,
   enviarBajaMasiva,
   getPendingBajas,
@@ -237,7 +238,7 @@ function FacturasTab() {
             loading={enviarTodasMut.isPending}
             onClick={() =>
               Modal.confirm({
-                title: 'Enviar todas las facturas y NC pendientes a SUNAT?',
+                title: 'Enviar todas las facturas pendientes a SUNAT?',
                 onOk: () => enviarTodasMut.mutate(),
               })
             }
@@ -835,6 +836,19 @@ function NotasCreditoTab() {
     },
   });
 
+  const enviarTodasNCMut = useMutation({
+    mutationFn: () => enviarTodasNotasCredito(),
+    onSuccess: (result) => {
+      message.success(
+        `Enviadas: ${result.enviadas} | Aceptadas: ${result.aceptadas} | Rechazadas: ${result.rechazadas} | Errores: ${result.errores}`
+      );
+      queryClient.invalidateQueries({ queryKey: ['sunat-docs'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.detail || 'Error al enviar notas de credito');
+    },
+  });
+
   const columns: ColumnsType<SunatDocument> = [
     {
       title: 'Documento',
@@ -963,6 +977,21 @@ function NotasCreditoTab() {
               { value: 'RECHAZADO', label: 'Rechazado' },
             ]}
           />
+        </Col>
+        <Col>
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            loading={enviarTodasNCMut.isPending}
+            onClick={() =>
+              Modal.confirm({
+                title: 'Enviar todas las notas de credito pendientes a SUNAT?',
+                onOk: () => enviarTodasNCMut.mutate(),
+              })
+            }
+          >
+            Enviar Todas las Pendientes
+          </Button>
         </Col>
       </Row>
       <Table
