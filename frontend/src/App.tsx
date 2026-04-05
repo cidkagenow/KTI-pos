@@ -83,46 +83,63 @@ function AppRoutes() {
   );
 }
 
+/*
+ * KTI POS Design System — Glassmorphism + OLED Dark
+ * Brand: Red #c62828 / Blue #1a3a8f
+ * Font: DM Sans (Google Fonts)
+ * Style: Frosted glass cards, deep dark bg, green positive indicators
+ */
+const FONT = "'DM Sans', 'Segoe UI', Roboto, sans-serif";
+
 const darkTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorPrimary: '#3b6fd4',
-    colorLink: '#5b8be6',
-    colorError: '#e31e24',
-    borderRadius: 6,
-    fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-    colorBgBase: '#0f1a2e',
-    colorBgContainer: '#152038',
-    colorBgElevated: '#1a2844',
-    colorBgLayout: '#0a1220',
-    colorBorder: '#1e3050',
-    colorBorderSecondary: '#1a2844',
+    colorPrimary: '#c62828',
+    colorLink: '#60a5fa',
+    colorError: '#f87171',
+    colorSuccess: '#34d399',
+    colorWarning: '#fbbf24',
+    borderRadius: 10,
+    fontFamily: FONT,
+    colorBgBase: '#06080f',
+    colorBgContainer: 'rgba(15, 23, 42, 0.6)',
+    colorBgElevated: 'rgba(22, 33, 56, 0.8)',
+    colorBgLayout: '#040609',
+    colorBorder: 'rgba(255, 255, 255, 0.06)',
+    colorBorderSecondary: 'rgba(255, 255, 255, 0.04)',
   },
   components: {
-    Layout: { siderBg: '#091428', headerBg: '#152038' },
-    Menu: { darkItemBg: '#091428', darkItemSelectedBg: '#1a3a8f', darkItemHoverBg: '#122d6e', darkSubMenuItemBg: '#060e1e' },
-    Card: { colorBgContainer: '#152038', colorBorderSecondary: '#1e3050' },
-    Table: { colorBgContainer: '#152038', headerBg: '#1a2844', rowHoverBg: '#1a2844' },
-    Button: { primaryShadow: '0 2px 0 rgba(59, 111, 212, 0.2)' },
-    Input: { colorBgContainer: '#1a2844' },
-    Select: { colorBgContainer: '#1a2844' },
-    Modal: { contentBg: '#152038', headerBg: '#152038' },
+    Layout: { siderBg: 'rgba(6, 8, 15, 0.85)', headerBg: 'rgba(15, 23, 42, 0.6)' },
+    Menu: { darkItemBg: 'transparent', darkItemSelectedBg: 'rgba(198, 40, 40, 0.18)', darkItemHoverBg: 'rgba(255, 255, 255, 0.05)', darkSubMenuItemBg: 'transparent' },
+    Card: { colorBgContainer: 'rgba(15, 23, 42, 0.5)', colorBorderSecondary: 'rgba(255,255,255,0.06)' },
+    Table: { colorBgContainer: 'rgba(15, 23, 42, 0.4)', headerBg: 'rgba(15, 23, 42, 0.7)', rowHoverBg: 'rgba(255, 255, 255, 0.03)' },
+    Button: { primaryShadow: '0 4px 14px rgba(198, 40, 40, 0.3)' },
+    Input: { colorBgContainer: 'rgba(255, 255, 255, 0.04)', activeBorderColor: '#c62828', hoverBorderColor: 'rgba(198, 40, 40, 0.4)' },
+    Select: { colorBgContainer: 'rgba(255, 255, 255, 0.04)' },
+    InputNumber: { colorBgContainer: 'rgba(255, 255, 255, 0.04)' },
+    Modal: { contentBg: 'rgba(15, 23, 42, 0.95)', headerBg: 'rgba(15, 23, 42, 0.95)' },
+    Statistic: { titleFontSize: 13 },
   },
 };
 
 const lightTheme = {
   algorithm: theme.defaultAlgorithm,
   token: {
-    colorPrimary: '#1a3a8f',
+    colorPrimary: '#c62828',
     colorLink: '#1a3a8f',
-    colorError: '#e31e24',
-    borderRadius: 6,
-    fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    colorError: '#ef4444',
+    colorSuccess: '#16a34a',
+    colorWarning: '#d97706',
+    borderRadius: 10,
+    fontFamily: FONT,
   },
   components: {
-    Layout: { siderBg: 'transparent', headerBg: '#ffffff' },
-    Menu: { darkItemBg: 'transparent', darkItemSelectedBg: 'rgba(255,255,255,0.15)', darkItemHoverBg: 'rgba(255,255,255,0.1)', darkSubMenuItemBg: 'transparent' },
-    Button: { primaryShadow: '0 2px 0 rgba(26, 58, 143, 0.1)' },
+    Layout: { siderBg: 'transparent', headerBg: 'rgba(255, 255, 255, 0.7)', bodyBg: '#f0f2f5' },
+    Menu: { darkItemBg: 'transparent', darkItemSelectedBg: 'rgba(255,255,255,0.2)', darkItemHoverBg: 'rgba(255,255,255,0.1)', darkSubMenuItemBg: 'transparent' },
+    Button: { primaryShadow: '0 4px 14px rgba(198, 40, 40, 0.2)' },
+    Card: { colorBorderSecondary: '#e8ecf2' },
+    Table: { rowHoverBg: 'rgba(198, 40, 40, 0.03)' },
+    Statistic: { titleFontSize: 13 },
   },
 };
 

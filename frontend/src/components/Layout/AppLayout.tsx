@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout, Menu, Button, Dropdown, Space, Badge, theme } from 'antd';
 import {
   DashboardOutlined,
@@ -27,6 +27,36 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getOnlineOrderStats } from '../../api/onlineOrders';
 import ChatWidget from '../Chat/ChatWidget';
+
+/** Wrapper that fades+slides content on every route change */
+function AnimatedOutlet() {
+  const location = useLocation();
+  const [visible, setVisible] = useState(true);
+  const prevPath = useRef(location.pathname);
+
+  useEffect(() => {
+    if (location.pathname !== prevPath.current) {
+      setVisible(false);
+      const t = setTimeout(() => {
+        prevPath.current = location.pathname;
+        setVisible(true);
+      }, 120);
+      return () => clearTimeout(t);
+    }
+  }, [location.pathname]);
+
+  return (
+    <div
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(6px)',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
+      }}
+    >
+      <Outlet />
+    </div>
+  );
+}
 
 const { Header, Sider, Content } = Layout;
 
@@ -212,7 +242,12 @@ export default function AppLayout() {
           left: 0,
           top: 0,
           bottom: 0,
-          ...(!isDark ? { background: 'linear-gradient(180deg, #b02a2a 0%, #1a3a8f 100%)' } : {}),
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          ...(!isDark
+            ? { background: 'linear-gradient(180deg, #c62828 0%, #8e1a1a 30%, #1a3a8f 70%, #0f2266 100%)' }
+            : { background: 'rgba(6, 8, 15, 0.8)' }),
         }}
       >
         <div
@@ -220,8 +255,10 @@ export default function AppLayout() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: collapsed ? '20px 8px 24px' : '20px 16px 24px',
+            padding: collapsed ? '20px 8px 16px' : '20px 16px 16px',
             cursor: 'pointer',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: 8,
           }}
           onClick={() => navigate('/')}
         >
@@ -229,9 +266,9 @@ export default function AppLayout() {
             src={isDark ? '/kti-logo-white.png' : '/kti-logo.png'}
             alt="KTI"
             style={{
-              width: collapsed ? 40 : 90,
+              width: collapsed ? 38 : 85,
               objectFit: 'contain',
-              transition: 'width 0.2s',
+              transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
         </div>
@@ -241,32 +278,40 @@ export default function AppLayout() {
           selectedKeys={[getSelectedKey()]}
           items={menuItems}
           onClick={handleMenuClick}
+          style={{ borderRight: 'none', background: 'transparent' }}
         />
       </Sider>
-      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
         <Header
           style={{
             padding: '0 24px',
-            background: themeToken.colorBgContainer,
+            background: isDark ? 'rgba(6, 8, 15, 0.5)' : 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: `1px solid ${themeToken.colorBorderSecondary}`,
+            borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'}`,
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
           }}
         >
           <Button
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
+            style={{ fontSize: 16 }}
           />
-          <Space>
+          <Space size={4}>
             <Button
               type="text"
               icon={isDark ? <SunOutlined /> : <MoonOutlined />}
               onClick={toggleTheme}
+              style={{ fontSize: 16 }}
             />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Button type="text" icon={<UserOutlined />}>
+              <Button type="text" icon={<UserOutlined />} style={{ fontWeight: 500 }}>
                 {user?.full_name || user?.username}
               </Button>
             </Dropdown>
@@ -274,14 +319,17 @@ export default function AppLayout() {
         </Header>
         <Content
           style={{
-            margin: 24,
+            margin: '16px 20px 20px',
             padding: 24,
-            background: themeToken.colorBgContainer,
-            borderRadius: themeToken.borderRadiusLG,
+            background: isDark ? 'rgba(15, 23, 42, 0.4)' : themeToken.colorBgContainer,
+            backdropFilter: isDark ? 'blur(16px)' : 'none',
+            WebkitBackdropFilter: isDark ? 'blur(16px)' : 'none',
+            borderRadius: 14,
             minHeight: 280,
+            border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.04)',
           }}
         >
-          <Outlet />
+          <AnimatedOutlet />
         </Content>
       </Layout>
       <ChatWidget />
