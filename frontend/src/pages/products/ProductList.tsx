@@ -235,14 +235,18 @@ export default function ProductList() {
           </span>
         ),
     },
-    {
-      title: 'Costo Uni',
-      dataIndex: 'cost_price',
-      key: 'cost_price',
-      width: 110,
-      align: 'right',
-      render: (val: number | null) => (val != null ? formatCurrency(val) : '-'),
-    },
+    ...(isAdmin
+      ? [
+          {
+            title: 'Costo Uni',
+            dataIndex: 'cost_price',
+            key: 'cost_price',
+            width: 110,
+            align: 'right' as const,
+            render: (val: number | null) => (val != null ? formatCurrency(val) : '-'),
+          },
+        ]
+      : []),
     {
       title: 'P.V.P',
       dataIndex: 'unit_price',

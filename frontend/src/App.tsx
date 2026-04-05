@@ -64,7 +64,7 @@ function AppRoutes() {
         <Route path="clients" element={<ClientList />} />
         <Route path="inventory" element={<AdminRoute><StockLevels /></AdminRoute>} />
         <Route path="inventory/movements" element={<AdminRoute><Movements /></AdminRoute>} />
-        <Route path="inventory/alerts" element={<AdminRoute><Alerts /></AdminRoute>} />
+        <Route path="inventory/alerts" element={<Alerts />} />
         <Route path="inventory/stock-valorizado" element={<AdminRoute><StockValorizado /></AdminRoute>} />
         <Route path="inventory/kardex" element={<AdminRoute><Kardex /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />

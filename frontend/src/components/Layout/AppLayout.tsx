@@ -81,7 +81,13 @@ export default function AppLayout() {
             ],
           },
         ]
-      : []),
+      : [
+          {
+            key: '/inventory/alerts',
+            icon: <InboxOutlined />,
+            label: 'Alertas Stock',
+          },
+        ]),
     {
       key: '/clients',
       icon: <TeamOutlined />,

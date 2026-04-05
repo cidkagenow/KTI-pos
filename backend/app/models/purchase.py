@@ -49,7 +49,7 @@ class PurchaseOrder(Base):
         ForeignKey("warehouses.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
-    doc_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # FACTURA, BOLETA
+    doc_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # FACTURA, BOLETA, NOTA_VENTA
     doc_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     supplier_doc: Mapped[str | None] = mapped_column(String(50), nullable=True)
     condicion: Mapped[str | None] = mapped_column(String(20), default="CONTADO")  # CONTADO, CREDITO

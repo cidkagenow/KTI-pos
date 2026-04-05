@@ -585,6 +585,7 @@ export default function POList() {
                   options={[
                     { value: 'FACTURA', label: 'FACTURA' },
                     { value: 'BOLETA', label: 'BOLETA' },
+                    { value: 'NOTA_VENTA', label: 'NOTA DE VENTA' },
                   ]}
                 />
               </Form.Item>
