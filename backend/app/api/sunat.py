@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _send_and_record_factura(sale: Sale, user: User, db: Session) -> SunatDocument:
+def _send_and_record_factura(sale: Sale, user: User | None, db: Session) -> SunatDocument:
     """Send a single factura to SUNAT and record the result."""
     parsed = send_factura_to_sunat(sale)
 
@@ -42,6 +42,7 @@ def _send_and_record_factura(sale: Sale, user: User, db: Session) -> SunatDocume
     )
 
     now = datetime.now(timezone.utc)
+    user_id = user.id if user else None
 
     if existing:
         existing.sunat_status = parsed.get("sunat_status", "ERROR")
@@ -55,7 +56,7 @@ def _send_and_record_factura(sale: Sale, user: User, db: Session) -> SunatDocume
         existing.raw_response = json.dumps(parsed, ensure_ascii=False)
         existing.attempt_count += 1
         existing.last_attempt_at = now
-        existing.sent_by = user.id
+        existing.sent_by = user_id
         doc = existing
     else:
         doc = SunatDocument(
@@ -73,7 +74,7 @@ def _send_and_record_factura(sale: Sale, user: User, db: Session) -> SunatDocume
             raw_response=json.dumps(parsed, ensure_ascii=False),
             attempt_count=1,
             last_attempt_at=now,
-            sent_by=user.id,
+            sent_by=user_id,
         )
         db.add(doc)
 
@@ -231,7 +232,7 @@ def reenviar_factura(
     return _doc_to_out(doc)
 
 
-def _send_and_record_nc(sale: Sale, user: User, db: Session) -> SunatDocument:
+def _send_and_record_nc(sale: Sale, user: User | None, db: Session) -> SunatDocument:
     """Send a nota de credito to SUNAT and record the result."""
     parsed = send_nota_credito_to_sunat(sale)
 
@@ -242,6 +243,7 @@ def _send_and_record_nc(sale: Sale, user: User, db: Session) -> SunatDocument:
     )
 
     now = datetime.now(timezone.utc)
+    user_id = user.id if user else None
 
     if existing:
         existing.sunat_status = parsed.get("sunat_status", "ERROR")
@@ -254,7 +256,7 @@ def _send_and_record_nc(sale: Sale, user: User, db: Session) -> SunatDocument:
         existing.raw_response = json.dumps(parsed, ensure_ascii=False)
         existing.attempt_count += 1
         existing.last_attempt_at = now
-        existing.sent_by = user.id
+        existing.sent_by = user_id
         doc = existing
     else:
         doc = SunatDocument(
@@ -272,7 +274,7 @@ def _send_and_record_nc(sale: Sale, user: User, db: Session) -> SunatDocument:
             raw_response=json.dumps(parsed, ensure_ascii=False),
             attempt_count=1,
             last_attempt_at=now,
-            sent_by=user.id,
+            sent_by=user_id,
         )
         db.add(doc)
 

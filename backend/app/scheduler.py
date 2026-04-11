@@ -2,6 +2,7 @@
 Scheduled tasks for KTI-POS.
 
 - Sends Resumen Diario (boletas) automatically every day at 11 PM Lima time.
+- Sends pending facturas + NC-facturas automatically every day at 11 PM Lima time.
 - Checks pending SUNAT tickets every 5 minutes.
 """
 
@@ -178,6 +179,77 @@ def send_resumen_diario_job():
         db.close()
 
 
+def send_pending_facturas_job():
+    """Automatically send all pending facturas and NC-facturas to SUNAT at end of day."""
+    logger.info("⏰ Envío automático de facturas: iniciando...")
+    # Import here to avoid circular imports at module load time
+    from app.api.sunat import _send_and_record_factura, _send_and_record_nc
+
+    db = SessionLocal()
+    try:
+        pending_docs = (
+            db.query(SunatDocument)
+            .filter(
+                SunatDocument.doc_category.in_(["FACTURA", "NOTA_CREDITO"]),
+                SunatDocument.sunat_status == "PENDIENTE",
+                SunatDocument.sale_id.isnot(None),
+            )
+            .all()
+        )
+
+        if not pending_docs:
+            logger.info("⏰ Facturas: no hay facturas/NC pendientes de envío")
+            return
+
+        # For NC we only auto-send NC-facturas (F-series). NC-boletas go via Resumen Diario.
+        count = {"factura": 0, "nc_factura": 0, "aceptadas": 0, "errores": 0}
+
+        for sunat_doc in pending_docs:
+            sale = (
+                db.query(Sale)
+                .options(
+                    joinedload(Sale.items),
+                    joinedload(Sale.client),
+                    joinedload(Sale.ref_sale).joinedload(Sale.client),
+                )
+                .filter(Sale.id == sunat_doc.sale_id)
+                .first()
+            )
+            if not sale:
+                continue
+
+            try:
+                if sunat_doc.doc_category == "NOTA_CREDITO":
+                    # Only NC-facturas (F-series) go via sendBill; NC-boletas via Resumen
+                    if not (sale.series or "").upper().startswith("F"):
+                        continue
+                    doc = _send_and_record_nc(sale, None, db)
+                    count["nc_factura"] += 1
+                else:
+                    doc = _send_and_record_factura(sale, None, db)
+                    count["factura"] += 1
+
+                db.flush()
+                if doc.sunat_status == "ACEPTADO":
+                    count["aceptadas"] += 1
+                else:
+                    count["errores"] += 1
+            except Exception:
+                logger.exception("⏰ Error enviando factura/NC %s", sunat_doc.sale_id)
+                count["errores"] += 1
+
+        db.commit()
+        logger.info(
+            "⏰ Envío automático completado: %d facturas + %d NC, %d aceptadas, %d errores",
+            count["factura"], count["nc_factura"], count["aceptadas"], count["errores"],
+        )
+    except Exception:
+        logger.exception("⏰ Error en envío automático de facturas")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def check_pending_tickets_job():
     """Check status of pending SUNAT tickets (resumen/baja)."""
     db = SessionLocal()
@@ -232,12 +304,21 @@ def check_pending_tickets_job():
 
 def init_scheduler():
     """Start the scheduler with all jobs."""
-    # Send Resumen Diario at 11:00 PM Lima time (every day including Sunday)
+    # Send Resumen Diario (boletas) at 11:00 PM Lima time (every day)
     scheduler.add_job(
         send_resumen_diario_job,
         trigger=CronTrigger(hour=23, minute=0),
         id="resumen_diario",
         name="Enviar Resumen Diario",
+        replace_existing=True,
+    )
+
+    # Send pending facturas + NC-facturas at 11:00 PM Lima time (every day)
+    scheduler.add_job(
+        send_pending_facturas_job,
+        trigger=CronTrigger(hour=23, minute=0),
+        id="facturas_auto",
+        name="Enviar facturas pendientes",
         replace_existing=True,
     )
 
@@ -252,7 +333,9 @@ def init_scheduler():
     )
 
     scheduler.start()
-    logger.info("⏰ Scheduler iniciado: Resumen Diario a las 23:00 (todos los dias), tickets cada 5 min")
+    logger.info(
+        "⏰ Scheduler iniciado: Resumen Diario + Facturas a las 23:00 (todos los dias), tickets cada 5 min"
+    )
 
 
 def shutdown_scheduler():
