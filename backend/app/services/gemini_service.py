@@ -24,74 +24,74 @@ Tu rol es ayudar a los trabajadores respondiendo sus preguntas.
 
 REGLAS:
 
-1. Para preguntas sobre piezas/repuestos (ej: "carburador para la ZL", "filtro aceite toyota yaris", "pastillas CBR"):
-   - SIEMPRE usa web_search PRIMERO para encontrar info técnica y compatibilidad.
+1. Para preguntas sobre repuestos/piezas (ej: "carburador para la ZL", "filtro de aceite toyota yaris", "pastillas de freno CBR"):
+   - SIEMPRE usa web_search PRIMERO para encontrar información técnica y compatibilidad.
    - Responde con la información encontrada en la web.
-   - Luego PREGUNTA: "¿Quieres que busque si lo tenemos en inventario?"
-   - Solo busca en inventario si el usuario dice que sí.
+   - Luego PREGUNTA: "¿Quieres que revise si lo tenemos en inventario?"
+   - Solo busca en el inventario si el usuario dice que sí.
 
-2. Para consultas EXPLÍCITAS sobre inventario, precios o stock — SOLO cuando usan palabras como "hay", "tienen", "cuánto vale", "cuánto cuesta", "precio", "stock":
+2. Para consultas EXPLÍCITAS sobre inventario, precios o stock — SOLO cuando usen palabras como "tienes", "cuánto", "precio", "costo", "stock":
    - Usa search_products o check_inventory INMEDIATAMENTE.
-   - Si no encuentras, intenta con palabras diferentes (marca sola, categoría sola, etc.)
+   - Si no encuentras, prueba con palabras diferentes (solo marca, solo categoría, etc.)
 
 3. Para preguntas generales (especificaciones, "qué X usa el Y", etc.):
-   - Usa web_search INMEDIATAMENTE. NO busques en inventario.
+   - Usa web_search INMEDIATAMENTE. NO busques en el inventario.
 
-3. Para consultas sobre datos del POS (ventas, clientes, reportes):
+4. Para consultas sobre datos del POS (ventas, clientes, reportes):
    - Usa las herramientas de base de datos INMEDIATAMENTE.
 
-4. Para saludos simples (hola, buenos días), responde amablemente sin herramientas.
-5. Responde SIEMPRE en español. Usa S/ para montos.
-6. NUNCA inventes datos. NUNCA pidas permiso para buscar — SIEMPRE actúa directamente.
-7. {role_instruction}
+5. Para saludos simples (hola, buenos días), responde amablemente sin usar herramientas.
+6. SIEMPRE responde en español. Usa S/ para los montos (Soles peruanos).
+7. NUNCA inventes datos. NUNCA pidas permiso para buscar — SIEMPRE actúa directamente.
+8. {role_instruction}
 
 MENSAJES INCOMPLETOS O ABREVIADOS:
-Los trabajadores suelen escribir mensajes cortos, abreviados o con errores de tipeo.
-- NUNCA pidas que reformulen la pregunta. INTERPRETA lo mejor que puedas y ACTÚA.
-- Por defecto, trata TODO mensaje sobre piezas/repuestos como búsqueda web (regla 1).
-- SOLO busca en inventario cuando el usuario usa palabras como: "hay", "tienen", "cuánto vale", "cuánto cuesta", "precio", "stock", "busca en sistema", "sí" (confirmando búsqueda).
+Los trabajadores suelen escribir mensajes cortos, abreviados o con errores tipográficos.
+- NUNCA les pidas que reformulen la pregunta. INTERPRETA lo mejor que puedas y ACTÚA.
+- Por defecto, trata CADA mensaje sobre repuestos/piezas como una búsqueda web (regla 1).
+- SOLO busca en el inventario cuando el usuario use palabras como: "tienes", "cuánto", "precio", "costo", "stock", "busca en el sistema", "sí" (confirmando búsqueda).
 - Ejemplos de cómo interpretar:
   - "carburador para la zll" → web_search "carburador compatible Honda ZL" (typo: zll=ZL)
-  - "pastillas cbr" → web_search "pastillas freno Honda CBR"
-  - "filtro aceite toyota yaris" → web_search "filtro aceite compatible Toyota Yaris"
-  - "filtro d aceite" → web_search "filtro de aceite repuesto" (búsqueda web por defecto)
-  - "kit arrastre cgl" → web_search "kit arrastre Honda CGL"
-  - "llanta 90 90 18" → web_search "llanta 90/90-18 moto"
-  - "cuanto vale el filtro?" → search_products "filtro" (pregunta EXPLÍCITA de precio → inventario)
-  - "hay aceite?" → search_products "aceite" (pregunta EXPLÍCITA de stock → inventario)
-  - "tiene para la honda?" → search_products brand="honda" (pregunta EXPLÍCITA de stock → inventario)
+  - "pastillas cbr" → web_search "pastillas de freno Honda CBR"
+  - "filtro aceite toyota yaris" → web_search "filtro de aceite compatible Toyota Yaris"
+  - "filtro acete" → web_search "filtro de aceite repuesto" (búsqueda web por defecto)
+  - "kit arrastre cgl" → web_search "kit de arrastre Honda CGL"
+  - "llanta 90 90 18" → web_search "llanta 90/90-18 motocicleta"
+  - "¿cuánto está el filtro?" → search_products "filtro" (pregunta EXPLÍCITA de precio → inventario)
+  - "¿tienes aceite?" → search_products "aceite" (pregunta EXPLÍCITA de stock → inventario)
+  - "¿hay para honda?" → search_products brand="honda" (pregunta EXPLÍCITA de stock → inventario)
   - "sí, busca en inventario" → search_products (usuario confirmó)
-- Letras duplicadas suelen ser typos: "zll"="zl", "cbrr"="cbr", "hondaa"="honda"
-- Abreviaciones comunes: "d"="de", "q"="que", "pa"="para", "x"="por", "tb"="también"
+- Las letras dobles suelen ser errores: "zll"="zl", "cbrr"="cbr", "hondaa"="honda"
+- Abreviaturas comunes en español que pueden escribir: "d"="de", "q"="que", "pa"="para", "x"="por", "tb"="también"
 - Modelos de motos comunes en Perú: ZL, CGL, XL, CBR, CRF, GL, NXR, XR, Wave, Biz, PCX, Navi
 
-TIPS DE BÚSQUEDA EN INVENTARIO:
-- Usuarios piden por nombre coloquial: "llanta duro" → "duro" es MARCA, "llanta" es tipo
-- Si no encuentras, prueba: solo la categoría (ej: "filtro aceite"), solo la marca, o palabras sueltas
+CONSEJOS PARA BUSCAR EN INVENTARIO:
+- Los usuarios preguntan por nombres coloquiales: "llanta duro" → "duro" es la MARCA, "llanta" es el tipo
+- Si no encuentras, prueba: solo la categoría (ej: "filtro de aceite"), solo la marca, o palabras individuales
 - search_products busca en nombre, código Y marca
-- Haz al menos 2 búsquedas diferentes si la primera no da resultados
-- Formatea resultados como lista con código, nombre, marca, precio y stock
+- Haz al menos 2 búsquedas diferentes si la primera no devuelve resultados
+- Formatea los resultados como una lista con código, nombre, marca, precio y stock
 """
 
 VENTAS_INSTRUCTION = (
-    "El usuario tiene rol VENTAS: NO puede ver precios de costo ni utilidad/ganancia. "
-    "Si pregunta por costos o ganancias, indica que no tiene permisos."
+    "El usuario tiene el rol VENTAS: NO puede ver precios de costo ni utilidad/margen. "
+    "Si pregunta sobre costos o utilidades, dile que no tiene permiso."
 )
 ADMIN_INSTRUCTION = (
-    "El usuario tiene rol ADMIN: puede ver toda la información incluyendo costos y ganancias."
+    "El usuario tiene el rol ADMIN: puede ver toda la información incluyendo costos y utilidades."
 )
 
 # Tool declarations for Gemini function calling
 TOOL_DECLARATIONS = [
     {
         "name": "web_search",
-        "description": "Buscar información en internet usando Google. Usar para preguntas generales que NO sean sobre datos del sistema POS. Ejemplos: especificaciones técnicas de motos/autos, compatibilidad de repuestos, medidas de piezas, información de productos del mercado, etc.",
+        "description": "Search the internet using Google. Use for general questions that are NOT about POS system data. Examples: technical specs of motorcycles/cars, spare parts compatibility, part dimensions, market product information, etc.",
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "La búsqueda a realizar en Google (en español o inglés según convenga)",
+                    "description": "The query to search on Google (in English or Spanish, whichever fits best)",
                 },
             },
             "required": ["query"],
@@ -99,38 +99,38 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "search_products",
-        "description": "Buscar productos por nombre, código o marca. Retorna lista con precios y stock.",
+        "description": "Search products by name, code or brand. Returns a list with prices and stock.",
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Texto a buscar en nombre o código del producto",
+                    "description": "Text to search in product name or code",
                 },
                 "brand": {
                     "type": "string",
-                    "description": "Filtrar por nombre de marca (búsqueda parcial)",
+                    "description": "Filter by brand name (partial match)",
                 },
                 "category": {
                     "type": "string",
-                    "description": "Filtrar por nombre de categoría (búsqueda parcial)",
+                    "description": "Filter by category name (partial match)",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Máximo de resultados (default 10)",
+                    "description": "Max results (default 10)",
                 },
             },
         },
     },
     {
         "name": "get_product_details",
-        "description": "Obtener información detallada de un producto por su ID.",
+        "description": "Get detailed information for a product by its ID.",
         "parameters": {
             "type": "object",
             "properties": {
                 "product_id": {
                     "type": "integer",
-                    "description": "ID del producto",
+                    "description": "Product ID",
                 },
             },
             "required": ["product_id"],
@@ -138,38 +138,38 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "check_inventory",
-        "description": "Consultar niveles de stock. Puede filtrar por producto, almacén, o solo stock bajo.",
+        "description": "Check stock levels. Can filter by product, warehouse, or only low stock.",
         "parameters": {
             "type": "object",
             "properties": {
                 "product_name": {
                     "type": "string",
-                    "description": "Filtrar por nombre de producto (búsqueda parcial)",
+                    "description": "Filter by product name (partial match)",
                 },
                 "warehouse_name": {
                     "type": "string",
-                    "description": "Filtrar por nombre de almacén",
+                    "description": "Filter by warehouse name",
                 },
                 "low_stock_only": {
                     "type": "boolean",
-                    "description": "Si true, solo muestra productos con stock por debajo del mínimo",
+                    "description": "If true, only show products with stock below minimum",
                 },
             },
         },
     },
     {
         "name": "search_clients",
-        "description": "Buscar clientes por nombre o número de documento (RUC/DNI).",
+        "description": "Search clients by name or document number (RUC/DNI).",
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Texto a buscar en nombre o número de documento",
+                    "description": "Text to search in name or document number",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Máximo de resultados (default 10)",
+                    "description": "Max results (default 10)",
                 },
             },
             "required": ["query"],
@@ -177,13 +177,13 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "get_client_details",
-        "description": "Obtener información detallada de un cliente por su ID.",
+        "description": "Get detailed information for a client by its ID.",
         "parameters": {
             "type": "object",
             "properties": {
                 "client_id": {
                     "type": "integer",
-                    "description": "ID del cliente",
+                    "description": "Client ID",
                 },
             },
             "required": ["client_id"],
@@ -191,46 +191,46 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "get_sales_summary",
-        "description": "Obtener resumen de ventas: cantidad, total facturado. Puede filtrar por período y vendedor.",
+        "description": "Get sales summary: count, total revenue. Can filter by period and seller.",
         "parameters": {
             "type": "object",
             "properties": {
                 "period": {
                     "type": "string",
-                    "description": "Período: 'today', 'week', 'month', 'year', o 'all' (default 'month')",
+                    "description": "Period: 'today', 'week', 'month', 'year', or 'all' (default 'month')",
                 },
                 "seller_name": {
                     "type": "string",
-                    "description": "Filtrar por nombre del vendedor",
+                    "description": "Filter by seller name",
                 },
             },
         },
     },
     {
         "name": "search_sales",
-        "description": "Buscar ventas recientes. Puede filtrar por cliente, producto, o rango de fechas.",
+        "description": "Search recent sales. Can filter by client, product, or date range.",
         "parameters": {
             "type": "object",
             "properties": {
                 "client_name": {
                     "type": "string",
-                    "description": "Filtrar por nombre del cliente",
+                    "description": "Filter by client name",
                 },
                 "product_name": {
                     "type": "string",
-                    "description": "Filtrar por nombre de producto en los items",
+                    "description": "Filter by product name in items",
                 },
                 "from_date": {
                     "type": "string",
-                    "description": "Fecha inicio (YYYY-MM-DD)",
+                    "description": "Start date (YYYY-MM-DD)",
                 },
                 "to_date": {
                     "type": "string",
-                    "description": "Fecha fin (YYYY-MM-DD)",
+                    "description": "End date (YYYY-MM-DD)",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Máximo de resultados (default 10)",
+                    "description": "Max results (default 10)",
                 },
             },
         },
@@ -544,7 +544,7 @@ def _exec_web_search(_db: Session, args: dict, _user_role: str) -> str:
     """Execute a Google Search via a separate Gemini call with grounding."""
     query = args.get("query", "")
     if not query:
-        return json.dumps({"error": "No se proporcionó búsqueda"})
+        return json.dumps({"error": "No se proporcionó consulta"})
 
     try:
         from google import genai
@@ -663,7 +663,7 @@ def chat_with_gemini(
             if candidate and hasattr(candidate, 'finish_reason'):
                 logger.warning(f"Finish reason: {candidate.finish_reason}")
             text = _safe_text(response)
-            return text or "Lo siento, no pude procesar tu consulta. Intenta de nuevo."
+            return text or "Lo siento, no pude procesar tu consulta. Por favor intenta de nuevo."
 
         has_function_call = any(
             part.function_call for part in candidate.content.parts if part.function_call
@@ -673,7 +673,7 @@ def chat_with_gemini(
             # Model returned final text
             text = _safe_text(response)
             logger.info(f"Gemini final text (iter {iteration}): {text[:200]}")
-            return text or "Lo siento, no pude procesar tu consulta. Intenta de nuevo."
+            return text or "Lo siento, no pude procesar tu consulta. Por favor intenta de nuevo."
 
         # Process function calls
         contents.append(candidate.content)
@@ -695,9 +695,9 @@ def chat_with_gemini(
                     logger.warning(f"Tool {fn_name} result: {result[:300] if result else 'empty'}")
                 except Exception as e:
                     logger.error(f"Tool execution error: {fn_name}: {e}", exc_info=True)
-                    result = json.dumps({"error": f"Error ejecutando {fn_name}: {str(e)}"})
+                    result = json.dumps({"error": f"Error executing {fn_name}: {str(e)}"})
             else:
-                result = json.dumps({"error": f"Herramienta desconocida: {fn_name}"})
+                result = json.dumps({"error": f"Unknown tool: {fn_name}"})
 
             function_response_parts.append(
                 types.Part.from_function_response(
@@ -708,4 +708,4 @@ def chat_with_gemini(
 
         contents.append(types.Content(role="user", parts=function_response_parts))
 
-    return "Se alcanzó el límite de consultas internas. Por favor, reformula tu pregunta."
+    return "Se alcanzó el límite interno de consultas. Por favor reformula tu pregunta."

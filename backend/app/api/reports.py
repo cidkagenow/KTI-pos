@@ -1,9 +1,11 @@
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, literal_column
 
+from app.config import settings
 from app.database import get_db
 from app.models.sale import Sale, SaleItem
 from app.models.product import Product
@@ -11,6 +13,12 @@ from app.models.inventory import Inventory
 from app.models.user import User
 from app.schemas.report import DashboardStats, SalesByPeriod, TopProduct, ProfitReport
 from app.api.deps import get_current_user
+from app.services.registro_ventas import (
+    build_filename as registro_ventas_filename,
+    generate_registro_ventas_xlsx,
+    get_monthly_sales,
+)
+from app.services.email_service import send_registro_ventas_email
 
 router = APIRouter()
 
@@ -207,3 +215,99 @@ def profit_report(
         ))
 
     return report
+
+
+# ───────────────────────────────────────────────────────────
+# Registro de Ventas — monthly export for accountant
+# ───────────────────────────────────────────────────────────
+
+
+def _validate_period(year: int, month: int) -> None:
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Mes inválido (1-12).")
+    if year < 2020 or year > 2100:
+        raise HTTPException(status_code=400, detail="Año inválido.")
+
+
+MONTHS_ES = [
+    "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+
+@router.get("/registro-ventas/config")
+def registro_ventas_config(
+    user: User = Depends(get_current_user),
+):
+    """Return the default accountant email configured in .env (ADMIN only)."""
+    if user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN.")
+    return {"accountant_email": settings.ACCOUNTANT_EMAIL or ""}
+
+
+@router.get("/registro-ventas/download")
+def download_registro_ventas(
+    year: int = Query(..., ge=2020, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Download the monthly Registro de Ventas as XLSX (ADMIN only)."""
+    if user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN puede descargar este reporte.")
+    _validate_period(year, month)
+
+    sales = get_monthly_sales(db, year, month)
+    if not sales:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No hay ventas registradas en {MONTHS_ES[month]} {year}.",
+        )
+
+    xlsx_bytes = generate_registro_ventas_xlsx(db, year, month)
+    filename = registro_ventas_filename(year, month)
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.post("/registro-ventas/send-email")
+def send_registro_ventas(
+    year: int = Body(...),
+    month: int = Body(...),
+    email: str | None = Body(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate the Registro de Ventas and email it to the accountant (ADMIN only)."""
+    if user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN puede enviar este reporte.")
+    _validate_period(year, month)
+
+    to_email = (email or settings.ACCOUNTANT_EMAIL or "").strip()
+    if not to_email:
+        raise HTTPException(
+            status_code=400,
+            detail="No se configuró el correo de la contadora. Indique el correo o configure ACCOUNTANT_EMAIL.",
+        )
+
+    sales = get_monthly_sales(db, year, month)
+    if not sales:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No hay ventas registradas en {MONTHS_ES[month]} {year}. No se envió el correo.",
+        )
+
+    xlsx_bytes = generate_registro_ventas_xlsx(db, year, month)
+    filename = registro_ventas_filename(year, month)
+
+    success, error = send_registro_ventas_email(to_email, year, month, xlsx_bytes, filename)
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Error al enviar el correo.")
+
+    return {"ok": True, "email": to_email, "filename": filename, "sale_count": len(sales)}

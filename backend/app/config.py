@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
 
+    # Accountant email (for Registro de Ventas)
+    ACCOUNTANT_EMAIL: str = ""
+
     # Store Server (separate 24/7 VM)
     STORE_SERVER_URL: str = ""
     STORE_API_KEY: str = ""

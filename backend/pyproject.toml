@@ -20,6 +20,7 @@ dependencies = [
     "zeep>=4.2.0",
     "google-genai>=1.0.0",
     "apscheduler>=3.10.0",
+    "openpyxl>=3.1.0",
 ]
 
 [tool.pytest.ini_options]

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography,
   Tabs,
@@ -6,14 +6,16 @@ import {
   DatePicker,
   Select,
   InputNumber,
+  Input,
   Row,
   Col,
   Space,
   Button,
   Card,
   Tag,
+  message,
 } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, MailOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -27,7 +29,14 @@ import {
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
-import { getSalesByPeriod, getTopProducts, getProfitReport } from '../../api/reports';
+import {
+  getSalesByPeriod,
+  getTopProducts,
+  getProfitReport,
+  downloadRegistroVentas,
+  sendRegistroVentas,
+  getRegistroVentasConfig,
+} from '../../api/reports';
 import { formatCurrency } from '../../utils/format';
 import type { SalesByPeriod, TopProduct, ProfitReport } from '../../types';
 
@@ -445,6 +454,127 @@ function ReporteUtilidades() {
   );
 }
 
+/* ---------- Registro de Ventas (monthly export for accountant) ---------- */
+
+function RegistroVentas() {
+  const [periodMonth, setPeriodMonth] = useState<Dayjs>(dayjs().subtract(1, 'month'));
+  const [email, setEmail] = useState<string>('');
+  const [downloading, setDownloading] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const { data: config } = useQuery({
+    queryKey: ['registroVentasConfig'],
+    queryFn: getRegistroVentasConfig,
+  });
+
+  // Pre-fill email from server config once loaded
+  useEffect(() => {
+    if (config?.accountant_email) {
+      setEmail(config.accountant_email);
+    }
+  }, [config?.accountant_email]);
+
+  const year = periodMonth.year();
+  const month = periodMonth.month() + 1;
+  const MONTHS_ES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ];
+  const periodLabel = `${MONTHS_ES[month - 1]} ${year}`.toUpperCase();
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadRegistroVentas(year, month);
+      message.success('Registro de Ventas descargado');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      message.error(err.response?.data?.detail || 'Error al descargar el registro');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const res = await sendRegistroVentas(year, month, email || undefined);
+      message.success(`Registro enviado a ${res.email}`);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      message.error(err.response?.data?.detail || 'Error al enviar el correo');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div>
+      <Card style={{ marginBottom: 16 }}>
+        <Title level={5} style={{ marginTop: 0 }}>
+          <FileExcelOutlined style={{ color: '#16a34a', marginRight: 8 }} />
+          Registro de Ventas Mensual
+        </Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 20 }}>
+          Genera un archivo Excel con todas las ventas del mes (Facturas, Boletas y Notas de Crédito)
+          en el formato estándar de SUNAT, listo para enviar a la contadora.
+        </Typography.Paragraph>
+
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} md={8}>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Período</div>
+            <DatePicker
+              picker="month"
+              value={periodMonth}
+              onChange={(val) => val && setPeriodMonth(val)}
+              format="MMMM YYYY"
+              style={{ width: '100%' }}
+              allowClear={false}
+            />
+          </Col>
+          <Col xs={24} md={16}>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>
+              Correo de la contadora <Typography.Text type="secondary">(opcional — usa el configurado por defecto)</Typography.Text>
+            </div>
+            <Input
+              type="email"
+              placeholder="contadora@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              prefix={<MailOutlined />}
+            />
+          </Col>
+        </Row>
+
+        <Space style={{ marginTop: 24 }}>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleDownload}
+            loading={downloading}
+            size="large"
+          >
+            Descargar Excel
+          </Button>
+          <Button
+            type="primary"
+            icon={<MailOutlined />}
+            onClick={handleSend}
+            loading={sending}
+            size="large"
+          >
+            Enviar a Contadora
+          </Button>
+        </Space>
+
+        <Typography.Paragraph type="secondary" style={{ marginTop: 24, marginBottom: 0, fontSize: 12 }}>
+          <strong>Período seleccionado:</strong> {periodLabel} — Incluye ventas FACTURADAS y ANULADAS
+          del mes. Los totales excluyen las anuladas.
+        </Typography.Paragraph>
+      </Card>
+    </div>
+  );
+}
+
 /* ---------- Main Reports Page ---------- */
 
 export default function Reports() {
@@ -472,6 +602,11 @@ export default function Reports() {
             key: 'utilidades',
             label: 'Reporte de Utilidades',
             children: <ReporteUtilidades />,
+          },
+          {
+            key: 'registro',
+            label: 'Registro de Ventas',
+            children: <RegistroVentas />,
           },
         ]}
       />
