@@ -228,6 +228,14 @@ def _validate_period(year: int, month: int) -> None:
     if year < 2020 or year > 2100:
         raise HTTPException(status_code=400, detail="Año inválido.")
 
+    # Block current and future months — only completed months allowed
+    today = datetime.now().date()
+    if year > today.year or (year == today.year and month >= today.month):
+        raise HTTPException(
+            status_code=400,
+            detail="El período aún no ha terminado. Solo puedes enviar meses completos.",
+        )
+
 
 MONTHS_ES = [
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

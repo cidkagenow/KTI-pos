@@ -530,6 +530,9 @@ function RegistroVentas() {
               format="MMMM YYYY"
               style={{ width: '100%' }}
               allowClear={false}
+              disabledDate={(current) =>
+                current && current.isAfter(dayjs().startOf('month').subtract(1, 'day'))
+              }
             />
           </Col>
           <Col xs={24} md={16}>
