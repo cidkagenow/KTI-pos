@@ -123,6 +123,22 @@ def _doc_to_out(doc: SunatDocument) -> SunatDocumentOut:
     )
 
 
+# ── Helpers ────────────────────────────────────────────────────────
+
+
+def _check_send_time():
+    """Block manual SUNAT sends before 10 PM Lima time (same rule as boletas)."""
+    from zoneinfo import ZoneInfo
+    lima_now = datetime.now(ZoneInfo("America/Lima"))
+    if lima_now.hour < 22:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"El envío manual a SUNAT solo está habilitado a partir de las 10:00 PM. "
+            f"Hora actual: {lima_now.strftime('%I:%M %p')}. "
+            f"Los documentos se enviarán automáticamente a las 11:00 PM.",
+        )
+
+
 # ── Endpoints ──────────────────────────────────────────────────────
 
 
@@ -132,6 +148,7 @@ def enviar_todas_facturas(
     current_user: User = Depends(require_admin),
 ):
     """Send all pending facturas to SUNAT in bulk."""
+    _check_send_time()
     pending_factura_docs = (
         db.query(SunatDocument)
         .filter(
@@ -184,6 +201,7 @@ def enviar_factura(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    _check_send_time()
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client))
@@ -209,6 +227,7 @@ def reenviar_factura(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    _check_send_time()
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client))
@@ -290,6 +309,7 @@ def enviar_nota_credito(
 ):
     """Send a nota de credito (for factura) to SUNAT via sendBill.
     NC-boletas (B-series) go in Resumen Diario instead."""
+    _check_send_time()
     sale = (
         db.query(Sale)
         .options(
@@ -322,6 +342,7 @@ def enviar_todas_notas_credito(
 ):
     """Send all pending NC-facturas to SUNAT in bulk via sendBill.
     NC-boletas (B-series) go in Resumen Diario instead."""
+    _check_send_time()
     # Only NC-facturas (F-series) — NC-boletas go in Resumen Diario
     pending_nc_docs = (
         db.query(SunatDocument)
