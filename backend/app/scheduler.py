@@ -179,8 +179,16 @@ def send_resumen_diario_job():
         db.close()
 
 
+MAX_RETRY_ATTEMPTS = 5
+
+
 def send_pending_facturas_job():
-    """Automatically send all pending facturas and NC-facturas to SUNAT at end of day."""
+    """Automatically send all pending/error facturas and NC-facturas to SUNAT at end of day.
+
+    - PENDIENTE: new documents, first attempt
+    - ERROR: failed previously (SUNAT down, timeout, etc.) — auto-retry up to MAX_RETRY_ATTEMPTS
+    - RECHAZADO: XML problem — skip (needs manual fix)
+    """
     logger.info("⏰ Envío automático de facturas: iniciando...")
     # Import here to avoid circular imports at module load time
     from app.api.sunat import _send_and_record_factura, _send_and_record_nc
@@ -191,8 +199,9 @@ def send_pending_facturas_job():
             db.query(SunatDocument)
             .filter(
                 SunatDocument.doc_category.in_(["FACTURA", "NOTA_CREDITO"]),
-                SunatDocument.sunat_status == "PENDIENTE",
+                SunatDocument.sunat_status.in_(["PENDIENTE", "ERROR"]),
                 SunatDocument.sale_id.isnot(None),
+                SunatDocument.attempt_count < MAX_RETRY_ATTEMPTS,
             )
             .all()
         )
@@ -202,7 +211,7 @@ def send_pending_facturas_job():
             return
 
         # For NC we only auto-send NC-facturas (F-series). NC-boletas go via Resumen Diario.
-        count = {"factura": 0, "nc_factura": 0, "aceptadas": 0, "errores": 0}
+        count = {"factura": 0, "nc_factura": 0, "aceptadas": 0, "errores": 0, "reintentos": 0}
 
         for sunat_doc in pending_docs:
             sale = (
@@ -218,6 +227,8 @@ def send_pending_facturas_job():
             if not sale:
                 continue
 
+            is_retry = sunat_doc.sunat_status == "ERROR"
+
             try:
                 if sunat_doc.doc_category == "NOTA_CREDITO":
                     # Only NC-facturas (F-series) go via sendBill; NC-boletas via Resumen
@@ -230,6 +241,8 @@ def send_pending_facturas_job():
                     count["factura"] += 1
 
                 db.flush()
+                if is_retry:
+                    count["reintentos"] += 1
                 if doc.sunat_status == "ACEPTADO":
                     count["aceptadas"] += 1
                 else:
@@ -240,8 +253,9 @@ def send_pending_facturas_job():
 
         db.commit()
         logger.info(
-            "⏰ Envío automático completado: %d facturas + %d NC, %d aceptadas, %d errores",
-            count["factura"], count["nc_factura"], count["aceptadas"], count["errores"],
+            "⏰ Envío automático completado: %d facturas + %d NC (%d reintentos), %d aceptadas, %d errores",
+            count["factura"], count["nc_factura"], count["reintentos"],
+            count["aceptadas"], count["errores"],
         )
     except Exception:
         logger.exception("⏰ Error en envío automático de facturas")
