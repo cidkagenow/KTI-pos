@@ -318,6 +318,18 @@ def check_pending_tickets_job():
 
 def init_scheduler():
     """Start the scheduler with all jobs."""
+    # Push dashboard stats every 60 seconds
+    from app.services.dashboard_push import push_dashboard_stats
+
+    scheduler.add_job(
+        push_dashboard_stats,
+        trigger="interval",
+        seconds=60,
+        id="dashboard_push",
+        name="Push stats to dashboard",
+        replace_existing=True,
+    )
+
     # Send Resumen Diario (boletas) at 11:00 PM Lima time (every day)
     scheduler.add_job(
         send_resumen_diario_job,
@@ -348,7 +360,7 @@ def init_scheduler():
 
     scheduler.start()
     logger.info(
-        "⏰ Scheduler iniciado: Resumen Diario + Facturas a las 23:00 (todos los dias), tickets cada 5 min"
+        "⏰ Scheduler iniciado: Resumen Diario + Facturas a las 23:00, tickets cada 5 min, dashboard push cada 60s"
     )
 
 

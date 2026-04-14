@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     STORE_SERVER_URL: str = ""
     STORE_API_KEY: str = ""
 
+    # Dashboard (push stats to remote dashboard)
+    DASHBOARD_URL: str = ""
+    DASHBOARD_API_KEY: str = ""
+    DASHBOARD_BRANCH_ID: str = "branch1"
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
