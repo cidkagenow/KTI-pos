@@ -17,7 +17,16 @@ from sqlalchemy.orm import joinedload
 from app.database import SessionLocal
 from app.models.sale import Sale
 from app.models.sunat import SunatDocument
+from app.models.sunat_settings import SunatSettings
 from app.services.sunat_service import send_resumen_to_sunat, check_ticket_status
+
+
+def _is_auto_send_enabled(db) -> bool:
+    """Check if automatic SUNAT sending is enabled."""
+    row = db.query(SunatSettings).filter(SunatSettings.id == 1).first()
+    if not row:
+        return True  # Default: enabled
+    return row.auto_send_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +105,10 @@ def send_resumen_diario_job():
     logger.info("⏰ Resumen Diario automático: iniciando...")
     db = SessionLocal()
     try:
+        if not _is_auto_send_enabled(db):
+            logger.info("⏰ Resumen Diario: envío automático desactivado, omitiendo")
+            return
+
         fecha = date.today()
         boletas_nuevas, boletas_anuladas = _get_pending_boletas_for_today(db)
         boletas = boletas_nuevas + boletas_anuladas
@@ -195,6 +208,10 @@ def send_pending_facturas_job():
 
     db = SessionLocal()
     try:
+        if not _is_auto_send_enabled(db):
+            logger.info("⏰ Facturas: envío automático desactivado, omitiendo")
+            return
+
         pending_docs = (
             db.query(SunatDocument)
             .filter(

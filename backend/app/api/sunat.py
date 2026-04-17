@@ -7,8 +7,11 @@ from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
+from pydantic import BaseModel as PydanticBaseModel
+
 from app.models.sale import Sale
 from app.models.sunat import SunatDocument
+from app.models.sunat_settings import SunatSettings
 from app.models.user import User
 from app.schemas.sunat import (
     BajaRequest,
@@ -24,6 +27,7 @@ from app.services.sunat_service import (
     check_ticket_status,
 )
 from app.services.email_service import send_factura_email
+from app.utils.security import verify_password
 from app.api.deps import get_current_user, require_admin
 
 logger = logging.getLogger(__name__)
@@ -126,8 +130,23 @@ def _doc_to_out(doc: SunatDocument) -> SunatDocumentOut:
 # ── Helpers ────────────────────────────────────────────────────────
 
 
-def _check_send_time():
-    """Block manual SUNAT sends before 10 PM Lima time (same rule as boletas)."""
+def _get_sunat_settings(db: Session) -> SunatSettings:
+    """Get the singleton SUNAT settings row, creating it if missing."""
+    settings_row = db.query(SunatSettings).filter(SunatSettings.id == 1).first()
+    if not settings_row:
+        settings_row = SunatSettings(id=1, auto_send_enabled=True, block_before_10pm=True)
+        db.add(settings_row)
+        db.commit()
+        db.refresh(settings_row)
+    return settings_row
+
+
+def _check_send_time(db: Session):
+    """Block manual SUNAT sends before 10 PM Lima time if the setting is enabled."""
+    settings_row = _get_sunat_settings(db)
+    if not settings_row.block_before_10pm:
+        return  # Block disabled — allow anytime
+
     from zoneinfo import ZoneInfo
     lima_now = datetime.now(ZoneInfo("America/Lima"))
     if lima_now.hour < 22:
@@ -139,6 +158,59 @@ def _check_send_time():
         )
 
 
+# ── Settings Endpoints ────────────────────────────────────────────
+
+
+class SunatSettingsOut(PydanticBaseModel):
+    auto_send_enabled: bool
+    block_before_10pm: bool
+
+
+class SunatSettingsUpdate(PydanticBaseModel):
+    auto_send_enabled: bool | None = None
+    block_before_10pm: bool | None = None
+    password: str
+
+
+@router.get("/settings", response_model=SunatSettingsOut)
+def get_sunat_settings(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get current SUNAT toggle settings."""
+    row = _get_sunat_settings(db)
+    return SunatSettingsOut(
+        auto_send_enabled=row.auto_send_enabled,
+        block_before_10pm=row.block_before_10pm,
+    )
+
+
+@router.put("/settings", response_model=SunatSettingsOut)
+def update_sunat_settings(
+    data: SunatSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Update SUNAT toggle settings. Requires admin password confirmation."""
+    # Verify password
+    if not verify_password(data.password, current_user.password_hash):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Contraseña incorrecta")
+
+    row = _get_sunat_settings(db)
+    if data.auto_send_enabled is not None:
+        row.auto_send_enabled = data.auto_send_enabled
+    if data.block_before_10pm is not None:
+        row.block_before_10pm = data.block_before_10pm
+    row.updated_at = datetime.now(timezone.utc)
+    row.updated_by = current_user.id
+    db.commit()
+    db.refresh(row)
+    return SunatSettingsOut(
+        auto_send_enabled=row.auto_send_enabled,
+        block_before_10pm=row.block_before_10pm,
+    )
+
+
 # ── Endpoints ──────────────────────────────────────────────────────
 
 
@@ -148,7 +220,7 @@ def enviar_todas_facturas(
     current_user: User = Depends(require_admin),
 ):
     """Send all pending facturas to SUNAT in bulk."""
-    _check_send_time()
+    _check_send_time(db)
     pending_factura_docs = (
         db.query(SunatDocument)
         .filter(
@@ -201,7 +273,7 @@ def enviar_factura(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    _check_send_time()
+    _check_send_time(db)
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client))
@@ -227,7 +299,7 @@ def reenviar_factura(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    _check_send_time()
+    _check_send_time(db)
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client))
@@ -309,7 +381,7 @@ def enviar_nota_credito(
 ):
     """Send a nota de credito (for factura) to SUNAT via sendBill.
     NC-boletas (B-series) go in Resumen Diario instead."""
-    _check_send_time()
+    _check_send_time(db)
     sale = (
         db.query(Sale)
         .options(
@@ -342,7 +414,7 @@ def enviar_todas_notas_credito(
 ):
     """Send all pending NC-facturas to SUNAT in bulk via sendBill.
     NC-boletas (B-series) go in Resumen Diario instead."""
-    _check_send_time()
+    _check_send_time(db)
     # Only NC-facturas (F-series) — NC-boletas go in Resumen Diario
     pending_nc_docs = (
         db.query(SunatDocument)
@@ -495,10 +567,11 @@ def enviar_resumen_boletas(
     except ValueError:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Formato de fecha invalido (YYYY-MM-DD)")
 
-    # Only apply 10 PM restriction when sending same-day resumen
+    # Only apply 10 PM restriction when sending same-day resumen (if block enabled)
     from zoneinfo import ZoneInfo
     lima_now = datetime.now(ZoneInfo("America/Lima"))
-    if fecha == lima_now.date() and lima_now.hour < 22:
+    settings_row = _get_sunat_settings(db)
+    if settings_row.block_before_10pm and fecha == lima_now.date() and lima_now.hour < 22:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             f"El resumen diario de hoy solo se puede enviar a partir de las 10:00 PM. Hora actual: {lima_now.strftime('%I:%M %p')}",

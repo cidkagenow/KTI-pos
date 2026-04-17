@@ -94,6 +94,25 @@ export async function getResumenBoletas(docId: number): Promise<{ boletas: Resum
   return data;
 }
 
+// ── Settings ─────────────────────────────────────────────────────
+
+export interface SunatSettingsData {
+  auto_send_enabled: boolean;
+  block_before_10pm: boolean;
+}
+
+export async function getSunatSettings(): Promise<SunatSettingsData> {
+  const { data } = await api.get('/sunat/settings');
+  return data;
+}
+
+export async function updateSunatSettings(
+  settings: Partial<SunatSettingsData> & { password: string },
+): Promise<SunatSettingsData> {
+  const { data } = await api.put('/sunat/settings', settings);
+  return data;
+}
+
 export async function getSunatForSale(saleId: number): Promise<{
   sunat_status: string | null;
   sunat_description: string | null;

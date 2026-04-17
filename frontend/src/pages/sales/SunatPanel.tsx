@@ -13,6 +13,9 @@ import {
   message,
   Modal,
   Input,
+  Switch,
+  Card,
+  Tooltip,
 } from 'antd';
 import {
   SendOutlined,
@@ -22,6 +25,8 @@ import {
   SafetyCertificateOutlined,
   CloseCircleOutlined,
   EyeOutlined,
+  LockOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -37,6 +42,8 @@ import {
   enviarBajaMasiva,
   getPendingBajas,
   enviarTodasFacturas,
+  getSunatSettings,
+  updateSunatSettings,
 } from '../../api/sunat';
 import type { PendingBaja } from '../../api/sunat';
 import type { ResumenBoleta } from '../../api/sunat';
@@ -1030,12 +1037,138 @@ function NotasCreditoTab() {
   );
 }
 
+function SunatSettingsPanel() {
+  const queryClient = useQueryClient();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [pendingToggle, setPendingToggle] = useState<{
+    field: 'auto_send_enabled' | 'block_before_10pm';
+    value: boolean;
+  } | null>(null);
+  const [password, setPassword] = useState('');
+
+  const { data: settings } = useQuery({
+    queryKey: ['sunat-settings'],
+    queryFn: getSunatSettings,
+  });
+
+  const updateMut = useMutation({
+    mutationFn: updateSunatSettings,
+    onSuccess: (result) => {
+      message.success('Configuracion actualizada');
+      queryClient.setQueryData(['sunat-settings'], result);
+      setPasswordModalOpen(false);
+      setPassword('');
+      setPendingToggle(null);
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.detail || 'Error al actualizar');
+    },
+  });
+
+  const handleToggle = (field: 'auto_send_enabled' | 'block_before_10pm', value: boolean) => {
+    setPendingToggle({ field, value });
+    setPassword('');
+    setPasswordModalOpen(true);
+  };
+
+  const handleConfirm = () => {
+    if (!pendingToggle || !password) return;
+    updateMut.mutate({
+      [pendingToggle.field]: pendingToggle.value,
+      password,
+    });
+  };
+
+  const toggleLabel = pendingToggle
+    ? pendingToggle.field === 'auto_send_enabled'
+      ? pendingToggle.value
+        ? 'activar envio automatico'
+        : 'desactivar envio automatico'
+      : pendingToggle.value
+        ? 'activar bloqueo antes de 10 PM'
+        : 'desactivar bloqueo antes de 10 PM'
+    : '';
+
+  return (
+    <>
+      <Card
+        size="small"
+        style={{ marginBottom: 16 }}
+        title={
+          <span>
+            <SettingOutlined style={{ marginRight: 8 }} />
+            Configuracion SUNAT
+          </span>
+        }
+      >
+        <Row gutter={32} align="middle">
+          <Col>
+            <Space>
+              <Tooltip title="Enviar automaticamente facturas, boletas, NC a SUNAT a las 11:00 PM">
+                <span>Envio automatico (11 PM)</span>
+              </Tooltip>
+              <Switch
+                checked={settings?.auto_send_enabled ?? true}
+                onChange={(checked) => handleToggle('auto_send_enabled', checked)}
+              />
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <Tooltip title="Bloquear envio manual antes de las 10:00 PM hora Lima">
+                <span>Bloqueo antes de 10 PM</span>
+              </Tooltip>
+              <Switch
+                checked={settings?.block_before_10pm ?? true}
+                onChange={(checked) => handleToggle('block_before_10pm', checked)}
+              />
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      <Modal
+        title={
+          <span>
+            <LockOutlined style={{ marginRight: 8 }} />
+            Confirmar cambio
+          </span>
+        }
+        open={passwordModalOpen}
+        onCancel={() => {
+          setPasswordModalOpen(false);
+          setPassword('');
+          setPendingToggle(null);
+        }}
+        onOk={handleConfirm}
+        okText="Confirmar"
+        cancelText="Cancelar"
+        confirmLoading={updateMut.isPending}
+        okButtonProps={{ disabled: !password }}
+      >
+        <p>
+          Ingrese su contraseña de administrador para <strong>{toggleLabel}</strong>:
+        </p>
+        <Input.Password
+          prefix={<LockOutlined />}
+          placeholder="Contraseña de administrador"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onPressEnter={handleConfirm}
+          autoFocus
+        />
+      </Modal>
+    </>
+  );
+}
+
 export default function SunatPanel() {
   return (
     <div>
       <Title level={3} style={{ marginBottom: 16 }}>
         Envio SUNAT
       </Title>
+      <SunatSettingsPanel />
       <Tabs
         defaultActiveKey="facturas"
         items={[
