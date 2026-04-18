@@ -345,6 +345,11 @@ export default function SaleForm() {
     setItems((prev) => {
       const updated = [...prev];
       const item = { ...updated[idx], [field]: value };
+      if (field === 'line_total') {
+        // Back-calculate unit_price from the desired total
+        const factor = item.quantity * (1 - (item.discount_pct || 0) / 100);
+        item.unit_price = factor > 0 ? Math.round((value / factor) * 10000) / 10000 : 0;
+      }
       item.line_total = calcLineTotal(item.quantity, item.unit_price, item.discount_pct);
       updated[idx] = item;
       return updated;
@@ -365,6 +370,7 @@ export default function SaleForm() {
   const { base: subtotal, igv: igvAmount, total } = calcIGV(totalWithIGV);
   const cashChange = paymentMethod === 'EFECTIVO' ? Math.max(0, cashReceived - total) : 0;
   const cashInsufficient = paymentMethod === 'EFECTIVO' && total > 0 && cashReceived < total;
+  const hasStockIssue = items.some((item) => item.product_id && item.quantity > item.stock);
 
   const buildPayload = () => {
     const values = form.getFieldsValue();
@@ -426,6 +432,24 @@ export default function SaleForm() {
     }
   };
 
+  const checkStockAvailability = (): boolean => {
+    const overStockItems = items.filter(
+      (item) => item.product_id && item.quantity > item.stock,
+    );
+    if (overStockItems.length > 0) {
+      const details = overStockItems
+        .map((item) => `${item.product_code} - ${item.product_name}: pide ${item.quantity}, stock ${item.stock}`)
+        .join('\n');
+      message.error({
+        content: `Stock insuficiente:\n${details}`,
+        duration: 6,
+        style: { whiteSpace: 'pre-line' },
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleFacturar = async () => {
     if (savingRef.current) return;
     try {
@@ -438,6 +462,7 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
+    if (!checkStockAvailability()) return;
     savingRef.current = true;
     setSaving(true);
     try {
@@ -498,6 +523,7 @@ export default function SaleForm() {
       message.error('Agregue al menos un producto');
       return;
     }
+    if (!checkStockAvailability()) return;
     savingRef.current = true;
     setSaving(true);
     try {
@@ -726,7 +752,18 @@ export default function SaleForm() {
       key: 'line_total',
       width: 110,
       align: 'right' as const,
-      render: (_: unknown, record: LineItem) => formatCurrency(record.line_total),
+      render: (_: unknown, record: LineItem, idx: number) => (
+        <span data-enter-skip>
+          <InputNumber
+            min={0}
+            step={1}
+            value={record.line_total}
+            onChange={(val) => updateItem(idx, 'line_total', val ?? 0)}
+            style={{ width: '100%' }}
+            prefix="S/"
+          />
+        </span>
+      ),
     },
     {
       title: '',
@@ -962,6 +999,12 @@ export default function SaleForm() {
             )}
           </Card>
 
+          {hasStockIssue && (
+            <div style={{ marginTop: 12, padding: '8px 12px', background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 6, color: '#cf1322', fontSize: 13 }}>
+              Stock insuficiente en uno o mas productos. Ajuste las cantidades para poder facturar.
+            </div>
+          )}
+
           <div style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
               {currentDocType !== 'NOTA_VENTA' && currentDocType !== 'PROFORMA' && (
@@ -994,6 +1037,7 @@ export default function SaleForm() {
                   icon={<CheckOutlined />}
                   onClick={handleEmitirNV}
                   loading={saving}
+                  disabled={hasStockIssue}
                   block
                   size="large"
                 >
@@ -1020,7 +1064,7 @@ export default function SaleForm() {
                   icon={<CheckOutlined />}
                   onClick={handleFacturar}
                   loading={saving}
-                  disabled={cashInsufficient}
+                  disabled={cashInsufficient || hasStockIssue}
                   block
                   size="large"
                 >

@@ -76,10 +76,10 @@ interface POLineItem {
 }
 
 /* ---------- helpers ---------- */
-function formatPrecise(value: number, forceRound2 = false): string {
-  if (forceRound2) return `S/ ${round2(value).toFixed(2)}`;
+function formatPrecise(value: number, forceRound2 = false, currencySymbol = 'S/'): string {
+  if (forceRound2) return `${currencySymbol} ${round2(value).toFixed(2)}`;
   const decimals = (value.toString().split('.')[1] || '').length;
-  return `S/ ${value.toFixed(Math.max(2, Math.min(decimals, 3)))}`;
+  return `${currencySymbol} ${value.toFixed(Math.max(2, Math.min(decimals, 3)))}`;
 }
 
 /* ---------- line-level math ---------- */
@@ -380,6 +380,7 @@ export default function POList() {
 
   /* ---------- watched form fields ---------- */
   const moneda = Form.useWatch('moneda', form);
+  const currencySymbol = moneda === 'DOLARES' ? 'USD' : 'S/';
 
   /* ---------- main table columns ---------- */
   const columns: ColumnsType<PurchaseOrder> = [
@@ -452,7 +453,11 @@ export default function POList() {
       key: 'total',
       width: 110,
       align: 'right',
-      render: (val: number | null) => (val != null ? formatCurrency(val) : '-'),
+      render: (val: number | null, record: PurchaseOrder) => {
+        if (val == null) return '-';
+        const sym = record.moneda === 'DOLARES' ? 'USD' : 'S/';
+        return `${sym} ${val.toFixed(2)}`;
+      },
     },
     {
       title: 'Fecha',
@@ -674,7 +679,7 @@ export default function POList() {
             </Col>
             <Col span={5}>
               <Form.Item name="flete" label="Flete Total">
-                <InputNumber min={0} step={0.01} precision={2} prefix="S/" style={{ width: '100%' }} />
+                <InputNumber min={0} step={0.01} precision={2} prefix={currencySymbol} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={6}>
@@ -818,7 +823,7 @@ export default function POList() {
             </Col>
             <Col span={3} data-enter-skip>
               <Input
-                value={formatPrecise(item.line_total)}
+                value={formatPrecise(item.line_total, false, currencySymbol)}
                 readOnly
                 style={{ textAlign: 'right' }}
                 size="small"
@@ -857,11 +862,11 @@ export default function POList() {
           <Col span={10}>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>Op. Gravada:</Text>
-              <Text>{formatPrecise(opGravada, true)}</Text>
+              <Text>{formatPrecise(opGravada, true, currencySymbol)}</Text>
             </Row>
             <Row justify="space-between" style={{ marginBottom: 4 }}>
               <Text>IGV (18%):</Text>
-              <Text>{formatPrecise(igvAmount, true)}</Text>
+              <Text>{formatPrecise(igvAmount, true, currencySymbol)}</Text>
             </Row>
             <Divider style={{ margin: '4px 0' }} />
             <Row justify="space-between">
@@ -869,7 +874,7 @@ export default function POList() {
                 Total:
               </Text>
               <Text strong style={{ fontSize: 15 }}>
-                {formatPrecise(orderTotal, true)}
+                {formatPrecise(orderTotal, true, currencySymbol)}
               </Text>
             </Row>
           </Col>

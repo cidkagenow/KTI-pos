@@ -84,7 +84,7 @@ def search_products(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    """Quick search for POS autocomplete (by code or name, top 20)."""
+    """Quick search for POS autocomplete (by code or name, top 50)."""
     query = db.query(Product).filter(Product.is_active == True)
     if q:
         tokens = q.strip().split()
@@ -92,7 +92,7 @@ def search_products(
         for token in tokens:
             query = query.filter(combined.ilike(f"%{token}%"))
     query = query.outerjoin(Brand, Product.brand_id == Brand.id)
-    products = query.order_by(Product.name).limit(20).all()
+    products = query.order_by(Product.name).limit(50).all()
     results = []
     for p in products:
         stock = _get_total_stock(db, p.id)

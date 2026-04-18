@@ -4,7 +4,6 @@ import {
   InputNumber, DatePicker, Select, Input, Statistic, Space, Popconfirm,
 } from 'antd';
 import {
-  DollarOutlined, WarningOutlined, ClockCircleOutlined,
   PlusOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +11,7 @@ import {
   getAccountsPayable, getAccountsPayableSummary, createPayment, deletePayment,
 } from '../../api/accountsPayable';
 import type { AccountPayable, SupplierPayment, PaymentCreateData } from '../../api/accountsPayable';
-import { formatCurrency, formatDate } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -24,6 +23,14 @@ const STATUS_COLORS: Record<string, string> = {
   VENCIDO: 'red',
   PAGADO: 'green',
 };
+
+function currencySymbol(moneda: string | null): string {
+  return moneda === 'DOLARES' ? 'USD' : 'S/';
+}
+
+function formatWithCurrency(val: number, moneda: string | null): string {
+  return `${currencySymbol(moneda)} ${val.toFixed(2)}`;
+}
 
 export default function CuentasPorPagar() {
   const queryClient = useQueryClient();
@@ -127,7 +134,7 @@ export default function CuentasPorPagar() {
       key: 'total',
       width: 110,
       align: 'right',
-      render: (val: number) => formatCurrency(val),
+      render: (val: number, r: AccountPayable) => formatWithCurrency(val, r.moneda),
     },
     {
       title: 'Pagado',
@@ -135,7 +142,7 @@ export default function CuentasPorPagar() {
       key: 'paid',
       width: 110,
       align: 'right',
-      render: (val: number) => <span style={{ color: val > 0 ? '#52c41a' : undefined }}>{formatCurrency(val)}</span>,
+      render: (val: number, r: AccountPayable) => <span style={{ color: val > 0 ? '#52c41a' : undefined }}>{formatWithCurrency(val, r.moneda)}</span>,
     },
     {
       title: 'Saldo',
@@ -145,7 +152,7 @@ export default function CuentasPorPagar() {
       align: 'right',
       render: (val: number, r: AccountPayable) => (
         <span style={{ fontWeight: 600, color: r.status === 'VENCIDO' ? '#ff4d4f' : undefined }}>
-          {formatCurrency(val)}
+          {formatWithCurrency(val, r.moneda)}
         </span>
       ),
     },
@@ -195,9 +202,9 @@ export default function CuentasPorPagar() {
     },
   ];
 
-  const paymentColumns: ColumnsType<SupplierPayment> = [
+  const paymentColumns = (moneda: string | null): ColumnsType<SupplierPayment> => [
     { title: 'Fecha', dataIndex: 'payment_date', key: 'date', width: 100, render: (v: string) => formatDate(v) },
-    { title: 'Monto', dataIndex: 'amount', key: 'amount', width: 100, align: 'right', render: (v: number) => formatCurrency(v) },
+    { title: 'Monto', dataIndex: 'amount', key: 'amount', width: 100, align: 'right', render: (v: number) => formatWithCurrency(v, moneda) },
     { title: 'Metodo', dataIndex: 'payment_method', key: 'method', width: 110 },
     { title: 'Referencia', dataIndex: 'reference', key: 'ref', width: 120, ellipsis: true },
     { title: 'Nota', dataIndex: 'notes', key: 'notes', ellipsis: true },
@@ -226,8 +233,7 @@ export default function CuentasPorPagar() {
               title="Total Deuda"
               value={summary?.total_debt ?? 0}
               precision={2}
-              prefix={<DollarOutlined />}
-              suffix="PEN"
+              prefix="S/"
               valueStyle={{ color: '#1677ff' }}
             />
           </Card>
@@ -238,8 +244,7 @@ export default function CuentasPorPagar() {
               title={`Vencido (${summary?.count_overdue ?? 0})`}
               value={summary?.total_overdue ?? 0}
               precision={2}
-              prefix={<WarningOutlined />}
-              suffix="PEN"
+              prefix="S/"
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>
@@ -250,8 +255,7 @@ export default function CuentasPorPagar() {
               title={`Por Vencer 7d (${summary?.count_due_soon ?? 0})`}
               value={summary?.total_due_soon ?? 0}
               precision={2}
-              prefix={<ClockCircleOutlined />}
-              suffix="PEN"
+              prefix="S/"
               valueStyle={{ color: '#faad14' }}
             />
           </Card>
@@ -288,7 +292,7 @@ export default function CuentasPorPagar() {
           expandedRowRender: (record) =>
             record.payments.length > 0 ? (
               <Table
-                columns={paymentColumns}
+                columns={paymentColumns(record.moneda)}
                 dataSource={record.payments}
                 rowKey="id"
                 size="small"
@@ -312,7 +316,7 @@ export default function CuentasPorPagar() {
       >
         {payRecord && (
           <div style={{ marginBottom: 16 }}>
-            <p>Saldo pendiente: <strong>{formatCurrency(payRecord.balance)}</strong></p>
+            <p>Saldo pendiente: <strong>{formatWithCurrency(payRecord.balance, payRecord.moneda)}</strong></p>
           </div>
         )}
         <Form form={form} layout="vertical">
@@ -322,7 +326,7 @@ export default function CuentasPorPagar() {
               max={payRecord?.balance ?? 99999}
               step={0.01}
               style={{ width: '100%' }}
-              prefix="S/"
+              prefix={currencySymbol(payRecord?.moneda ?? null)}
             />
           </Form.Item>
           <Form.Item name="payment_date" label="Fecha" rules={[{ required: true }]}>

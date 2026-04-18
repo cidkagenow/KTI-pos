@@ -170,10 +170,18 @@ def get_summary(
     today = date.today()
     soon = today + timedelta(days=7)
 
-    total_debt = sum(p.balance for p in payables if p.balance > 0)
-    total_overdue = sum(p.balance for p in payables if p.status == "VENCIDO")
+    # Convert dollar balances to soles for summary totals
+    def _to_soles(p):
+        if p.moneda == "DOLARES":
+            po_obj = next((po for po in pos if po.id == p.po_id), None)
+            tc = float(po_obj.tipo_cambio) if po_obj and po_obj.tipo_cambio else 1.0
+            return p.balance * tc
+        return p.balance
+
+    total_debt = sum(_to_soles(p) for p in payables if p.balance > 0)
+    total_overdue = sum(_to_soles(p) for p in payables if p.status == "VENCIDO")
     total_due_soon = sum(
-        p.balance for p in payables
+        _to_soles(p) for p in payables
         if p.due_date and p.balance > 0 and today <= p.due_date <= soon
     )
 
@@ -230,7 +238,8 @@ def create_payment(
     if data.amount <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "El monto debe ser mayor a 0")
     if data.amount > balance + 0.01:  # small tolerance for rounding
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"El monto excede el saldo pendiente (S/ {balance:.2f})")
+        sym = "USD" if po.moneda == "DOLARES" else "S/"
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"El monto excede el saldo pendiente ({sym} {balance:.2f})")
 
     try:
         payment_date = date.fromisoformat(data.payment_date)

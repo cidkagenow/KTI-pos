@@ -692,6 +692,25 @@ def emitir_nota_venta(
             detail="Solo se pueden emitir Notas de Venta en estado PREVENTA",
         )
 
+    # Check stock availability
+    insufficient = []
+    for item in sale.items:
+        inv = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+            .first()
+        )
+        available = inv.quantity if inv else 0
+        if item.quantity > available:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
+            insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
+    if insufficient:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stock insuficiente: " + "; ".join(insufficient),
+        )
+
     # Assign document number from NV series
     doc_series = (
         db.query(DocumentSeries)
@@ -875,6 +894,26 @@ def facturar_sale(
             detail="Las facturas solo se pueden emitir a clientes con RUC. "
                    "Use boleta para clientes con DNI u otro documento.",
         )
+
+    # Check stock availability before facturación
+    if sale.doc_type != "NOTA_CREDITO":
+        insufficient = []
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            available = inv.quantity if inv else 0
+            if item.quantity > available:
+                product = db.query(Product).filter(Product.id == item.product_id).first()
+                name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
+                insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
+        if insufficient:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stock insuficiente: " + "; ".join(insufficient),
+            )
 
     # Assign real document number at facturación time
     doc_series = (

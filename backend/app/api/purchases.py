@@ -304,10 +304,13 @@ def receive_purchase_order(
 
         inv.quantity += item.quantity
 
-        # Update product cost price from purchase
+        # Update product cost price from purchase (convert to soles if in dollars)
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if product and item.unit_cost:
-            product.cost_price = item.unit_cost
+            cost_in_soles = item.unit_cost
+            if po.moneda == "DOLARES" and po.tipo_cambio:
+                cost_in_soles = (item.unit_cost * po.tipo_cambio).quantize(Decimal("0.01"))
+            product.cost_price = cost_in_soles
 
         movement = InventoryMovement(
             product_id=item.product_id,
