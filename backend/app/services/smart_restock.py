@@ -96,13 +96,10 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
 
     FORECAST_DAYS = 14  # predict stockouts within 14 days
 
-    # 1. Find active products with min_stock set, summing stock across warehouses
+    # 1. Find active products with min_stock set
     query = (
-        db.query(
-            Product,
-            func.coalesce(func.sum(Inventory.quantity), 0).label("total_stock"),
-        )
-        .outerjoin(Inventory, Product.id == Inventory.product_id)
+        db.query(Inventory, Product)
+        .join(Product, Inventory.product_id == Product.id)
         .filter(
             Product.is_active == True,  # noqa: E712
             Product.min_stock > 0,
@@ -111,8 +108,6 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
 
     if warehouse_id is not None:
         query = query.filter(Inventory.warehouse_id == warehouse_id)
-
-    query = query.group_by(Product.id)
 
     all_items = query.order_by(Product.name).all()
 
@@ -123,8 +118,8 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
     supplier_groups: dict[int, dict] = {}
     no_supplier_items: list[dict] = []
 
-    for product, total_stock in all_items:
-        stock = int(total_stock)
+    for inv, product in all_items:
+        stock = inv.quantity
         velocity = _get_sales_velocity(db, product.id)
 
         # Determine urgency

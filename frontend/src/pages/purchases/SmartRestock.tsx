@@ -223,7 +223,7 @@ const demandColumns = [
 ];
 
 export default function SmartRestock() {
-  const [warehouseId, setWarehouseId] = useState<number | undefined>(undefined);
+  const [warehouseId, setWarehouseId] = useState<number | undefined>(1);
   const [demandSearch, setDemandSearch] = useState('');
   const [demandFilter, setDemandFilter] = useState<string | undefined>(undefined);
   const [priceSearch, setPriceSearch] = useState('');
