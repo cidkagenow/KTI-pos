@@ -20,7 +20,9 @@ import {
   DatePicker,
   Modal,
   Tabs,
+  Image,
 } from 'antd';
+import { CameraOutlined } from '@ant-design/icons';
 import { PlusOutlined, DeleteOutlined, SaveOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -623,14 +625,16 @@ export default function SaleForm() {
       width: 45,
       render: (_: unknown, record: LineItem) =>
         record.image_url ? (
-          <img
+          <Image
             src={record.image_url}
-            alt=""
-            style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4 }}
+            width={36}
+            height={36}
+            style={{ objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+            fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYiIGhlaWdodD0iMzYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjM2IiBoZWlnaHQ9IjM2IiBmaWxsPSIjZjBmMGYwIi8+PC9zdmc+"
           />
         ) : (
           <div style={{ width: 36, height: 36, borderRadius: 4, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 10, opacity: 0.3 }}>—</span>
+            <CameraOutlined style={{ fontSize: 12, opacity: 0.2 }} />
           </div>
         ),
     },
