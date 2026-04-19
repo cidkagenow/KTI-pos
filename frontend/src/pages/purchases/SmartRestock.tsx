@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Typography, Select, Card, Table, Tag, Space, Empty, Spin, Row, Col, Statistic, Tooltip, Tabs } from 'antd';
-import { PhoneOutlined, MailOutlined, EnvironmentOutlined, ShoppingCartOutlined, RiseOutlined, FallOutlined, StopOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Typography, Select, Card, Table, Tag, Space, Empty, Spin, Row, Col, Statistic, Tooltip, Tabs, InputNumber } from 'antd';
+import { PhoneOutlined, MailOutlined, EnvironmentOutlined, ShoppingCartOutlined, RiseOutlined, FallOutlined, StopOutlined, ArrowUpOutlined, ArrowDownOutlined, DollarOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { getRestockSuggestions, getDemandAnalysis, getPriceOptimization } from '../../api/purchases';
+import { getRestockSuggestions, getDemandAnalysis, getPriceOptimization, getFxImpact } from '../../api/purchases';
 import { getWarehouses } from '../../api/catalogs';
 import { formatCurrency } from '../../utils/format';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
@@ -228,6 +228,7 @@ export default function SmartRestock() {
   const [demandFilter, setDemandFilter] = useState<string | undefined>(undefined);
   const [priceSearch, setPriceSearch] = useState('');
   const [priceFilter, setPriceFilter] = useState<string | undefined>(undefined);
+  const [fxRate, setFxRate] = useState(3.75);
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
@@ -249,6 +250,12 @@ export default function SmartRestock() {
   const { data: allPriceData, isLoading: priceLoading } = useQuery({
     queryKey: ['price-optimization', warehouseId],
     queryFn: () => getPriceOptimization(warehouseId),
+    refetchInterval: 60_000,
+  });
+
+  const { data: fxData, isLoading: fxLoading } = useQuery({
+    queryKey: ['fx-impact', fxRate],
+    queryFn: () => getFxImpact(fxRate),
     refetchInterval: 60_000,
   });
 
@@ -584,6 +591,139 @@ export default function SmartRestock() {
                     size="small"
                     pagination={{ pageSize: 20, showSizeChanger: true }}
                     scroll={{ x: 1200 }}
+                  />
+                )}
+              </>
+            ),
+          },
+          {
+            key: 'fx',
+            label: 'Impacto FX',
+            children: (
+              <>
+                <Row gutter={16} style={{ marginBottom: 20 }}>
+                  <Col span={4}>
+                    <Card size="small">
+                      <div style={{ marginBottom: 4, fontSize: 12, opacity: 0.6 }}>Tipo de cambio hoy</div>
+                      <InputNumber
+                        value={fxRate}
+                        onChange={(v) => v && setFxRate(v)}
+                        min={0.01}
+                        step={0.01}
+                        precision={4}
+                        prefix={<DollarOutlined />}
+                        style={{ width: '100%' }}
+                      />
+                    </Card>
+                  </Col>
+                  {fxData?.summary && (
+                    <>
+                      <Col span={5}>
+                        <Card size="small">
+                          <Statistic title="Compras en USD" value={fxData.summary.total_orders} />
+                        </Card>
+                      </Col>
+                      <Col span={5}>
+                        <Card size="small">
+                          <Statistic title="TC promedio pagado" value={fxData.summary.avg_rate_paid} precision={4} />
+                        </Card>
+                      </Col>
+                      <Col span={5}>
+                        <Card size="small">
+                          <Statistic title="Total pagado" value={fxData.summary.total_paid_soles} prefix="S/" precision={2} />
+                        </Card>
+                      </Col>
+                      <Col span={5}>
+                        <Card size="small">
+                          <Statistic
+                            title="Impacto FX total"
+                            value={Math.abs(fxData.summary.total_fx_impact)}
+                            prefix={fxData.summary.total_fx_impact > 0 ? 'S/ +' : 'S/ -'}
+                            precision={2}
+                            valueStyle={{ color: fxData.summary.total_fx_impact > 0 ? '#f87171' : '#34d399' }}
+                          />
+                        </Card>
+                      </Col>
+                    </>
+                  )}
+                </Row>
+
+                {fxData?.summary && (
+                  <div
+                    className={`px-4 py-3 rounded-lg border text-sm mb-4 ${
+                      fxData.summary.total_fx_impact > 0
+                        ? 'bg-red-500/10 border-red-500/20 text-red-300'
+                        : 'bg-green-500/10 border-green-500/20 text-green-300'
+                    }`}
+                    style={{ background: fxData.summary.total_fx_impact > 0 ? 'rgba(248,113,113,0.1)' : 'rgba(52,211,153,0.1)', borderColor: fxData.summary.total_fx_impact > 0 ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)', color: fxData.summary.total_fx_impact > 0 ? '#f87171' : '#34d399', padding: '12px 16px', borderRadius: 8, border: '1px solid', marginBottom: 16 }}
+                  >
+                    {fxData.summary.total_fx_impact > 0
+                      ? `Pagaste S/ ${fxData.summary.total_fx_impact.toFixed(2)} de mas comprando a TC promedio de ${fxData.summary.avg_rate_paid.toFixed(4)} cuando hoy esta a ${fxRate}`
+                      : `Ahorraste S/ ${Math.abs(fxData.summary.total_fx_impact).toFixed(2)} comprando a TC promedio de ${fxData.summary.avg_rate_paid.toFixed(4)} cuando hoy esta a ${fxRate}`
+                    }
+                  </div>
+                )}
+
+                {fxLoading ? (
+                  <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+                ) : !fxData?.orders?.length ? (
+                  <Empty description="No hay compras en dolares" />
+                ) : (
+                  <Table
+                    columns={[
+                      { title: 'Fecha', dataIndex: 'date', key: 'date', width: 100 },
+                      { title: 'Doc', dataIndex: 'doc_number', key: 'doc_number', width: 100 },
+                      { title: 'Proveedor', dataIndex: 'supplier_name', key: 'supplier_name', ellipsis: true },
+                      {
+                        title: 'USD',
+                        dataIndex: 'usd_amount',
+                        key: 'usd_amount',
+                        width: 100,
+                        align: 'right' as const,
+                        render: (v: number) => `$ ${v.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+                      },
+                      {
+                        title: 'TC compra',
+                        dataIndex: 'rate_at_purchase',
+                        key: 'rate_at_purchase',
+                        width: 90,
+                        align: 'right' as const,
+                        render: (v: number) => v.toFixed(4),
+                      },
+                      {
+                        title: 'Pagado (S/)',
+                        dataIndex: 'paid_soles',
+                        key: 'paid_soles',
+                        width: 110,
+                        align: 'right' as const,
+                        render: (v: number) => formatCurrency(v),
+                      },
+                      {
+                        title: `A TC ${fxRate}`,
+                        dataIndex: 'cost_at_current_rate',
+                        key: 'cost_at_current_rate',
+                        width: 110,
+                        align: 'right' as const,
+                        render: (v: number) => formatCurrency(v),
+                      },
+                      {
+                        title: 'Impacto',
+                        dataIndex: 'fx_impact',
+                        key: 'fx_impact',
+                        width: 110,
+                        align: 'right' as const,
+                        render: (v: number) => (
+                          <span style={{ color: v > 0 ? '#f87171' : '#34d399', fontWeight: 600 }}>
+                            {v > 0 ? '+' : ''}{formatCurrency(v)}
+                          </span>
+                        ),
+                      },
+                    ]}
+                    dataSource={fxData.orders}
+                    rowKey="po_id"
+                    size="small"
+                    pagination={{ pageSize: 20, showSizeChanger: true }}
+                    scroll={{ x: 900 }}
                   />
                 )}
               </>

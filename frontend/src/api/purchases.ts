@@ -40,6 +40,10 @@ export async function getDemandAnalysis(warehouseId?: number, days: number = 90)
   return (await api.get('/purchase-orders/demand-analysis', { params })).data;
 }
 
+export async function getFxImpact(currentRate: number): Promise<any> {
+  return (await api.get('/purchase-orders/fx-impact', { params: { current_rate: currentRate } })).data;
+}
+
 export async function getPriceOptimization(warehouseId?: number, days: number = 90): Promise<any[]> {
   const params: Record<string, unknown> = { days };
   if (warehouseId) params.warehouse_id = warehouseId;

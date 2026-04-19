@@ -18,6 +18,7 @@ from app.schemas.purchase import (
 from app.api.deps import get_current_user, require_admin
 from app.services.smart_restock import get_restock_suggestions
 from app.services.demand_analysis import get_demand_analysis, get_price_optimization
+from app.services.fx_impact import get_fx_impact
 
 router = APIRouter()
 
@@ -109,6 +110,16 @@ def price_optimization(
 ):
     """Price optimization: which products need price adjustments."""
     return get_price_optimization(db, warehouse_id, days)
+
+
+@router.get("/fx-impact")
+def fx_impact(
+    current_rate: float = 3.75,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """FX impact: how exchange rate changes affected purchase costs."""
+    return get_fx_impact(db, current_rate)
 
 
 @router.get("", response_model=list[PurchaseOrderOut])
