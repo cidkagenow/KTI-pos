@@ -75,6 +75,7 @@ export interface ProductSearch {
   stock: number;
   on_order_qty: number | null;
   on_order_eta: string | null;
+  image_url: string | null;
 }
 
 export interface Warehouse {

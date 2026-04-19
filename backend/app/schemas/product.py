@@ -92,5 +92,6 @@ class ProductSearch(BaseModel):
     stock: int
     on_order_qty: int | None = None
     on_order_eta: date | None = None
+    image_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

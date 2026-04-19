@@ -669,7 +669,7 @@ def emitir_nota_venta(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    """Emit (finalize) a Nota de Venta: assigns doc_number, sets status=EMITIDO. No stock deduction."""
+    """Emit a Nota de Venta: assigns doc_number, sets status=EMITIDO. No stock deduction (that happens at print)."""
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
@@ -692,24 +692,7 @@ def emitir_nota_venta(
             detail="Solo se pueden emitir Notas de Venta en estado PREVENTA",
         )
 
-    # Check stock availability
-    insufficient = []
-    for item in sale.items:
-        inv = (
-            db.query(Inventory)
-            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
-            .first()
-        )
-        available = inv.quantity if inv else 0
-        if item.quantity > available:
-            product = db.query(Product).filter(Product.id == item.product_id).first()
-            name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
-            insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
-    if insufficient:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stock insuficiente: " + "; ".join(insufficient),
-        )
+    # No stock check or deduction at emit — only at print (admin)
 
     # Assign document number from NV series
     doc_series = (
@@ -732,14 +715,55 @@ def emitir_nota_venta(
     sale.status = "EMITIDO"
     sale.issue_date = date.today()
 
-    # Deduct stock (same as facturar)
+    db.commit()
+    db.refresh(sale)
+    return _sale_to_out(sale)
+
+
+@router.post("/{sale_id}/print-nv", response_model=SaleOut)
+def print_nota_venta(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Print a Nota de Venta: deducts stock, affects reports. ADMIN only."""
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+    if sale is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Venta no encontrada")
+    if sale.doc_type != "NOTA_VENTA":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo Notas de Venta")
+    if sale.status != "EMITIDO":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La Nota de Venta debe estar EMITIDA para imprimir")
+
+    # Check stock availability
+    insufficient = []
     for item in sale.items:
         inv = (
             db.query(Inventory)
-            .filter(
-                Inventory.product_id == item.product_id,
-                Inventory.warehouse_id == sale.warehouse_id,
-            )
+            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+            .first()
+        )
+        available = inv.quantity if inv else 0
+        if item.quantity > available:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
+            insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
+    if insufficient:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stock insuficiente: " + "; ".join(insufficient),
+        )
+
+    # Deduct stock
+    for item in sale.items:
+        inv = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
             .first()
         )
         if inv:
@@ -754,8 +778,10 @@ def emitir_nota_venta(
             notes=f"Venta #{sale.series}-{sale.doc_number}",
             created_by=_user.id,
         ))
-    db.flush()
 
+    # Mark as printed
+    sale.status = "FACTURADO"
+    db.flush()
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)
@@ -1159,9 +1185,8 @@ def void_sale(
                 detail="No se puede anular esta boleta hoy. El resumen diario ya fue aceptado por SUNAT. Puede anularla a partir de mañana.",
             )
 
-    # Return stock for FACTURADO (boleta/factura) and EMITIDO (nota de venta)
-    if (sale.status == "FACTURADO" and sale.doc_type not in ("NOTA_VENTA", "NOTA_CREDITO")) or \
-       (sale.status == "EMITIDO" and sale.doc_type == "NOTA_VENTA"):
+    # Return stock for FACTURADO sales (boleta, factura, printed NV)
+    if sale.status == "FACTURADO" and sale.doc_type != "NOTA_CREDITO":
         # BOLETA/FACTURA: return stock that was deducted at facturar
         for item in sale.items:
             inv = (

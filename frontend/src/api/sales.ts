@@ -70,6 +70,11 @@ export async function emitirNotaVenta(id: number): Promise<Sale> {
   return data;
 }
 
+export async function printNotaVenta(id: number): Promise<Sale> {
+  const { data } = await api.post(`/sales/${id}/print-nv`);
+  return data;
+}
+
 export async function emitirProforma(id: number): Promise<Sale> {
   const { data } = await api.post(`/sales/${id}/emitir-proforma`);
   return data;

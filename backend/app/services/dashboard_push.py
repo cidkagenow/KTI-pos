@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Match the timezone logic from reports.py
 _lima = func.timezone("America/Lima", Sale.created_at)
-SALE_STATUSES = ("FACTURADO", "EMITIDO")
+SALE_STATUSES = ("FACTURADO",)
 
 
 def _count_and_total(db, from_date: date) -> tuple[int, float]:

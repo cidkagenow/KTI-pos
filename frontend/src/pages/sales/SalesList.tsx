@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta, emitirProforma } from '../../api/sales';
+import { getSales, anularSale, deleteSale, convertirSale, facturarSale, emitirNotaVenta, emitirProforma, printNotaVenta } from '../../api/sales';
 import { getWarehouses, getDocumentSeries } from '../../api/catalogs';
 import { getActiveTrabajadores } from '../../api/trabajadores';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -391,9 +391,31 @@ export default function SalesList() {
               }}
             />
           )}
-          {/* Admin: full emitir/facturar + print for all */}
+          {/* Admin: print NV (EMITIDO → FACTURADO + stock deduction + print) */}
+          {isAdmin && record.status === 'EMITIDO' && record.doc_type === 'NOTA_VENTA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<PrinterOutlined />}
+              title="Imprimir Nota de Venta (descuenta stock)"
+              onClick={async () => {
+                try {
+                  await printNotaVenta(record.id);
+                  message.success('Nota de Venta impresa');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al imprimir Nota de Venta');
+                  return;
+                }
+                window.open(`/sales/${record.id}/print`, '_blank');
+              }}
+            />
+          )}
+          {/* Admin: full emitir/facturar + print for all (non-NV EMITIDO) */}
           {isAdmin && (() => {
             const isPreventa = record.status === 'PREVENTA';
+            const isEmitidoNV = record.status === 'EMITIDO' && record.doc_type === 'NOTA_VENTA';
+            if (isEmitidoNV) return null; // handled above
             const isNV = record.doc_type === 'NOTA_VENTA';
             const isPF = record.doc_type === 'PROFORMA';
             const isNonFiscal = isNV || isPF;
@@ -410,12 +432,14 @@ export default function SalesList() {
                 onClick={async () => {
                   if (isPreventa) {
                     if (isNV) {
+                      // Admin emits + prints NV in one step
                       try {
                         await emitirNotaVenta(record.id);
-                        message.success('Nota de Venta emitida');
+                        await printNotaVenta(record.id);
+                        message.success('Nota de Venta impresa');
                         queryClient.invalidateQueries({ queryKey: ['sales'] });
                       } catch (err: any) {
-                        message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
+                        message.error(err?.response?.data?.detail || 'Error al imprimir Nota de Venta');
                         return;
                       }
                     } else if (isPF) {

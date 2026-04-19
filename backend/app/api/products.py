@@ -111,6 +111,7 @@ def search_products(
             stock=stock,
             on_order_qty=on_order_qty,
             on_order_eta=on_order_eta,
+            image_url=f"/uploads/products/{p.image_path}" if p.image_path else None,
         ))
     return results
 

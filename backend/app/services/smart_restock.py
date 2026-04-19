@@ -25,7 +25,7 @@ from app.models.warehouse import Warehouse
 
 logger = logging.getLogger(__name__)
 
-SALE_STATUSES = ("FACTURADO", "EMITIDO")
+SALE_STATUSES = ("FACTURADO",)
 
 
 def _get_sales_velocity(db: Session, product_id: int, days: int = 90) -> float:

@@ -45,6 +45,7 @@ interface LineItem {
   product_name: string;
   brand_name: string | null;
   presentation: string | null;
+  image_url: string | null;
   quantity: number;
   unit_price: number;
   wholesale_price: number | null;
@@ -62,6 +63,7 @@ function newLineItem(): LineItem {
     product_name: '',
     brand_name: null,
     presentation: null,
+    image_url: null,
     quantity: 1,
     unit_price: 0,
     wholesale_price: null,
@@ -130,6 +132,7 @@ export default function SaleForm() {
         product_name: item.product_name,
         brand_name: item.brand_name,
         presentation: item.presentation,
+        image_url: null,
         quantity: item.quantity,
         unit_price: item.unit_price,
         wholesale_price: null,
@@ -331,6 +334,7 @@ export default function SaleForm() {
         product_name: p.name,
         brand_name: p.brand_name,
         presentation: p.presentation,
+        image_url: p.image_url,
         unit_price: p.unit_price,
         wholesale_price: p.wholesale_price,
         cost_price: p.cost_price,
@@ -614,6 +618,23 @@ export default function SaleForm() {
       render: (_: unknown, __: unknown, idx: number) => idx + 1,
     },
     {
+      title: '',
+      key: 'image',
+      width: 45,
+      render: (_: unknown, record: LineItem) =>
+        record.image_url ? (
+          <img
+            src={record.image_url}
+            alt=""
+            style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4 }}
+          />
+        ) : (
+          <div style={{ width: 36, height: 36, borderRadius: 4, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, opacity: 0.3 }}>—</span>
+          </div>
+        ),
+    },
+    {
       title: 'Producto',
       key: 'product',
       width: 300,
@@ -627,7 +648,7 @@ export default function SaleForm() {
             if (record.product_id) {
               // User is editing a selected product — clear it so they can search again
               const newItems = [...items];
-              newItems[idx] = { ...newItems[idx], product_id: null, product_code: val || '', product_name: '', brand_name: null, presentation: null, unit_price: 0, wholesale_price: null, cost_price: null, stock: 0 };
+              newItems[idx] = { ...newItems[idx], product_id: null, product_code: val || '', product_name: '', brand_name: null, presentation: null, image_url: null, unit_price: 0, wholesale_price: null, cost_price: null, stock: 0 };
               setItems(newItems);
               if (val && val.length >= 2) handleProductSearch(val);
             } else if (!val || val.trim() === '') {

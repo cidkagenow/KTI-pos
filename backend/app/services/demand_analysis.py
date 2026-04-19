@@ -21,7 +21,7 @@ from app.models.sale import Sale, SaleItem
 
 logger = logging.getLogger(__name__)
 
-SALE_STATUSES = ("FACTURADO", "EMITIDO")
+SALE_STATUSES = ("FACTURADO",)
 
 
 def get_demand_analysis(db: Session, warehouse_id: int | None = None, days: int = 90) -> list[dict]:
