@@ -96,10 +96,13 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
 
     FORECAST_DAYS = 14  # predict stockouts within 14 days
 
-    # 1. Find active products with min_stock set
+    # 1. Find active products with min_stock set, summing stock across warehouses
     query = (
-        db.query(Inventory, Product)
-        .join(Product, Inventory.product_id == Product.id)
+        db.query(
+            Product,
+            func.coalesce(func.sum(Inventory.quantity), 0).label("total_stock"),
+        )
+        .outerjoin(Inventory, Product.id == Inventory.product_id)
         .filter(
             Product.is_active == True,  # noqa: E712
             Product.min_stock > 0,
@@ -108,6 +111,8 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
 
     if warehouse_id is not None:
         query = query.filter(Inventory.warehouse_id == warehouse_id)
+
+    query = query.group_by(Product.id)
 
     all_items = query.order_by(Product.name).all()
 
@@ -118,16 +123,17 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
     supplier_groups: dict[int, dict] = {}
     no_supplier_items: list[dict] = []
 
-    for inv, product in all_items:
+    for product, total_stock in all_items:
+        stock = int(total_stock)
         velocity = _get_sales_velocity(db, product.id)
 
         # Determine urgency
-        if inv.quantity <= 0:
+        if stock <= 0:
             urgency = "critical"  # out of stock
-        elif inv.quantity <= product.min_stock:
+        elif stock <= product.min_stock:
             urgency = "low"  # below minimum
         elif velocity > 0:
-            days_left = inv.quantity / velocity
+            days_left = stock / velocity
             if days_left <= FORECAST_DAYS:
                 urgency = "upcoming"  # will run out within 14 days
             else:
@@ -136,21 +142,21 @@ def get_restock_suggestions(db: Session, warehouse_id: int | None = None) -> lis
             continue  # no sales velocity and stock above min, skip
 
         # Suggested qty: enough for 30 days of sales, minimum = fill to min_stock
-        fill_to_min = max(product.min_stock - inv.quantity, 0)
+        fill_to_min = max(product.min_stock - stock, 0)
         velocity_based = int(velocity * 30)  # 30 days supply
         suggested_qty = max(fill_to_min, velocity_based, 1)
 
         supplier_info = _get_best_supplier(db, product.id)
 
         last_cost = supplier_info["last_cost"] if supplier_info else (float(product.cost_price) if product.cost_price else 0)
-        days_until_empty = round(inv.quantity / velocity, 1) if velocity > 0 else None
+        days_until_empty = round(stock / velocity, 1) if velocity > 0 else None
 
         item_data = {
             "product_id": product.id,
             "product_code": product.code,
             "product_name": product.name,
             "brand_name": product.brand.name if product.brand else None,
-            "current_stock": inv.quantity,
+            "current_stock": stock,
             "min_stock": product.min_stock,
             "suggested_qty": suggested_qty,
             "daily_sales": round(velocity, 2),
