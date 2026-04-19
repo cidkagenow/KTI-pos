@@ -5,6 +5,7 @@ import { ConfigProvider, theme } from 'antd';
 import esES from 'antd/locale/es_ES';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import AppLayout from './components/Layout/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -22,6 +23,7 @@ import UserList from './pages/users/UserList';
 import Settings from './pages/settings/Settings';
 import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
+import SmartRestock from './pages/purchases/SmartRestock';
 import CuentasPorPagar from './pages/purchases/CuentasPorPagar';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
@@ -31,7 +33,12 @@ import AsistenciaPage from './pages/trabajadores/AsistenciaPage';
 import OnlineOrderList from './pages/online-orders/OnlineOrderList';
 import WebChatLogs from './pages/online-orders/WebChatLogs';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1 },
+    mutations: { retry: false },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -68,6 +75,7 @@ function AppRoutes() {
         <Route path="inventory/stock-valorizado" element={<AdminRoute><StockValorizado /></AdminRoute>} />
         <Route path="inventory/kardex" element={<AdminRoute><Kardex /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />
+        <Route path="purchase-orders/restock" element={<AdminRoute><SmartRestock /></AdminRoute>} />
         <Route path="cuentas-por-pagar" element={<AdminRoute><CuentasPorPagar /></AdminRoute>} />
         <Route path="sunat" element={<AdminRoute><SunatPanel /></AdminRoute>} />
         <Route path="trabajadores" element={<AdminRoute><TrabajadorList /></AdminRoute>} />
@@ -180,10 +188,12 @@ function useAutoReload() {
 export default function App() {
   useAutoReload();
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ThemedApp />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <ThemedApp />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

@@ -16,6 +16,8 @@ from app.schemas.purchase import (
     PurchaseOrderItemOut,
 )
 from app.api.deps import get_current_user, require_admin
+from app.services.smart_restock import get_restock_suggestions
+from app.services.demand_analysis import get_demand_analysis, get_price_optimization
 
 router = APIRouter()
 
@@ -75,6 +77,38 @@ def _po_to_out(po: PurchaseOrder) -> PurchaseOrderOut:
         created_at=po.created_at,
         items=items,
     )
+
+
+@router.get("/restock-suggestions")
+def restock_suggestions(
+    warehouse_id: int | None = None,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Smart restock: what to buy, from which supplier, how much."""
+    return get_restock_suggestions(db, warehouse_id)
+
+
+@router.get("/demand-analysis")
+def demand_analysis(
+    warehouse_id: int | None = None,
+    days: int = 90,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Demand analysis: which products to buy more/less of."""
+    return get_demand_analysis(db, warehouse_id, days)
+
+
+@router.get("/price-optimization")
+def price_optimization(
+    warehouse_id: int | None = None,
+    days: int = 90,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Price optimization: which products need price adjustments."""
+    return get_price_optimization(db, warehouse_id, days)
 
 
 @router.get("", response_model=list[PurchaseOrderOut])

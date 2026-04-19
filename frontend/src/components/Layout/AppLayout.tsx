@@ -136,6 +136,10 @@ export default function AppLayout() {
             key: '/purchase-orders',
             icon: <ShoppingOutlined />,
             label: 'Compras',
+            children: [
+              { key: '/purchase-orders', label: 'Ordenes' },
+              { key: '/purchase-orders/restock', label: 'Smart Restock' },
+            ],
           },
           {
             key: '/cuentas-por-pagar',
@@ -196,6 +200,7 @@ export default function AppLayout() {
     if (path.startsWith('/inventory')) return '/inventory';
     if (path.startsWith('/clients')) return '/clients';
     if (path.startsWith('/online-orders')) return '/online-orders';
+    if (path === '/purchase-orders/restock') return '/purchase-orders/restock';
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
     if (path.startsWith('/cuentas-por-pagar')) return '/cuentas-por-pagar';
     if (path.startsWith('/sunat')) return '/sunat';
