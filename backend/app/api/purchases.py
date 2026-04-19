@@ -122,6 +122,22 @@ def fx_impact(
     return get_fx_impact(db, current_rate)
 
 
+@router.get("/fx-rate")
+def fx_current_rate(
+    _user: User = Depends(get_current_user),
+):
+    """Get current USD/PEN exchange rate from free API."""
+    import httpx
+    try:
+        resp = httpx.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"rate": data["rates"]["PEN"], "source": "exchangerate-api.com"}
+    except Exception:
+        pass
+    return {"rate": 3.75, "source": "fallback"}
+
+
 @router.get("", response_model=list[PurchaseOrderOut])
 def list_purchase_orders(
     db: Session = Depends(get_db),

@@ -40,6 +40,10 @@ export async function getDemandAnalysis(warehouseId?: number, days: number = 90)
   return (await api.get('/purchase-orders/demand-analysis', { params })).data;
 }
 
+export async function getFxRate(): Promise<{ rate: number; source: string }> {
+  return (await api.get('/purchase-orders/fx-rate')).data;
+}
+
 export async function getFxImpact(currentRate: number): Promise<any> {
   return (await api.get('/purchase-orders/fx-impact', { params: { current_rate: currentRate } })).data;
 }

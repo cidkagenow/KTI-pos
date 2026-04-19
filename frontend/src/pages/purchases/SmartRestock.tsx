@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Typography, Select, Card, Table, Tag, Space, Empty, Spin, Row, Col, Statistic, Tooltip, Tabs, InputNumber } from 'antd';
 import { PhoneOutlined, MailOutlined, EnvironmentOutlined, ShoppingCartOutlined, RiseOutlined, FallOutlined, StopOutlined, ArrowUpOutlined, ArrowDownOutlined, DollarOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { getRestockSuggestions, getDemandAnalysis, getPriceOptimization, getFxImpact } from '../../api/purchases';
+import { getRestockSuggestions, getDemandAnalysis, getPriceOptimization, getFxImpact, getFxRate } from '../../api/purchases';
 import { getWarehouses } from '../../api/catalogs';
 import { formatCurrency } from '../../utils/format';
 import { tokenizedFilter, tokenizedFilterSort } from '../../utils/search';
@@ -229,6 +229,19 @@ export default function SmartRestock() {
   const [priceSearch, setPriceSearch] = useState('');
   const [priceFilter, setPriceFilter] = useState<string | undefined>(undefined);
   const [fxRate, setFxRate] = useState(3.75);
+  const [fxSource, setFxSource] = useState('');
+
+  // Fetch real exchange rate on mount
+  const { } = useQuery({
+    queryKey: ['fx-rate'],
+    queryFn: async () => {
+      const data = await getFxRate();
+      setFxRate(data.rate);
+      setFxSource(data.source);
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
+  });
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
