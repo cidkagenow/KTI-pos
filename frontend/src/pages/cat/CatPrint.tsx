@@ -101,6 +101,37 @@ export default function CatPrint() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Test mode: /cat/test/print uses dummy data (no backend needed)
+    if (id === 'test') {
+      setSale({
+        id: 0,
+        certificate_number: '003149-2026',
+        placa: '2230-1D',
+        marca: 'SAKIMOTO',
+        modelo: 'SK-150',
+        año: 2015,
+        serie_vehiculo: 'BS9MTD150F2B24029',
+        asientos: 3,
+        categoria: 'L5',
+        clase: 'TRIMOVIL',
+        uso: 'SERVICIO PUBLICO URBANO',
+        customer_name: 'CESAR AUGUSTO QUINDE VALDIVIEZO',
+        customer_dni: '02701532',
+        customer_phone: '',
+        customer_address: 'JR.MARIANO DIAZ 1348 - CATACAOS',
+        fecha_desde: '20/04/2026',
+        fecha_hasta: '20/04/2027',
+        precio: 100,
+        ap_extra: 50,
+        total: 150,
+        status: 'VENDIDO',
+        sold_by: null,
+        notes: null,
+        created_at: new Date().toISOString(),
+      });
+      return;
+    }
+
     if (!id) return;
     api.get(`/cat`)
       .then((res) => {

@@ -7,7 +7,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "c15_cat_sales"
-down_revision = "c14_sunat_settings"
+down_revision = "c14"
 branch_labels = None
 depends_on = None
 
