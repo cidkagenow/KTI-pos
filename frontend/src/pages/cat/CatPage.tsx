@@ -45,10 +45,12 @@ export default function CatPage() {
 
   const saveMutation = useMutation({
     mutationFn: createCatSale,
-    onSuccess: () => {
+    onSuccess: (saved) => {
       message.success('CAT registrado exitosamente');
       queryClient.invalidateQueries({ queryKey: ['cat-sales'] });
       queryClient.invalidateQueries({ queryKey: ['cat-renewals'] });
+      // Open print page
+      window.open(`/cat/${saved.id}/print`, '_blank');
       resetForm();
     },
     onError: () => message.error('Error al registrar CAT'),
@@ -350,6 +352,19 @@ export default function CatPage() {
                     width: 90,
                     render: (v: string) => (
                       <Tag color={v === 'VENDIDO' ? 'green' : 'red'}>{v}</Tag>
+                    ),
+                  },
+                  {
+                    title: '',
+                    key: 'actions',
+                    width: 50,
+                    render: (_: unknown, r: any) => (
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<PrinterOutlined />}
+                        onClick={() => window.open(`/cat/${r.id}/print`, '_blank')}
+                      />
                     ),
                   },
                 ]}

@@ -25,6 +25,7 @@ import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
 import SmartRestock from './pages/purchases/SmartRestock';
 import CatPage from './pages/cat/CatPage';
+import CatPrint from './pages/cat/CatPrint';
 import CuentasPorPagar from './pages/purchases/CuentasPorPagar';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
@@ -61,6 +62,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/sales/:id/print" element={<ProtectedRoute><SalePrint /></ProtectedRoute>} />
+      <Route path="/cat/:id/print" element={<ProtectedRoute><CatPrint /></ProtectedRoute>} />
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<DefaultRedirect />} />
         <Route path="sales" element={<SaleForm />} />
