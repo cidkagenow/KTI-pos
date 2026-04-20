@@ -20,6 +20,7 @@ import {
   IdcardOutlined,
   GlobalOutlined,
   DollarOutlined,
+  CarOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -130,6 +131,11 @@ export default function AppLayout() {
         <span>Pedidos Online <Badge count={pendingCount} size="small" offset={[4, -2]} /></span>
       ) : 'Pedidos Online',
     },
+    {
+      key: '/cat',
+      icon: <CarOutlined />,
+      label: 'CAT / AFOCAT',
+    },
     ...(isAdmin
       ? [
           {
@@ -200,6 +206,7 @@ export default function AppLayout() {
     if (path.startsWith('/inventory')) return '/inventory';
     if (path.startsWith('/clients')) return '/clients';
     if (path.startsWith('/online-orders')) return '/online-orders';
+    if (path.startsWith('/cat')) return '/cat';
     if (path === '/purchase-orders/restock') return '/purchase-orders/restock';
     if (path.startsWith('/purchase-orders')) return '/purchase-orders';
     if (path.startsWith('/cuentas-por-pagar')) return '/cuentas-por-pagar';

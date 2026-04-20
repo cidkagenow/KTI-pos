@@ -24,6 +24,7 @@ import Settings from './pages/settings/Settings';
 import Reports from './pages/reports/Reports';
 import POList from './pages/purchases/POList';
 import SmartRestock from './pages/purchases/SmartRestock';
+import CatPage from './pages/cat/CatPage';
 import CuentasPorPagar from './pages/purchases/CuentasPorPagar';
 import SunatPanel from './pages/sales/SunatPanel';
 import NotaCreditoForm from './pages/sales/NotaCreditoForm';
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="inventory/kardex" element={<AdminRoute><Kardex /></AdminRoute>} />
         <Route path="purchase-orders" element={<AdminRoute><POList /></AdminRoute>} />
         <Route path="purchase-orders/restock" element={<AdminRoute><SmartRestock /></AdminRoute>} />
+        <Route path="cat" element={<CatPage />} />
         <Route path="cuentas-por-pagar" element={<AdminRoute><CuentasPorPagar /></AdminRoute>} />
         <Route path="sunat" element={<AdminRoute><SunatPanel /></AdminRoute>} />
         <Route path="trabajadores" element={<AdminRoute><TrabajadorList /></AdminRoute>} />

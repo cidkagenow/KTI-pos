@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     DASHBOARD_API_KEY: str = ""
     DASHBOARD_BRANCH_ID: str = "branch1"
 
+    # AFOCAT Piura (CAT certificate sales)
+    AFOCAT_USER: str = ""
+    AFOCAT_PASS: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
