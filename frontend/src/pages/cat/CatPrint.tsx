@@ -19,59 +19,46 @@ import type { CatSale } from '../../api/cat';
  * Print on blank paper and overlay on pre-printed paper against light.
  */
 
-// All positions in mm from top-left of paper
-// These need calibration with actual pre-printed paper
+// All positions in mm from top-left of A4 LANDSCAPE paper (297mm x 210mm)
+// Pre-printed paper: 3 carbon-copy layers stacked (prints once, copies through)
+// Left section (~105mm): certificate info + customer data
+// Middle section (~85mm): vehicle data
+// Right section (~105mm): sticker (green, for windshield) — not printed
+//
+// Only ONE set of fields needed — the carbon copies the data to all layers.
+
 const FIELDS = {
-  // ═══ TOP-LEFT QUADRANT (Certificate + Customer) ═══
-  // Certificate number (Nro del Certificado)
-  certNumber1: { top: 61, left: 24, width: 50 },
-  // Dates
-  desde1: { top: 72, left: 18, width: 35 },
-  hasta1: { top: 75, left: 18, width: 35 },
-  // Customer name
-  customerName1: { top: 86, left: 8, width: 130 },
+  // ═══ LEFT SECTION — Certificate + Customer ═══
+  // Certificate number (below QR code area, "Nro del Certificado")
+  certNumber: { top: 42, left: 16, width: 55 },
+  // Dates (DESDE / HASTA)
+  desde: { top: 56, left: 12, width: 40 },
+  hasta: { top: 60, left: 12, width: 40 },
+  // Customer name (NOMBRE)
+  customerName: { top: 73, left: 5, width: 100 },
   // DNI + Phone
-  customerDni1: { top: 93, left: 8, width: 50 },
-  customerPhone1: { top: 93, left: 70, width: 50 },
+  customerDni: { top: 79, left: 5, width: 40 },
+  customerPhone: { top: 79, left: 52, width: 40 },
   // Address
-  customerAddress1: { top: 100, left: 8, width: 130 },
+  customerAddress: { top: 85, left: 5, width: 100 },
   // Ambito
-  ambito1: { top: 107, left: 8, width: 80 },
-  // Price fields (bottom of left quadrant)
-  precio1: { top: 92, left: 118, width: 20 },
-  apExtra1: { top: 92, left: 132, width: 20 },
+  ambito: { top: 91, left: 5, width: 60 },
 
-  // ═══ TOP-RIGHT QUADRANT (Vehicle Data) ═══
-  placa1: { top: 26, left: 180, width: 30 },
-  categoriaClase1: { top: 26, left: 240, width: 50 },
-  añoFab1: { top: 33, left: 180, width: 30 },
-  marca1: { top: 33, left: 240, width: 50 },
-  asientos1: { top: 40, left: 180, width: 30 },
-  modelo1: { top: 40, left: 240, width: 50 },
-  uso1: { top: 47, left: 180, width: 50 },
-  vin1: { top: 47, left: 240, width: 55 },
+  // ═══ MIDDLE SECTION — Vehicle Data ═══
+  placa: { top: 16, left: 117, width: 30 },
+  categoriaClase: { top: 16, left: 165, width: 40 },
+  añoFab: { top: 24, left: 117, width: 30 },
+  marca: { top: 24, left: 165, width: 40 },
+  asientos: { top: 32, left: 117, width: 30 },
+  modelo: { top: 32, left: 165, width: 40 },
+  uso: { top: 40, left: 117, width: 40 },
+  vin: { top: 40, left: 165, width: 45 },
 
-  // ═══ BOTTOM-LEFT QUADRANT (Certificate + Customer copy) ═══
-  certNumber2: { top: 209, left: 24, width: 50 },
-  desde2: { top: 220, left: 18, width: 35 },
-  hasta2: { top: 223, left: 18, width: 35 },
-  customerName2: { top: 234, left: 8, width: 130 },
-  customerDni2: { top: 241, left: 8, width: 50 },
-  customerPhone2: { top: 241, left: 70, width: 50 },
-  customerAddress2: { top: 248, left: 8, width: 130 },
-  ambito2: { top: 255, left: 8, width: 80 },
-  precio2: { top: 240, left: 118, width: 20 },
-  apExtra2: { top: 240, left: 132, width: 20 },
-
-  // ═══ BOTTOM-RIGHT QUADRANT (Vehicle Data copy) ═══
-  placa2: { top: 174, left: 180, width: 30 },
-  categoriaClase2: { top: 174, left: 240, width: 50 },
-  añoFab2: { top: 181, left: 180, width: 30 },
-  marca2: { top: 181, left: 240, width: 50 },
-  asientos2: { top: 188, left: 180, width: 30 },
-  modelo2: { top: 188, left: 240, width: 50 },
-  uso2: { top: 195, left: 180, width: 50 },
-  vin2: { top: 195, left: 240, width: 55 },
+  // ═══ BOTTOM OF LEFT — Pricing (Fecha, Precio, Aporte) ═══
+  fecha: { top: 94, left: 25, width: 25 },
+  precio: { top: 94, left: 68, width: 18 },
+  apExtra: { top: 94, left: 85, width: 18 },
+  montoTotal: { top: 94, left: 98, width: 18 },
 };
 
 function Field({ top, left, width, children, fontSize = 9 }: {
@@ -160,7 +147,7 @@ export default function CatPrint() {
     <>
       <style>{`
         @media print {
-          @page { size: A4; margin: 0; }
+          @page { size: A4 landscape; margin: 0; }
           body { margin: 0; padding: 0; }
           .no-print { display: none !important; }
         }
@@ -180,49 +167,31 @@ export default function CatPrint() {
       </div>
 
       <div className="print-page" style={{ position: 'relative', width: '297mm', height: '210mm', overflow: 'hidden' }}>
-        {/* TOP-LEFT: Certificate + Customer */}
-        <Field {...FIELDS.certNumber1}>{certNum}</Field>
-        <Field {...FIELDS.desde1}>{desde}</Field>
-        <Field {...FIELDS.hasta1}>{hasta}</Field>
-        <Field {...FIELDS.customerName1}>{sale.customer_name}</Field>
-        <Field {...FIELDS.customerDni1}>{sale.customer_dni}</Field>
-        <Field {...FIELDS.customerPhone1}>{sale.customer_phone}</Field>
-        <Field {...FIELDS.customerAddress1}>{sale.customer_address}</Field>
-        <Field {...FIELDS.ambito1}>PIURA</Field>
-        <Field {...FIELDS.precio1}>S/{sale.precio}</Field>
-        <Field {...FIELDS.apExtra1}>S/{sale.ap_extra}</Field>
+        {/* LEFT: Certificate + Customer */}
+        <Field {...FIELDS.certNumber}>{certNum}</Field>
+        <Field {...FIELDS.desde}>{desde}</Field>
+        <Field {...FIELDS.hasta}>{hasta}</Field>
+        <Field {...FIELDS.customerName}>{sale.customer_name}</Field>
+        <Field {...FIELDS.customerDni}>{sale.customer_dni}</Field>
+        <Field {...FIELDS.customerPhone}>{sale.customer_phone}</Field>
+        <Field {...FIELDS.customerAddress}>{sale.customer_address}</Field>
+        <Field {...FIELDS.ambito}>PIURA</Field>
 
-        {/* TOP-RIGHT: Vehicle Data */}
-        <Field {...FIELDS.placa1}>{sale.placa}</Field>
-        <Field {...FIELDS.categoriaClase1}>{sale.categoria} / {sale.clase}</Field>
-        <Field {...FIELDS.añoFab1}>{sale.año}</Field>
-        <Field {...FIELDS.marca1}>{sale.marca}</Field>
-        <Field {...FIELDS.asientos1}>{sale.asientos}</Field>
-        <Field {...FIELDS.modelo1}>{sale.modelo}</Field>
-        <Field {...FIELDS.uso1}>{sale.uso}</Field>
-        <Field {...FIELDS.vin1} fontSize={7}>{sale.serie_vehiculo}</Field>
+        {/* MIDDLE: Vehicle Data */}
+        <Field {...FIELDS.placa}>{sale.placa}</Field>
+        <Field {...FIELDS.categoriaClase}>{sale.categoria} / {sale.clase}</Field>
+        <Field {...FIELDS.añoFab}>{sale.año}</Field>
+        <Field {...FIELDS.marca}>{sale.marca}</Field>
+        <Field {...FIELDS.asientos}>{sale.asientos}</Field>
+        <Field {...FIELDS.modelo}>{sale.modelo}</Field>
+        <Field {...FIELDS.uso}>{sale.uso}</Field>
+        <Field {...FIELDS.vin} fontSize={7}>{sale.serie_vehiculo}</Field>
 
-        {/* BOTTOM-LEFT: Certificate + Customer copy */}
-        <Field {...FIELDS.certNumber2}>{certNum}</Field>
-        <Field {...FIELDS.desde2}>{desde}</Field>
-        <Field {...FIELDS.hasta2}>{hasta}</Field>
-        <Field {...FIELDS.customerName2}>{sale.customer_name}</Field>
-        <Field {...FIELDS.customerDni2}>{sale.customer_dni}</Field>
-        <Field {...FIELDS.customerPhone2}>{sale.customer_phone}</Field>
-        <Field {...FIELDS.customerAddress2}>{sale.customer_address}</Field>
-        <Field {...FIELDS.ambito2}>PIURA</Field>
-        <Field {...FIELDS.precio2}>S/{sale.precio}</Field>
-        <Field {...FIELDS.apExtra2}>S/{sale.ap_extra}</Field>
-
-        {/* BOTTOM-RIGHT: Vehicle Data copy */}
-        <Field {...FIELDS.placa2}>{sale.placa}</Field>
-        <Field {...FIELDS.categoriaClase2}>{sale.categoria} / {sale.clase}</Field>
-        <Field {...FIELDS.añoFab2}>{sale.año}</Field>
-        <Field {...FIELDS.marca2}>{sale.marca}</Field>
-        <Field {...FIELDS.asientos2}>{sale.asientos}</Field>
-        <Field {...FIELDS.modelo2}>{sale.modelo}</Field>
-        <Field {...FIELDS.uso2}>{sale.uso}</Field>
-        <Field {...FIELDS.vin2} fontSize={7}>{sale.serie_vehiculo}</Field>
+        {/* BOTTOM: Pricing */}
+        <Field {...FIELDS.fecha}>{desde}</Field>
+        <Field {...FIELDS.precio}>S/{sale.precio}</Field>
+        <Field {...FIELDS.apExtra}>S/{sale.ap_extra}</Field>
+        <Field {...FIELDS.montoTotal}>S/{sale.total}</Field>
       </div>
     </>
   );

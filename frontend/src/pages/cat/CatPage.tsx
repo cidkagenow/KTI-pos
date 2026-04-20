@@ -24,6 +24,7 @@ export default function CatPage() {
   const [dni, setDni] = useState('');
   const [vehicleData, setVehicleData] = useState<PlacaLookup | null>(null);
   const [customerData, setCustomerData] = useState<DniLookup | null>(null);
+  const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [loadingPlaca, setLoadingPlaca] = useState(false);
@@ -61,6 +62,7 @@ export default function CatPage() {
     setDni('');
     setVehicleData(null);
     setCustomerData(null);
+    setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
     setNotes('');
@@ -87,6 +89,7 @@ export default function CatPage() {
       const result = await lookupDni(dni.trim());
       setCustomerData(result);
       if (result.found) {
+        setCustomerName(result.full_name);
         if (result.telefono) setCustomerPhone(result.telefono);
         if (result.direccion) setCustomerAddress(result.direccion);
       } else {
@@ -104,11 +107,8 @@ export default function CatPage() {
       message.error('Primero busque la placa del vehiculo');
       return;
     }
-    const customerName = customerData?.found
-      ? customerData.full_name
-      : '';
-    if (!customerName && !dni) {
-      message.error('Ingrese el DNI del cliente');
+    if (!customerName.trim()) {
+      message.error('Ingrese el nombre del cliente');
       return;
     }
 
@@ -122,7 +122,7 @@ export default function CatPage() {
       categoria: vehicleData.categoria,
       clase: vehicleData.clase,
       uso: vehicleData.uso,
-      customer_name: customerName || `DNI: ${dni}`,
+      customer_name: customerName.trim(),
       customer_dni: dni,
       customer_phone: customerPhone,
       customer_address: customerAddress,
@@ -221,11 +221,12 @@ export default function CatPage() {
                       </Button>
                     </Space.Compact>
 
-                    {customerData?.found && (
-                      <Descriptions size="small" column={1} bordered style={{ marginBottom: 12 }}>
-                        <Descriptions.Item label="Nombre">{customerData.full_name}</Descriptions.Item>
-                      </Descriptions>
-                    )}
+                    <Input
+                      placeholder="Nombre completo"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      style={{ marginBottom: 12 }}
+                    />
 
                     <Row gutter={12}>
                       <Col span={12}>

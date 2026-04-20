@@ -118,13 +118,49 @@ def lookup_dni(
     dni: str = Query(..., min_length=8, max_length=11),
     _user: User = Depends(get_current_user),
 ) -> DniLookupResponse:
-    """Lookup customer data by DNI from AFOCAT system."""
+    """Lookup customer data by DNI — tries AFOCAT first, falls back to Peru Consult (RENIEC)."""
+    import os
+    import httpx as httpx_sync
+
+    # Try AFOCAT first
     try:
         client = get_afocat_client()
         result = client.lookup_dni(dni)
-        return DniLookupResponse(**result)
-    except Exception as e:
-        return DniLookupResponse(found=False, error=str(e))
+        if result.get("found") and result.get("full_name", "").strip():
+            return DniLookupResponse(**result)
+    except Exception:
+        pass
+
+    # Fallback: Peru Consult API (RENIEC)
+    token = os.environ.get("PERU_CONSULT_API_TOKEN", "")
+    if token and len(dni) == 8:
+        try:
+            resp = httpx_sync.get(
+                "https://api.peruconsult.net/api/v2/reniec/dni",
+                params={"numero": dni},
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                ap_paterno = data.get("first_last_name", "")
+                ap_materno = data.get("second_last_name", "")
+                nombre = data.get("first_name", "")
+                full_name = f"{ap_paterno} {ap_materno} {nombre}".strip()
+                if full_name:
+                    return DniLookupResponse(
+                        found=True,
+                        ap_paterno=ap_paterno,
+                        ap_materno=ap_materno,
+                        nombre=nombre,
+                        full_name=full_name,
+                        telefono="",
+                        direccion="",
+                    )
+        except Exception:
+            pass
+
+    return DniLookupResponse(found=False, error="DNI no encontrado")
 
 
 @router.post("", response_model=CatSaleOut, status_code=status.HTTP_201_CREATED)
