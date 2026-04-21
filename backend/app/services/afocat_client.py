@@ -146,6 +146,9 @@ class AfocatClient:
         # Pricing
         precio: float = 0,
         ap_extra: float = 0,
+        medio_pago: str = "Efectivo",
+        monto_efectivo: float = 0,
+        monto_digital: float = 0,
     ) -> dict:
         """
         Sell a CAT certificate via AFOCAT API.
@@ -181,9 +184,9 @@ class AfocatClient:
             "motivo_texto": "",
             "ap_extra": str(ap_extra),
             "cat_precio": str(precio),
-            "Cat_Saldo": str(total),
-            "Cat_Medio_Digital": "",
-            "Cat_Monto_Digital": "0",
+            "Cat_Saldo": str(monto_efectivo),
+            "Cat_Medio_Digital": medio_pago if medio_pago != "Efectivo" else "",
+            "Cat_Monto_Digital": str(monto_digital),
             "cat_idcertificado_": "0",
             "cat_anio": "2026",
             "cat_serie_": "FL",

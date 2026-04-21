@@ -61,6 +61,10 @@ class CatSaleCreate(BaseModel):
     uso: str | None = None
     color_veh: str = ""
     idn_tecnica: int | None = None
+    # Payment
+    medio_pago: str = "Efectivo"
+    monto_efectivo: float = 0
+    monto_digital: float = 0
     # Customer
     customer_name: str
     ap_paterno: str = ""
@@ -222,6 +226,9 @@ def create_cat_sale(
                 idn_tecnica=data.idn_tecnica or 0,
                 precio=data.precio or 0,
                 ap_extra=data.ap_extra or 0,
+                medio_pago=data.medio_pago,
+                monto_efectivo=data.monto_efectivo,
+                monto_digital=data.monto_digital,
             )
 
             if not result.get("success"):

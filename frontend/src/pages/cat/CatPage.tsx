@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Typography, Tabs, Card, Input, Button, Form, Row, Col, Tag, Table, Space,
-  Statistic, Spin, message, Descriptions, Empty, Badge, Modal, Switch,
+  Statistic, Spin, message, Descriptions, Empty, Badge, Modal, Switch, Select, InputNumber,
 } from 'antd';
 import {
   SearchOutlined, CarOutlined, UserOutlined, PhoneOutlined,
@@ -28,6 +28,11 @@ export default function CatPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [paradero, setParadero] = useState('');
+  const [colorVeh, setColorVeh] = useState('');
+  const [distrito, setDistrito] = useState('');
+  const [medioPago, setMedioPago] = useState('Efectivo');
+  const [montoEfectivo, setMontoEfectivo] = useState(0);
+  const [montoDigital, setMontoDigital] = useState(0);
   const [loadingPlaca, setLoadingPlaca] = useState(false);
   const [loadingDni, setLoadingDni] = useState(false);
   const [notes, setNotes] = useState('');
@@ -68,6 +73,11 @@ export default function CatPage() {
     setCustomerPhone('');
     setCustomerAddress('');
     setParadero('');
+    setColorVeh('');
+    setDistrito('');
+    setMedioPago('Efectivo');
+    setMontoEfectivo(0);
+    setMontoDigital(0);
     setNotes('');
   };
 
@@ -77,7 +87,13 @@ export default function CatPage() {
     try {
       const result = await lookupPlaca(placa.trim());
       setVehicleData(result);
-      if (!result.found) message.warning(result.error || 'Vehiculo no encontrado');
+      if (result.found) {
+        setMontoEfectivo(result.precio_total);
+        setMontoDigital(0);
+        setMedioPago('Efectivo');
+      } else {
+        message.warning(result.error || 'Vehiculo no encontrado');
+      }
     } catch {
       message.error('Error al buscar placa');
     } finally {
@@ -112,6 +128,14 @@ export default function CatPage() {
     }
     if (!customerName.trim()) {
       message.error('Ingrese el nombre del cliente');
+      return;
+    }
+    if (!dni.trim()) {
+      message.error('Ingrese el DNI del cliente');
+      return;
+    }
+    if (!customerAddress.trim()) {
+      message.error('Ingrese la direccion del cliente');
       return;
     }
 
@@ -179,9 +203,13 @@ export default function CatPage() {
       customer_phone: customerPhone,
       customer_address: customerAddress,
       paradero,
+      color_veh: colorVeh,
       precio: vehicleData.precio,
       ap_extra: vehicleData.ap_extra,
       total: vehicleData.precio_total,
+      medio_pago: medioPago,
+      monto_efectivo: montoEfectivo,
+      monto_digital: montoDigital,
       emit_in_afocat: !testMode,
       notes,
     });
@@ -263,10 +291,10 @@ export default function CatPage() {
 
                   {/* Customer lookup */}
                   <Card size="small" title="Datos del Cliente" style={{ marginBottom: 16 }}>
-                    <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
+                    <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
                       <Input
                         prefix={<UserOutlined />}
-                        placeholder="DNI (8 digitos)"
+                        placeholder="* DNI (8 digitos)"
                         value={dni}
                         onChange={(e) => setDni(e.target.value)}
                         onPressEnter={handleSearchDni}
@@ -283,13 +311,13 @@ export default function CatPage() {
                     </Space.Compact>
 
                     <Input
-                      placeholder="Nombre completo"
+                      placeholder="* Nombres y/o Razon Social"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      style={{ marginBottom: 12 }}
+                      style={{ marginBottom: 8 }}
                     />
 
-                    <Row gutter={12} style={{ marginBottom: 8 }}>
+                    <Row gutter={8} style={{ marginBottom: 8 }}>
                       <Col span={12}>
                         <Input
                           prefix={<PhoneOutlined />}
@@ -300,20 +328,75 @@ export default function CatPage() {
                       </Col>
                       <Col span={12}>
                         <Input
-                          placeholder="Direccion"
+                          placeholder="Paradero"
+                          value={paradero}
+                          onChange={(e) => setParadero(e.target.value)}
+                        />
+                      </Col>
+                    </Row>
+
+                    <Row gutter={8} style={{ marginBottom: 8 }}>
+                      <Col span={16}>
+                        <Input
+                          placeholder="* Direccion"
                           value={customerAddress}
                           onChange={(e) => setCustomerAddress(e.target.value)}
                         />
                       </Col>
+                      <Col span={8}>
+                        <Input
+                          placeholder="Distrito"
+                          value={distrito}
+                          onChange={(e) => setDistrito(e.target.value)}
+                        />
+                      </Col>
                     </Row>
-                    <Input
-                      placeholder="Paradero (permiso de operacion)"
-                      value={paradero}
-                      onChange={(e) => setParadero(e.target.value)}
-                    />
                   </Card>
 
-                  {/* Notes */}
+                  {/* Vehicle extras */}
+                  <Card size="small" title="Datos Adicionales" style={{ marginBottom: 16 }}>
+                    <Row gutter={8} style={{ marginBottom: 8 }}>
+                      <Col span={8}>
+                        <Input
+                          placeholder="Color vehiculo"
+                          value={colorVeh}
+                          onChange={(e) => setColorVeh(e.target.value)}
+                        />
+                      </Col>
+                      <Col span={8}>
+                        <Select
+                          placeholder="Medio de pago"
+                          value={medioPago}
+                          onChange={(v) => {
+                            setMedioPago(v);
+                            const total = vehicleData?.precio_total ?? 0;
+                            if (v === 'Efectivo') { setMontoEfectivo(total); setMontoDigital(0); }
+                            else if (v === 'YAPE' || v === 'PLIN' || v === 'Transferencia') { setMontoEfectivo(0); setMontoDigital(total); }
+                          }}
+                          style={{ width: '100%' }}
+                          options={[
+                            { value: 'Efectivo', label: 'Efectivo' },
+                            { value: 'YAPE', label: 'YAPE' },
+                            { value: 'PLIN', label: 'PLIN' },
+                            { value: 'Transferencia', label: 'Transferencia' },
+                          ]}
+                        />
+                      </Col>
+                      <Col span={8}>
+                        <InputNumber
+                          placeholder={medioPago === 'Efectivo' ? 'Monto efectivo' : 'Monto digital'}
+                          value={medioPago === 'Efectivo' ? montoEfectivo : montoDigital}
+                          onChange={(v) => {
+                            if (medioPago === 'Efectivo') setMontoEfectivo(v ?? 0);
+                            else setMontoDigital(v ?? 0);
+                          }}
+                          prefix="S/"
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
+
                   <Input.TextArea
                     placeholder="Notas (opcional)"
                     value={notes}
