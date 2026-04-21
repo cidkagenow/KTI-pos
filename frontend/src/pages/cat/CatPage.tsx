@@ -414,16 +414,41 @@ export default function CatPage() {
                     ),
                   },
                   {
+                    title: 'Cert #',
+                    dataIndex: 'certificate_number',
+                    key: 'certificate_number',
+                    width: 140,
+                    render: (v: string | null) => v ? <Tag color="green">{v}</Tag> : <Tag color="orange">TEST</Tag>,
+                  },
+                  {
                     title: '',
                     key: 'actions',
-                    width: 50,
+                    width: 80,
                     render: (_: unknown, r: any) => (
-                      <Button
-                        type="link"
-                        size="small"
-                        icon={<PrinterOutlined />}
-                        onClick={() => window.open(`/cat/${r.id}/print`, '_blank')}
-                      />
+                      <Space size="small">
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<PrinterOutlined />}
+                          onClick={() => window.open(`/cat/${r.id}/print`, '_blank')}
+                          title="Imprimir"
+                        />
+                        {r.certificate_number && (
+                          <Button
+                            type="link"
+                            size="small"
+                            icon={<CheckCircleOutlined />}
+                            onClick={() => {
+                              window.open(
+                                `https://syserp.afocatpiura.com/mPDF/REPORTES/CAT/${r.certificate_number}.pdf`,
+                                '_blank'
+                              );
+                            }}
+                            title="Verificar en AFOCAT"
+                            style={{ color: '#52c41a' }}
+                          />
+                        )}
+                      </Space>
                     ),
                   },
                 ]}
