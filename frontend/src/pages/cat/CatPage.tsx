@@ -216,6 +216,20 @@ export default function CatPage() {
   };
 
   const renewalCount = renewals?.length ?? 0;
+  const COMISION_PER_CERT = 10;
+
+  // Sales stats
+  const realSales = (sales ?? []).filter((s: any) => s.certificate_number && s.status === 'VENDIDO');
+  const today = new Date().toISOString().slice(0, 10);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
+  const salesToday = realSales.filter((s: any) => s.created_at?.slice(0, 10) === today);
+  const salesThisMonth = realSales.filter((s: any) => s.created_at?.slice(0, 7) === thisMonth);
+
+  const totalRevenue = realSales.reduce((sum: number, s: any) => sum + (s.total || 0), 0);
+  const totalCommission = realSales.length * COMISION_PER_CERT;
+  const monthRevenue = salesThisMonth.reduce((sum: number, s: any) => sum + (s.total || 0), 0);
+  const monthCommission = salesThisMonth.length * COMISION_PER_CERT;
 
   return (
     <div>
@@ -598,6 +612,108 @@ export default function CatPage() {
                     />
                   </>
                 )}
+              </>
+            ),
+          },
+          {
+            key: 'stats',
+            label: 'Seguimiento',
+            children: (
+              <>
+                <Row gutter={16} style={{ marginBottom: 20 }}>
+                  <Col span={6}>
+                    <Card size="small">
+                      <Statistic title="Hoy" value={salesToday.length} suffix="certs" />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card size="small">
+                      <Statistic title="Este Mes" value={salesThisMonth.length} suffix="certs" />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card size="small">
+                      <Statistic title="Total Historico" value={realSales.length} suffix="certs" />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card size="small">
+                      <Statistic title="Comision/cert" value={COMISION_PER_CERT} prefix="S/" valueStyle={{ color: '#52c41a' }} />
+                    </Card>
+                  </Col>
+                </Row>
+
+                <Row gutter={16} style={{ marginBottom: 20 }}>
+                  <Col span={8}>
+                    <Card size="small">
+                      <Statistic title="Ventas Hoy" value={salesToday.reduce((s: number, x: any) => s + (x.total || 0), 0)} prefix="S/" precision={2} />
+                      <div style={{ marginTop: 8, fontSize: 13, color: '#52c41a' }}>
+                        Comision: S/ {(salesToday.length * COMISION_PER_CERT).toFixed(2)}
+                      </div>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small">
+                      <Statistic title="Ventas del Mes" value={monthRevenue} prefix="S/" precision={2} />
+                      <div style={{ marginTop: 8, fontSize: 13, color: '#52c41a' }}>
+                        Comision: S/ {monthCommission.toFixed(2)}
+                      </div>
+                    </Card>
+                  </Col>
+                  <Col span={8}>
+                    <Card size="small">
+                      <Statistic title="Ventas Total" value={totalRevenue} prefix="S/" precision={2} />
+                      <div style={{ marginTop: 8, fontSize: 13, color: '#52c41a' }}>
+                        Comision: S/ {totalCommission.toFixed(2)}
+                      </div>
+                    </Card>
+                  </Col>
+                </Row>
+
+                <Table
+                  dataSource={realSales}
+                  rowKey="id"
+                  size="small"
+                  pagination={{ pageSize: 20 }}
+                  columns={[
+                    {
+                      title: 'Fecha',
+                      dataIndex: 'created_at',
+                      key: 'created_at',
+                      width: 100,
+                      render: (v: string) => new Date(v).toLocaleDateString('es-PE'),
+                    },
+                    { title: 'Cert #', dataIndex: 'certificate_number', key: 'cert', width: 150 },
+                    { title: 'Placa', dataIndex: 'placa', key: 'placa', width: 90 },
+                    { title: 'Cliente', dataIndex: 'customer_name', key: 'name', ellipsis: true },
+                    {
+                      title: 'Venta',
+                      dataIndex: 'total',
+                      key: 'total',
+                      width: 90,
+                      align: 'right',
+                      render: (v: number) => `S/ ${(v || 0).toFixed(2)}`,
+                    },
+                    {
+                      title: 'Comision',
+                      key: 'comision',
+                      width: 90,
+                      align: 'right',
+                      render: () => <span style={{ color: '#52c41a' }}>S/ {COMISION_PER_CERT.toFixed(2)}</span>,
+                    },
+                  ]}
+                  summary={(data) => {
+                    const totalVentas = data.reduce((s, r) => s + (r.total || 0), 0);
+                    const totalCom = data.length * COMISION_PER_CERT;
+                    return (
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell index={0} colSpan={4}><strong>TOTAL</strong></Table.Summary.Cell>
+                        <Table.Summary.Cell index={4} align="right"><strong>S/ {totalVentas.toFixed(2)}</strong></Table.Summary.Cell>
+                        <Table.Summary.Cell index={5} align="right"><strong style={{ color: '#52c41a' }}>S/ {totalCom.toFixed(2)}</strong></Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    );
+                  }}
+                />
               </>
             ),
           },
