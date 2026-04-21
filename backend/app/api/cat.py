@@ -152,12 +152,12 @@ def lookup_dni(
     except Exception:
         pass
 
-    # Fallback: Peru Consult API (RENIEC)
+    # Fallback: DeColecta API (RENIEC) — same API used by client module
     token = os.environ.get("PERU_CONSULT_API_TOKEN", "")
     if token and len(dni) == 8:
         try:
             resp = httpx_sync.get(
-                "https://api.peruconsult.net/api/v2/reniec/dni",
+                "https://api.decolecta.com/v1/reniec/dni",
                 params={"numero": dni},
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10,
