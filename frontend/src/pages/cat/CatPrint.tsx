@@ -38,7 +38,7 @@ const TOP_FIELDS = {
   marca:          { top: 24,  left: 165, width: 40 },
   asientos:       { top: 32,  left: 117, width: 30 },
   modelo:         { top: 32,  left: 165, width: 40 },
-  uso:            { top: 40,  left: 117, width: 40 },
+  uso:            { top: 40,  left: 117, width: 55 },
   vin:            { top: 40,  left: 165, width: 45 },
   // Certificate info (left side)
   certNumber:     { top: 42,  left: 16,  width: 55 },
@@ -66,7 +66,7 @@ const BOTTOM_FIELDS = {
   marca:          { top: 24,  left: 110, width: 35 },
   asientos:       { top: 32,  left: 68,  width: 25 },
   modelo:         { top: 32,  left: 110, width: 35 },
-  uso:            { top: 40,  left: 68,  width: 35 },
+  uso:            { top: 40,  left: 68,  width: 45 },
   vin:            { top: 40,  left: 110, width: 38 },
   // Certificate info (left side)
   certNumber:     { top: 42,  left: 10,  width: 45 },
