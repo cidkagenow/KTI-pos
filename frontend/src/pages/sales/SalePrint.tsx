@@ -142,9 +142,10 @@ export default function SalePrint() {
           print-color-adjust: exact;
         }
         .receipt, .receipt * {
-          font-weight: 600;
+          font-weight: normal;
+          letter-spacing: 0.5px;
         }
-        .bold { font-weight: 900 !important; }
+        .bold { font-weight: bold !important; }
         .receipt {
           max-width: 302px;
           margin: 0 auto;
