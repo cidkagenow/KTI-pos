@@ -69,6 +69,7 @@ class Sale(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="PREVENTA")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    placa: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ref_sale_id: Mapped[int | None] = mapped_column(
         ForeignKey("sales.id"), nullable=True
     )

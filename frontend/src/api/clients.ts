@@ -30,7 +30,7 @@ export async function searchClients(q: string): Promise<Client[]> {
   return data;
 }
 
-export async function lookupRUC(ruc: string): Promise<{ business_name: string; address: string }> {
+export async function lookupRUC(ruc: string): Promise<{ business_name: string; address: string; departamento?: string; provincia?: string; distrito?: string }> {
   const { data } = await api.get(`/lookup/ruc/${ruc}`);
   return data;
 }

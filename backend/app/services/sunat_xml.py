@@ -121,6 +121,10 @@ def build_invoice_xml(sale: Sale) -> bytes:
     _sub(root, "cbc", "DocumentCurrencyCode", "PEN",
          listID="ISO 4217 Alpha", listName="Currency", listAgencyName="United Nations Economic Commission for Europe")
 
+    # Vehicle plate number (optional)
+    if sale.placa:
+        _sub(root, "cbc", "Note", f"PLACA: {sale.placa.upper()}", languageLocaleID="1000")
+
     # Signature reference
     sig_ref = _sub(root, "cac", "Signature")
     _sub(sig_ref, "cbc", "ID", f"IDSign{ruc}")
@@ -169,6 +173,14 @@ def build_invoice_xml(sale: Sale) -> bytes:
          schemeAgencyName="PE:SUNAT", schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06")
     customer_legal = _sub(customer_party, "cac", "PartyLegalEntity")
     _sub(customer_legal, "cbc", "RegistrationName", client.business_name)
+    # Customer address (direccion + distrito + provincia + departamento)
+    customer_addr_parts = [p for p in [client.address, client.distrito, client.provincia, client.departamento] if p]
+    if customer_addr_parts:
+        cust_reg_addr = _sub(customer_legal, "cac", "RegistrationAddress")
+        if client.ubigeo:
+            _sub(cust_reg_addr, "cbc", "ID", client.ubigeo)
+        cust_addr_line = _sub(cust_reg_addr, "cac", "AddressLine")
+        _sub(cust_addr_line, "cbc", "Line", " - ".join(customer_addr_parts))
 
     # Calculate totals
     total_gravada = Decimal("0")

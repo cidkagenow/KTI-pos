@@ -19,6 +19,10 @@ export interface Client {
   business_name: string;
   ref_comercial: string | null;
   address: string | null;
+  departamento: string | null;
+  provincia: string | null;
+  distrito: string | null;
+  ubigeo: string | null;
   zona: string | null;
   phone: string | null;
   email: string | null;
@@ -140,6 +144,7 @@ export interface Sale {
   client_doc_type: string | null;
   client_doc_number: string | null;
   client_address: string | null;
+  client_zona: string | null;
   warehouse_id: number;
   seller_id: number | null;
   trabajador_id: number | null;
@@ -154,6 +159,7 @@ export interface Sale {
   total: number;
   status: string;
   notes: string | null;
+  placa: string | null;
   issue_date: string;
   created_at: string;
   updated_at: string | null;

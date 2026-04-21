@@ -119,6 +119,7 @@ export default function SaleForm() {
         payment_cond: existingSale.payment_cond,
         max_discount_pct: existingSale.max_discount_pct ?? 0,
         issue_date: existingSale.issue_date ? dayjs(existingSale.issue_date) : dayjs(),
+        placa: existingSale.placa,
       });
       setClientOptions([{ value: existingSale.client_id, label: existingSale.client_name }]);
       if (existingSale.payment_method) {
@@ -393,6 +394,7 @@ export default function SaleForm() {
       payment_method: paymentMethod,
       cash_received: paymentMethod === 'EFECTIVO' ? cashReceived : null,
       cash_change: paymentMethod === 'EFECTIVO' ? cashChange : null,
+      placa: values.placa || null,
       items: items
         .filter((item) => item.product_id)
         .map((item) => ({
@@ -921,6 +923,11 @@ export default function SaleForm() {
                 disabled={!isAdmin || (isEditing && existingSale?.status !== 'PREVENTA')}
                 allowClear={false}
               />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8} md={2}>
+            <Form.Item name="placa" label="Placa">
+              <Input placeholder="ABC-123" maxLength={10} style={{ textTransform: 'uppercase' }} />
             </Form.Item>
           </Col>
           <Col xs={24} sm={8} md={2} data-enter-skip>

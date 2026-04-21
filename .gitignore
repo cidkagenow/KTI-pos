@@ -12,3 +12,5 @@ certs/
 *.pfx
 *.pem
 *.p12
+backend/uploads/
+.vscode/

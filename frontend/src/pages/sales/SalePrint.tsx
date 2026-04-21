@@ -292,9 +292,14 @@ export default function SalePrint() {
               Doc: {sale.client_doc_type} - {sale.client_doc_number}
             </div>
           )}
-          {sale.client_address && (
+          {(sale.client_address || sale.client_zona) && (
             <div className="info-line">
-              Dir: {sale.client_address}
+              Dir: {[sale.client_address, sale.client_zona].filter(Boolean).join(' - ')}
+            </div>
+          )}
+          {sale.placa && (
+            <div className="info-line">
+              Placa: {sale.placa}
             </div>
           )}
         </div>

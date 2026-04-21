@@ -8,6 +8,10 @@ class ClientOut(BaseModel):
     business_name: str
     ref_comercial: str | None
     address: str | None
+    departamento: str | None = None
+    provincia: str | None = None
+    distrito: str | None = None
+    ubigeo: str | None = None
     zona: str | None
     phone: str | None
     email: str | None
@@ -26,6 +30,10 @@ class ClientCreate(BaseModel):
     business_name: str
     ref_comercial: str | None = None
     address: str | None = None
+    departamento: str | None = None
+    provincia: str | None = None
+    distrito: str | None = None
+    ubigeo: str | None = None
     zona: str | None = None
     phone: str | None = None
     email: str | None = None
@@ -40,6 +48,10 @@ class ClientUpdate(BaseModel):
     business_name: str | None = None
     ref_comercial: str | None = None
     address: str | None = None
+    departamento: str | None = None
+    provincia: str | None = None
+    distrito: str | None = None
+    ubigeo: str | None = None
     zona: str | None = None
     phone: str | None = None
     email: str | None = None

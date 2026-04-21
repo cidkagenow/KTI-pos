@@ -56,6 +56,7 @@ class SaleCreate(BaseModel):
     issue_date: date | None = None
     items: list[SaleItemIn]
     notes: str | None = None
+    placa: str | None = None
 
 
 class NotaCreditoItemIn(BaseModel):
@@ -82,6 +83,7 @@ class SaleOut(BaseModel):
     client_doc_type: str | None = None
     client_doc_number: str | None = None
     client_address: str | None = None
+    client_zona: str | None = None
     warehouse_id: int
     seller_id: int | None = None
     trabajador_id: int | None = None
@@ -96,6 +98,7 @@ class SaleOut(BaseModel):
     total: float
     status: str
     notes: str | None
+    placa: str | None = None
     issue_date: date
     created_at: datetime
     updated_at: datetime | None = None

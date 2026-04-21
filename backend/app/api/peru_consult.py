@@ -39,16 +39,13 @@ async def lookup_ruc(numero: str, _=Depends(get_current_user)):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Error en servicio SUNAT")
 
     data = resp.json()
-    parts = [data.get("direccion", "")]
-    for field in ("departamento", "provincia", "distrito"):
-        val = data.get(field)
-        if val:
-            parts.append(val)
-    address = " - ".join(p for p in parts if p)
 
     return {
         "business_name": data.get("razon_social", ""),
-        "address": address,
+        "address": data.get("direccion", ""),
+        "departamento": (data.get("departamento") or "").upper(),
+        "provincia": (data.get("provincia") or "").upper(),
+        "distrito": (data.get("distrito") or "").upper(),
     }
 
 

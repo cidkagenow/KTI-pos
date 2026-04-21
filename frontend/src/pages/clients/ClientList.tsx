@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   Button,
@@ -23,10 +23,113 @@ import { getClients, createClient, updateClient, deleteClient, lookupRUC, lookup
 import { useAuth } from '../../contexts/AuthContext';
 import useEnterNavigation from '../../hooks/useEnterNavigation';
 import useFuzzyFilter from '../../hooks/useFuzzyFilter';
+import ubigeoData from '../../data/ubigeo.json';
 import type { Client } from '../../types';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title } = Typography;
+
+function DireccionTab({ form }: { form: any }) {
+  const dep = Form.useWatch('departamento', form);
+  const prov = Form.useWatch('provincia', form);
+
+  const depOptions = useMemo(
+    () => ubigeoData.departamentos.map((d: any) => ({ value: d.name, label: d.name })),
+    []
+  );
+
+  const provOptions = useMemo(() => {
+    if (!dep) return [];
+    const depEntry = ubigeoData.departamentos.find((d: any) => d.name === dep);
+    if (!depEntry) return [];
+    const provs = (ubigeoData.provincias as any)[depEntry.id] || [];
+    return provs.map((p: any) => ({ value: p.name, label: p.name }));
+  }, [dep]);
+
+  const distOptions = useMemo(() => {
+    if (!dep || !prov) return [];
+    const depEntry = ubigeoData.departamentos.find((d: any) => d.name === dep);
+    if (!depEntry) return [];
+    const provs = (ubigeoData.provincias as any)[depEntry.id] || [];
+    const provEntry = provs.find((p: any) => p.name === prov);
+    if (!provEntry) return [];
+    const dists = (ubigeoData.distritos as any)[provEntry.id] || [];
+    return dists.map((d: any) => ({ value: d.name, label: d.name, ubigeo: d.id }));
+  }, [dep, prov]);
+
+  const handleDepChange = (val: string) => {
+    form.setFieldsValue({ departamento: val, provincia: undefined, distrito: undefined, ubigeo: undefined, zona: undefined });
+  };
+
+  const handleProvChange = (val: string) => {
+    form.setFieldsValue({ provincia: val, distrito: undefined, ubigeo: undefined, zona: undefined });
+  };
+
+  const handleDistChange = (val: string) => {
+    const opt = distOptions.find((d: any) => d.value === val);
+    form.setFieldsValue({ distrito: val, ubigeo: opt?.ubigeo || '', zona: val });
+  };
+
+  return (
+    <>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name="departamento" label="Departamento">
+            <Select
+              showSearch
+              allowClear
+              placeholder="Seleccionar"
+              options={depOptions}
+              onChange={handleDepChange}
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="provincia" label="Provincia">
+            <Select
+              showSearch
+              allowClear
+              placeholder="Seleccionar"
+              options={provOptions}
+              onChange={handleProvChange}
+              disabled={!dep}
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="distrito" label="Distrito">
+            <Select
+              showSearch
+              allowClear
+              placeholder="Seleccionar"
+              options={distOptions}
+              onChange={handleDistChange}
+              disabled={!prov}
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+      <Form.Item name="address" label="Direccion">
+        <Input placeholder="Calle, Avenida, Jiron, etc." />
+      </Form.Item>
+      <Form.Item name="zona" label="Zona" tooltip="Se auto-completa con el distrito seleccionado">
+        <Input />
+      </Form.Item>
+      <Form.Item name="ubigeo" hidden>
+        <Input />
+      </Form.Item>
+    </>
+  );
+}
 
 export default function ClientList() {
   const queryClient = useQueryClient();
@@ -51,7 +154,15 @@ export default function ClientList() {
     try {
       if (docType === 'RUC') {
         const result = await lookupRUC(docNumber);
-        form.setFieldsValue({ business_name: result.business_name, address: result.address });
+        const fields: any = { business_name: result.business_name, address: result.address };
+        // Auto-fill ubigeo fields from SUNAT response
+        if (result.departamento) fields.departamento = result.departamento;
+        if (result.provincia) fields.provincia = result.provincia;
+        if (result.distrito) {
+          fields.distrito = result.distrito;
+          fields.zona = result.distrito;
+        }
+        form.setFieldsValue(fields);
       } else {
         const result = await lookupDNI(docNumber);
         form.setFieldsValue({ business_name: result.business_name });
@@ -122,6 +233,10 @@ export default function ClientList() {
       email: client.email,
       comentario: client.comentario,
       address: client.address,
+      departamento: client.departamento,
+      provincia: client.provincia,
+      distrito: client.distrito,
+      ubigeo: client.ubigeo,
       zona: client.zona,
       credit_limit: client.credit_limit,
       credit_days: client.credit_days,
@@ -304,16 +419,7 @@ export default function ClientList() {
     {
       key: 'direccion',
       label: 'Direccion',
-      children: (
-        <>
-          <Form.Item name="address" label="Direccion">
-            <Input />
-          </Form.Item>
-          <Form.Item name="zona" label="Zona">
-            <Input />
-          </Form.Item>
-        </>
-      ),
+      children: <DireccionTab form={form} />,
     },
     {
       key: 'credito',

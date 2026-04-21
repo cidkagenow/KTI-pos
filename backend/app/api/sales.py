@@ -104,6 +104,7 @@ def _sale_to_out(sale: Sale) -> SaleOut:
         client_doc_type=sale.client.doc_type if sale.client else None,
         client_doc_number=sale.client.doc_number if sale.client else None,
         client_address=sale.client.address if sale.client else None,
+        client_zona=sale.client.zona if sale.client else None,
         warehouse_id=sale.warehouse_id,
         seller_id=sale.seller_id,
         trabajador_id=sale.trabajador_id,
@@ -118,6 +119,7 @@ def _sale_to_out(sale: Sale) -> SaleOut:
         total=float(sale.total),
         status=sale.status,
         notes=sale.notes,
+        placa=sale.placa,
         issue_date=sale.issue_date,
         created_at=sale.created_at,
         updated_at=sale.updated_at,
@@ -305,6 +307,7 @@ def create_sale(
         total=total,
         status="PREVENTA",
         notes=data.notes,
+        placa=data.placa.upper().strip() if data.placa else None,
         issue_date=data.issue_date or date.today(),
         items=sale_items,
     )
@@ -654,6 +657,7 @@ def update_sale(
     sale.igv_amount = igv_amount
     sale.total = total
     sale.notes = data.notes
+    sale.placa = data.placa.upper().strip() if data.placa else None
     if data.issue_date:
         sale.issue_date = data.issue_date
     sale.items = sale_items
