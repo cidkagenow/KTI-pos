@@ -6,59 +6,83 @@ import type { CatSale } from '../../api/cat';
 /**
  * CAT Print Page — prints data overlay on pre-printed AFOCAT paper.
  *
- * The pre-printed A4 sheet has 4 copies (2x2 grid):
- * - Top-left: original
- * - Top-right: vehicle data
- * - Bottom-left: copy
- * - Bottom-right: vehicle data copy
+ * A4 LANDSCAPE (297mm x 210mm) pre-printed paper layout:
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  TOP SECTION (full width, ~105mm tall)                   │
+ * │  Left: cert info + customer    Right: vehicle + sticker  │
+ * ├────────────────────────────┬─────────────────────────────┤
+ * │  BOTTOM-LEFT (~148mm wide) │  BOTTOM-RIGHT (~148mm wide) │
+ * │  Copy 1 (same fields)     │  Copy 2 (same fields)       │
+ * └────────────────────────────┴─────────────────────────────┘
  *
- * Each quadrant is ~148mm x ~148mm.
- * We only print TEXT — the paper already has borders, logos, labels.
- *
- * To calibrate: adjust the top/left values in the field positions below.
- * Print on blank paper and overlay on pre-printed paper against light.
+ * Carbon copy layers print through — but bottom copies need separate data
+ * because they're in different positions on the same sheet.
  */
 
-// All positions in mm from top-left of A4 LANDSCAPE paper (297mm x 210mm)
-// Pre-printed paper: 3 carbon-copy layers stacked (prints once, copies through)
-// Left section (~105mm): certificate info + customer data
-// Middle section (~85mm): vehicle data
-// Right section (~105mm): sticker (green, for windshield) — not printed
-//
-// Only ONE set of fields needed — the carbon copies the data to all layers.
+// ═══ SECTION ORIGINS (top-left corner of each section) ═══
+const SECTIONS = {
+  top:         { x: 0,   y: 0   },
+  bottomLeft:  { x: 0,   y: 105 },
+  bottomRight: { x: 148, y: 105 },
+};
 
-const FIELDS = {
-  // ═══ LEFT SECTION — Certificate + Customer ═══
-  // Certificate number (below QR code area, "Nro del Certificado")
-  certNumber: { top: 42, left: 16, width: 55 },
-  // Dates (DESDE / HASTA)
-  desde: { top: 56, left: 12, width: 40 },
-  hasta: { top: 60, left: 12, width: 40 },
-  // Customer name (NOMBRE)
-  customerName: { top: 73, left: 5, width: 100 },
-  // DNI + Phone
-  customerDni: { top: 79, left: 5, width: 40 },
-  customerPhone: { top: 79, left: 52, width: 40 },
-  // Address
-  customerAddress: { top: 85, left: 5, width: 100 },
-  // Ambito
-  ambito: { top: 91, left: 5, width: 60 },
+// ═══ FIELD POSITIONS relative to section origin ═══
+// TOP section is full-width (297mm), bottom sections are half-width (~148mm)
+// We define separate field sets for top vs bottom due to different layouts
 
-  // ═══ MIDDLE SECTION — Vehicle Data ═══
-  placa: { top: 16, left: 117, width: 30 },
-  categoriaClase: { top: 16, left: 165, width: 40 },
-  añoFab: { top: 24, left: 117, width: 30 },
-  marca: { top: 24, left: 165, width: 40 },
-  asientos: { top: 32, left: 117, width: 30 },
-  modelo: { top: 32, left: 165, width: 40 },
-  uso: { top: 40, left: 117, width: 40 },
-  vin: { top: 40, left: 165, width: 45 },
+const TOP_FIELDS = {
+  // Vehicle data (right side of top section)
+  placa:          { top: 16,  left: 117, width: 30 },
+  categoriaClase: { top: 16,  left: 165, width: 40 },
+  añoFab:         { top: 24,  left: 117, width: 30 },
+  marca:          { top: 24,  left: 165, width: 40 },
+  asientos:       { top: 32,  left: 117, width: 30 },
+  modelo:         { top: 32,  left: 165, width: 40 },
+  uso:            { top: 40,  left: 117, width: 40 },
+  vin:            { top: 40,  left: 165, width: 45 },
+  // Certificate info (left side)
+  certNumber:     { top: 42,  left: 16,  width: 55 },
+  desde:          { top: 56,  left: 12,  width: 40 },
+  hasta:          { top: 60,  left: 12,  width: 40 },
+  // Customer data
+  customerName:   { top: 73,  left: 5,   width: 100 },
+  customerDni:    { top: 79,  left: 5,   width: 40 },
+  customerPhone:  { top: 79,  left: 52,  width: 40 },
+  customerAddress:{ top: 85,  left: 5,   width: 100 },
+  ambito:         { top: 91,  left: 5,   width: 60 },
+  // Pricing
+  fecha:          { top: 94,  left: 25,  width: 25 },
+  precio:         { top: 94,  left: 68,  width: 18 },
+  apExtra:        { top: 94,  left: 85,  width: 18 },
+  montoTotal:     { top: 94,  left: 98,  width: 18 },
+};
 
-  // ═══ BOTTOM OF LEFT — Pricing (Fecha, Precio, Aporte) ═══
-  fecha: { top: 94, left: 25, width: 25 },
-  precio: { top: 94, left: 68, width: 18 },
-  apExtra: { top: 94, left: 85, width: 18 },
-  montoTotal: { top: 94, left: 98, width: 18 },
+// Bottom copies are smaller (~148mm x 105mm) — same fields, adjusted positions
+const BOTTOM_FIELDS = {
+  // Vehicle data (right portion of each bottom copy)
+  placa:          { top: 16,  left: 68,  width: 25 },
+  categoriaClase: { top: 16,  left: 110, width: 35 },
+  añoFab:         { top: 24,  left: 68,  width: 25 },
+  marca:          { top: 24,  left: 110, width: 35 },
+  asientos:       { top: 32,  left: 68,  width: 25 },
+  modelo:         { top: 32,  left: 110, width: 35 },
+  uso:            { top: 40,  left: 68,  width: 35 },
+  vin:            { top: 40,  left: 110, width: 38 },
+  // Certificate info (left side)
+  certNumber:     { top: 42,  left: 10,  width: 45 },
+  desde:          { top: 56,  left: 8,   width: 35 },
+  hasta:          { top: 60,  left: 8,   width: 35 },
+  // Customer data
+  customerName:   { top: 73,  left: 3,   width: 80 },
+  customerDni:    { top: 79,  left: 3,   width: 30 },
+  customerPhone:  { top: 79,  left: 40,  width: 30 },
+  customerAddress:{ top: 85,  left: 3,   width: 80 },
+  ambito:         { top: 91,  left: 3,   width: 50 },
+  // Pricing
+  fecha:          { top: 94,  left: 18,  width: 20 },
+  precio:         { top: 94,  left: 50,  width: 15 },
+  apExtra:        { top: 94,  left: 65,  width: 15 },
+  montoTotal:     { top: 94,  left: 78,  width: 15 },
 };
 
 function Field({ top, left, width, children, fontSize = 9 }: {
@@ -82,13 +106,57 @@ function Field({ top, left, width, children, fontSize = 9 }: {
   );
 }
 
+function SectionFields({
+  sale, desde, hasta, certNum, fields, origin, fontSize = 9,
+}: {
+  sale: CatSale; desde: string; hasta: string; certNum: string;
+  fields: typeof TOP_FIELDS; origin: { x: number; y: number }; fontSize?: number;
+}) {
+  const f = (field: { top: number; left: number; width: number }) => ({
+    top: field.top + origin.y,
+    left: field.left + origin.x,
+    width: field.width,
+  });
+
+  return (
+    <>
+      {/* Vehicle Data */}
+      <Field {...f(fields.placa)} fontSize={fontSize}>{sale.placa}</Field>
+      <Field {...f(fields.categoriaClase)} fontSize={fontSize}>{sale.categoria} / {sale.clase}</Field>
+      <Field {...f(fields.añoFab)} fontSize={fontSize}>{sale.año}</Field>
+      <Field {...f(fields.marca)} fontSize={fontSize}>{sale.marca}</Field>
+      <Field {...f(fields.asientos)} fontSize={fontSize}>{sale.asientos}</Field>
+      <Field {...f(fields.modelo)} fontSize={fontSize}>{sale.modelo}</Field>
+      <Field {...f(fields.uso)} fontSize={fontSize}>{sale.uso}</Field>
+      <Field {...f(fields.vin)} fontSize={Math.max(fontSize - 2, 6)}>{sale.serie_vehiculo}</Field>
+
+      {/* Certificate Info */}
+      <Field {...f(fields.certNumber)} fontSize={fontSize}>{certNum}</Field>
+      <Field {...f(fields.desde)} fontSize={fontSize}>{desde}</Field>
+      <Field {...f(fields.hasta)} fontSize={fontSize}>{hasta}</Field>
+
+      {/* Customer Data */}
+      <Field {...f(fields.customerName)} fontSize={fontSize}>{sale.customer_name}</Field>
+      <Field {...f(fields.customerDni)} fontSize={fontSize}>{sale.customer_dni}</Field>
+      <Field {...f(fields.customerPhone)} fontSize={fontSize}>{sale.customer_phone}</Field>
+      <Field {...f(fields.customerAddress)} fontSize={fontSize}>{sale.customer_address}</Field>
+      <Field {...f(fields.ambito)} fontSize={fontSize}>PIURA</Field>
+
+      {/* Pricing */}
+      <Field {...f(fields.fecha)} fontSize={fontSize}>{desde}</Field>
+      <Field {...f(fields.precio)} fontSize={fontSize}>S/{sale.precio}</Field>
+      <Field {...f(fields.apExtra)} fontSize={fontSize}>S/{sale.ap_extra}</Field>
+      <Field {...f(fields.montoTotal)} fontSize={fontSize}>S/{sale.total}</Field>
+    </>
+  );
+}
+
 export default function CatPrint() {
   const { id } = useParams<{ id: string }>();
   const [sale, setSale] = useState<CatSale | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Test mode: /cat/test/print uses dummy data (no backend needed)
     if (id === 'test') {
       setSale({
         id: 0,
@@ -104,7 +172,7 @@ export default function CatPrint() {
         uso: 'SERVICIO PUBLICO URBANO',
         customer_name: 'CESAR AUGUSTO QUINDE VALDIVIEZO',
         customer_dni: '02701532',
-        customer_phone: '',
+        customer_phone: '987654321',
         customer_address: 'JR.MARIANO DIAZ 1348 - CATACAOS',
         fecha_desde: '20/04/2026',
         fecha_hasta: '20/04/2027',
@@ -157,41 +225,31 @@ export default function CatPrint() {
         }
       `}</style>
 
-      {/* Calibration help — only visible on screen, not printed */}
       <div className="no-print" style={{ padding: 16, textAlign: 'center', background: '#fff3cd', color: '#856404' }}>
         Vista previa — imprima en papel blanco y compare con el papel pre-impreso.
-        Ajuste las posiciones en CatPrint.tsx si no alinea.
         <button onClick={() => window.print()} style={{ marginLeft: 16, padding: '4px 16px', cursor: 'pointer' }}>
           Imprimir
         </button>
       </div>
 
       <div className="print-page" style={{ position: 'relative', width: '297mm', height: '210mm', overflow: 'hidden' }}>
-        {/* LEFT: Certificate + Customer */}
-        <Field {...FIELDS.certNumber}>{certNum}</Field>
-        <Field {...FIELDS.desde}>{desde}</Field>
-        <Field {...FIELDS.hasta}>{hasta}</Field>
-        <Field {...FIELDS.customerName}>{sale.customer_name}</Field>
-        <Field {...FIELDS.customerDni}>{sale.customer_dni}</Field>
-        <Field {...FIELDS.customerPhone}>{sale.customer_phone}</Field>
-        <Field {...FIELDS.customerAddress}>{sale.customer_address}</Field>
-        <Field {...FIELDS.ambito}>PIURA</Field>
+        {/* TOP SECTION — full width */}
+        <SectionFields
+          sale={sale} desde={desde} hasta={hasta} certNum={certNum}
+          fields={TOP_FIELDS} origin={SECTIONS.top} fontSize={9}
+        />
 
-        {/* MIDDLE: Vehicle Data */}
-        <Field {...FIELDS.placa}>{sale.placa}</Field>
-        <Field {...FIELDS.categoriaClase}>{sale.categoria} / {sale.clase}</Field>
-        <Field {...FIELDS.añoFab}>{sale.año}</Field>
-        <Field {...FIELDS.marca}>{sale.marca}</Field>
-        <Field {...FIELDS.asientos}>{sale.asientos}</Field>
-        <Field {...FIELDS.modelo}>{sale.modelo}</Field>
-        <Field {...FIELDS.uso}>{sale.uso}</Field>
-        <Field {...FIELDS.vin} fontSize={7}>{sale.serie_vehiculo}</Field>
+        {/* BOTTOM-LEFT COPY */}
+        <SectionFields
+          sale={sale} desde={desde} hasta={hasta} certNum={certNum}
+          fields={BOTTOM_FIELDS} origin={SECTIONS.bottomLeft} fontSize={8}
+        />
 
-        {/* BOTTOM: Pricing */}
-        <Field {...FIELDS.fecha}>{desde}</Field>
-        <Field {...FIELDS.precio}>S/{sale.precio}</Field>
-        <Field {...FIELDS.apExtra}>S/{sale.ap_extra}</Field>
-        <Field {...FIELDS.montoTotal}>S/{sale.total}</Field>
+        {/* BOTTOM-RIGHT COPY */}
+        <SectionFields
+          sale={sale} desde={desde} hasta={hasta} certNum={certNum}
+          fields={BOTTOM_FIELDS} origin={SECTIONS.bottomRight} fontSize={8}
+        />
       </div>
     </>
   );
