@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Typography, Tabs, Card, Input, Button, Form, Row, Col, Tag, Table, Space,
-  Statistic, Spin, message, Descriptions, Empty, Badge,
+  Statistic, Spin, message, Descriptions, Empty, Badge, Modal,
 } from 'antd';
 import {
   SearchOutlined, CarOutlined, UserOutlined, PhoneOutlined,
@@ -111,6 +111,27 @@ export default function CatPage() {
       message.error('Ingrese el nombre del cliente');
       return;
     }
+
+    Modal.confirm({
+      title: 'Confirmar Venta de CAT',
+      content: (
+        <div>
+          <p>Se emitira un certificado real en AFOCAT para:</p>
+          <p><strong>Placa:</strong> {vehicleData.placa}</p>
+          <p><strong>Cliente:</strong> {customerName}</p>
+          <p><strong>Total:</strong> S/ {vehicleData.precio_total}</p>
+          <p style={{ color: '#faad14', marginTop: 12 }}>Esta accion no se puede deshacer.</p>
+        </div>
+      ),
+      okText: 'Emitir CAT',
+      cancelText: 'Cancelar',
+      okType: 'primary',
+      onOk: doSell,
+    });
+  };
+
+  const doSell = () => {
+    if (!vehicleData?.found) return;
 
     // Split customer name into parts for AFOCAT API
     const nameParts = customerName.trim().split(' ');
