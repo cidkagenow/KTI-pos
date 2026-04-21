@@ -95,7 +95,22 @@ export default function StockLevels() {
   const handleAdjust = async () => {
     try {
       const values = await form.validateFields();
-      adjustMutation.mutate(values);
+      const product = products?.find((p) => p.id === values.product_id);
+      Modal.confirm({
+        title: 'Confirmar Ajuste de Stock',
+        content: (
+          <div>
+            <p>Esto modificara el stock directamente en la base de datos.</p>
+            <p><strong>Producto:</strong> {product ? `${product.code} - ${product.name}` : values.product_id}</p>
+            <p><strong>Nueva cantidad:</strong> {values.new_quantity}</p>
+            <p style={{ color: '#faad14', marginTop: 8 }}>Solo usar para correciones de inventario fisico.</p>
+          </div>
+        ),
+        okText: 'Aplicar Ajuste',
+        cancelText: 'Cancelar',
+        okType: 'primary',
+        onOk: () => adjustMutation.mutate(values),
+      });
     } catch {
       // validation failed
     }

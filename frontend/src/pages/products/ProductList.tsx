@@ -222,7 +222,23 @@ export default function ProductList() {
             autoFocus
             value={editingStockValue}
             onChange={(v) => setEditingStockValue(v ?? 0)}
-            onPressEnter={() => adjustMutation.mutate({ product_id: record.id, new_quantity: editingStockValue })}
+            onPressEnter={() => {
+              Modal.confirm({
+                title: 'Confirmar Ajuste de Stock',
+                content: (
+                  <div>
+                    <p>Modificar stock directamente:</p>
+                    <p><strong>{record.code} - {record.name}</strong></p>
+                    <p>Stock actual: {stock} → Nuevo: {editingStockValue}</p>
+                    <p style={{ color: '#faad14', marginTop: 8 }}>Solo usar para correciones de inventario fisico.</p>
+                  </div>
+                ),
+                okText: 'Aplicar',
+                cancelText: 'Cancelar',
+                onOk: () => adjustMutation.mutate({ product_id: record.id, new_quantity: editingStockValue }),
+                onCancel: () => setEditingStockId(null),
+              });
+            }}
             onBlur={() => setEditingStockId(null)}
             style={{ width: 80 }}
           />
