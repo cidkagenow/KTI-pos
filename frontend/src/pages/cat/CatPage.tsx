@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Typography, Tabs, Card, Input, Button, Form, Row, Col, Tag, Table, Space,
-  Statistic, Spin, message, Descriptions, Empty, Badge, Modal,
+  Statistic, Spin, message, Descriptions, Empty, Badge, Modal, Switch,
 } from 'antd';
 import {
   SearchOutlined, CarOutlined, UserOutlined, PhoneOutlined,
@@ -30,6 +30,7 @@ export default function CatPage() {
   const [loadingPlaca, setLoadingPlaca] = useState(false);
   const [loadingDni, setLoadingDni] = useState(false);
   const [notes, setNotes] = useState('');
+  const [testMode, setTestMode] = useState(false);
 
   // Queries
   const { data: sales, isLoading: salesLoading } = useQuery({
@@ -112,22 +113,40 @@ export default function CatPage() {
       return;
     }
 
-    Modal.confirm({
-      title: 'Confirmar Venta de CAT',
-      content: (
-        <div>
-          <p>Se emitira un certificado real en AFOCAT para:</p>
-          <p><strong>Placa:</strong> {vehicleData.placa}</p>
-          <p><strong>Cliente:</strong> {customerName}</p>
-          <p><strong>Total:</strong> S/ {vehicleData.precio_total}</p>
-          <p style={{ color: '#faad14', marginTop: 12 }}>Esta accion no se puede deshacer.</p>
-        </div>
-      ),
-      okText: 'Emitir CAT',
-      cancelText: 'Cancelar',
-      okType: 'primary',
-      onOk: doSell,
-    });
+    if (testMode) {
+      Modal.confirm({
+        title: 'MODO PRUEBA — Simular Venta',
+        content: (
+          <div>
+            <p>Se guardara localmente SIN emitir en AFOCAT:</p>
+            <p><strong>Placa:</strong> {vehicleData.placa}</p>
+            <p><strong>Cliente:</strong> {customerName}</p>
+            <p><strong>Total:</strong> S/ {vehicleData.precio_total}</p>
+            <p style={{ color: '#52c41a', marginTop: 12 }}>Modo prueba — no se creara certificado real.</p>
+          </div>
+        ),
+        okText: 'Guardar Prueba',
+        cancelText: 'Cancelar',
+        onOk: doSell,
+      });
+    } else {
+      Modal.confirm({
+        title: 'Confirmar Venta de CAT',
+        content: (
+          <div>
+            <p>Se emitira un certificado real en AFOCAT para:</p>
+            <p><strong>Placa:</strong> {vehicleData.placa}</p>
+            <p><strong>Cliente:</strong> {customerName}</p>
+            <p><strong>Total:</strong> S/ {vehicleData.precio_total}</p>
+            <p style={{ color: '#faad14', marginTop: 12 }}>Esta accion no se puede deshacer.</p>
+          </div>
+        ),
+        okText: 'Emitir CAT',
+        cancelText: 'Cancelar',
+        okType: 'primary',
+        onOk: doSell,
+      });
+    }
   };
 
   const doSell = () => {
@@ -160,7 +179,7 @@ export default function CatPage() {
       precio: vehicleData.precio,
       ap_extra: vehicleData.ap_extra,
       total: vehicleData.precio_total,
-      emit_in_afocat: true,
+      emit_in_afocat: !testMode,
       notes,
     });
   };
@@ -169,10 +188,17 @@ export default function CatPage() {
 
   return (
     <div>
-      <Title level={3} style={{ margin: 0, marginBottom: 16 }}>
-        <CarOutlined style={{ marginRight: 8 }} />
-        CAT / AFOCAT
-      </Title>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Title level={3} style={{ margin: 0 }}>
+          <CarOutlined style={{ marginRight: 8 }} />
+          CAT / AFOCAT
+          {testMode && <Tag color="orange" style={{ marginLeft: 8, verticalAlign: 'middle' }}>MODO PRUEBA</Tag>}
+        </Title>
+        <Space>
+          <span style={{ fontSize: 12, opacity: 0.5 }}>Modo prueba</span>
+          <Switch checked={testMode} onChange={setTestMode} size="small" />
+        </Space>
+      </div>
 
       <Tabs
         defaultActiveKey="new"
@@ -331,9 +357,9 @@ export default function CatPage() {
                     disabled={!vehicleData?.found}
                     loading={saveMutation.isPending}
                     onClick={handleSave}
-                    style={{ height: 48, marginBottom: 8 }}
+                    style={{ height: 48, marginBottom: 8, background: testMode ? '#faad14' : undefined }}
                   >
-                    Registrar CAT
+                    {testMode ? 'Prueba — Guardar sin emitir' : 'Registrar CAT'}
                   </Button>
                   <Button block onClick={resetForm}>
                     Limpiar
