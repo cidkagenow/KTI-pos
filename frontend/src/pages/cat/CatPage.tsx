@@ -27,6 +27,7 @@ export default function CatPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [paradero, setParadero] = useState('');
   const [loadingPlaca, setLoadingPlaca] = useState(false);
   const [loadingDni, setLoadingDni] = useState(false);
   const [notes, setNotes] = useState('');
@@ -66,6 +67,7 @@ export default function CatPage() {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
+    setParadero('');
     setNotes('');
   };
 
@@ -176,6 +178,7 @@ export default function CatPage() {
       customer_dni: dni,
       customer_phone: customerPhone,
       customer_address: customerAddress,
+      paradero,
       precio: vehicleData.precio,
       ap_extra: vehicleData.ap_extra,
       total: vehicleData.precio_total,
@@ -286,7 +289,7 @@ export default function CatPage() {
                       style={{ marginBottom: 12 }}
                     />
 
-                    <Row gutter={12}>
+                    <Row gutter={12} style={{ marginBottom: 8 }}>
                       <Col span={12}>
                         <Input
                           prefix={<PhoneOutlined />}
@@ -303,6 +306,11 @@ export default function CatPage() {
                         />
                       </Col>
                     </Row>
+                    <Input
+                      placeholder="Paradero (permiso de operacion)"
+                      value={paradero}
+                      onChange={(e) => setParadero(e.target.value)}
+                    />
                   </Card>
 
                   {/* Notes */}
