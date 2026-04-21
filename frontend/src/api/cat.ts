@@ -16,6 +16,7 @@ export interface PlacaLookup {
   precio_total: number;
   vigencia_dias: number;
   vigente: boolean;
+  n_tecnica: number | null;
   error: string | null;
 }
 

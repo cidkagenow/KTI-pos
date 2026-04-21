@@ -33,6 +33,7 @@ class PlacaLookupResponse(BaseModel):
     precio_total: float = 0
     vigencia_dias: int = 0
     vigente: bool = False
+    n_tecnica: int | None = None
     error: str | None = None
 
 
@@ -48,6 +49,7 @@ class DniLookupResponse(BaseModel):
 
 
 class CatSaleCreate(BaseModel):
+    # Vehicle
     placa: str
     marca: str | None = None
     modelo: str | None = None
@@ -57,13 +59,28 @@ class CatSaleCreate(BaseModel):
     categoria: str | None = None
     clase: str | None = None
     uso: str | None = None
+    color_veh: str = ""
+    idn_tecnica: int | None = None
+    # Customer
     customer_name: str
+    ap_paterno: str = ""
+    ap_materno: str = ""
+    nom_razon: str = ""
     customer_dni: str | None = None
     customer_phone: str | None = None
     customer_address: str | None = None
+    nacionalidad: str = "PERÚ"
+    paradero: str = ""
+    ambito: int = 200101
+    n_ambito: str = "PIURA"
+    ubigeo: int = 0
+    n_ubigeo: str = ""
+    # Pricing
     precio: float | None = None
     ap_extra: float | None = None
     total: float | None = None
+    # Options
+    emit_in_afocat: bool = True  # If True, calls AFOCAT API to emit real certificate
     notes: str | None = None
 
 
@@ -169,8 +186,65 @@ def create_cat_sale(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Record a CAT sale in the local database."""
+    """Sell a CAT certificate — calls AFOCAT API to emit, then saves locally."""
+    from datetime import date, timedelta
+
+    cert_number = None
+    pdf_cat_path = None
+    pdf_boleta_path = None
+    fecha_desde = date.today().strftime("%d/%m/%Y")
+    fecha_hasta = (date.today() + timedelta(days=365)).strftime("%d/%m/%Y")
+
+    if data.emit_in_afocat:
+        try:
+            client = get_afocat_client()
+
+            result = client.sell_cat(
+                ap_paterno=data.ap_paterno,
+                ap_materno=data.ap_materno,
+                nom_razon=data.nom_razon,
+                nro_documento=data.customer_dni or "",
+                nacionalidad=data.nacionalidad,
+                telefono=data.customer_phone or "",
+                direccion=data.customer_address or "",
+                paradero=data.paradero,
+                ambito=data.ambito,
+                n_ambito=data.n_ambito,
+                ubigeo=data.ubigeo,
+                n_ubigeo=data.n_ubigeo,
+                placa=data.placa,
+                marca=data.marca or "",
+                modelo=data.modelo or "",
+                año=data.año or 0,
+                asientos=data.asientos or 0,
+                serie_vehiculo=data.serie_vehiculo or "",
+                color_veh=data.color_veh,
+                idn_tecnica=data.idn_tecnica or 0,
+                precio=data.precio or 0,
+                ap_extra=data.ap_extra or 0,
+            )
+
+            if not result.get("success"):
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"AFOCAT: {result.get('error', 'Error al vender CAT')}",
+                )
+
+            cert_number = result.get("certificate_number")
+            pdf_cat_path = result.get("pdf_cat_url")
+            pdf_boleta_path = result.get("pdf_cpe_url")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"AFOCAT error: {str(e)}",
+            )
+
+    # Save locally
     sale = CatSale(
+        certificate_number=cert_number,
         placa=data.placa.upper(),
         marca=data.marca,
         modelo=data.modelo,
@@ -184,10 +258,14 @@ def create_cat_sale(
         customer_dni=data.customer_dni,
         customer_phone=data.customer_phone,
         customer_address=data.customer_address,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
         precio=data.precio,
         ap_extra=data.ap_extra,
         total=data.total,
         status="VENDIDO",
+        pdf_cat_path=pdf_cat_path,
+        pdf_boleta_path=pdf_boleta_path,
         sold_by=user.id,
         notes=data.notes,
     )

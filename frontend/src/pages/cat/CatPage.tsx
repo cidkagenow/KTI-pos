@@ -112,6 +112,12 @@ export default function CatPage() {
       return;
     }
 
+    // Split customer name into parts for AFOCAT API
+    const nameParts = customerName.trim().split(' ');
+    const ap_paterno = nameParts[0] || '';
+    const ap_materno = nameParts[1] || '';
+    const nom_razon = nameParts.slice(2).join(' ') || '';
+
     saveMutation.mutate({
       placa: vehicleData.placa,
       marca: vehicleData.marca,
@@ -122,13 +128,18 @@ export default function CatPage() {
       categoria: vehicleData.categoria,
       clase: vehicleData.clase,
       uso: vehicleData.uso,
+      idn_tecnica: vehicleData.n_tecnica,
       customer_name: customerName.trim(),
+      ap_paterno,
+      ap_materno,
+      nom_razon,
       customer_dni: dni,
       customer_phone: customerPhone,
       customer_address: customerAddress,
       precio: vehicleData.precio,
       ap_extra: vehicleData.ap_extra,
       total: vehicleData.precio_total,
+      emit_in_afocat: true,
       notes,
     });
   };

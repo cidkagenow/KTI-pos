@@ -2,11 +2,11 @@
 AFOCAT Piura API Client — integrates with syserp.afocatpiura.com
 for CAT (Certificado contra Accidentes de Transito) sales.
 
-Handles: login, DNI lookup, plate lookup, sell CAT, search CAT.
+Endpoints use "Test_" prefix (that's their production naming).
+Flow: login → lookup plate → lookup DNI → get cert number → sell → get PDF
 """
 
 import logging
-from datetime import datetime, timezone
 
 import httpx
 
@@ -45,33 +45,55 @@ class AfocatClient:
         self._logged_in = True
         logger.info("AFOCAT: logged in successfully")
 
+    def _post(self, endpoint: str, data: dict | list | None = None) -> dict:
+        """POST to AFOCAT API with auto-login and retry on session expiry."""
+        self._ensure_login()
+        resp = self._client.post(f"/api/{endpoint}", data=data)
+
+        # If session expired, re-login and retry
+        if resp.status_code == 302 or (resp.status_code == 200 and "login" in resp.text[:200].lower()):
+            self._logged_in = False
+            self._ensure_login()
+            resp = self._client.post(f"/api/{endpoint}", data=data)
+
+        return resp.json()
+
     def lookup_dni(self, dni: str) -> dict:
         """Lookup customer by DNI."""
-        self._ensure_login()
-        resp = self._client.post("/api/DNI", data={"nro_documento": dni})
-        data = resp.json()
+        try:
+            data = self._post("Test_Cat_DNI", {"nro_documento": dni})
+        except Exception:
+            # Fallback to old endpoint
+            data = self._post("DNI", {"nro_documento": dni})
 
         if data.get("success") != 1:
             return {"found": False, "error": data.get("message", "Not found")}
 
+        ap_paterno = data.get("ap_paterno", "")
+        ap_materno = data.get("ap_materno", "")
+        nombre = data.get("nom_razon", "")
+        full_name = f"{ap_paterno} {ap_materno} {nombre}".strip()
+
         return {
-            "found": True,
-            "ap_paterno": data.get("ap_paterno", ""),
-            "ap_materno": data.get("ap_materno", ""),
-            "nombre": data.get("nom_razon", ""),
-            "full_name": f"{data.get('ap_paterno', '')} {data.get('ap_materno', '')} {data.get('nom_razon', '')}".strip(),
+            "found": bool(full_name),
+            "ap_paterno": ap_paterno,
+            "ap_materno": ap_materno,
+            "nombre": nombre,
+            "full_name": full_name,
             "telefono": data.get("telefono", ""),
             "direccion": data.get("direccion", ""),
-            "nacionalidad": data.get("nacionalidad", ""),
+            "nacionalidad": data.get("nacionalidad", "PERÚ"),
             "ambito": data.get("ambito", 0),
             "ubigeo": data.get("ubigeo", 0),
+            "paradero": data.get("paradero", ""),
         }
 
     def lookup_placa(self, placa: str) -> dict:
         """Lookup vehicle by license plate."""
-        self._ensure_login()
-        resp = self._client.post("/api/PLACA", data={"placa": placa.upper()})
-        data = resp.json()
+        try:
+            data = self._post("Test_Placa_User", {"placa": placa.upper()})
+        except Exception:
+            data = self._post("PLACA", {"placa": placa.upper()})
 
         if data.get("success") != 1:
             return {"found": False, "error": data.get("message", "Not found")}
@@ -96,47 +118,112 @@ class AfocatClient:
             "n_tecnica": v.get("n_tecnica"),
         }
 
-    def get_pending_cats(self) -> list[dict]:
-        """Get pending CAT certificates for this sales point."""
-        self._ensure_login()
-        resp = self._client.post("/api/_V_Cat_Pendientes")
-        data = resp.json()
-        return data.get("Cat_Liq", [])
-
-    def sell_cat(self, form_data: dict) -> dict:
+    def sell_cat(
+        self,
+        # Customer
+        ap_paterno: str,
+        ap_materno: str,
+        nom_razon: str,
+        nro_documento: str,
+        t_docu: str = "1",  # 1=DNI
+        nacionalidad: str = "PERÚ",
+        telefono: str = "",
+        direccion: str = "",
+        paradero: str = "",
+        ambito: int = 200101,
+        n_ambito: str = "PIURA",
+        ubigeo: int = 0,
+        n_ubigeo: str = "",
+        # Vehicle
+        placa: str = "",
+        marca: str = "",
+        modelo: str = "",
+        año: int = 0,
+        asientos: int = 0,
+        serie_vehiculo: str = "",
+        color_veh: str = "",
+        idn_tecnica: int = 0,
+        # Pricing
+        precio: float = 0,
+        ap_extra: float = 0,
+    ) -> dict:
         """
-        Sell a CAT certificate.
+        Sell a CAT certificate via AFOCAT API.
 
-        form_data should match the fields the AFOCAT system expects.
-        Returns the response including PDF paths and certificate number.
+        Returns dict with success, certificate number, PDF paths.
         """
+        total = precio + ap_extra
+
+        form_data = {
+            "idn_tecnica": str(idn_tecnica),
+            "nacionalidad": nacionalidad,
+            "nom_razon": nom_razon,
+            "ap_materno": ap_materno,
+            "ap_paterno": ap_paterno,
+            "paradero": paradero,
+            "t_docu": t_docu,
+            "t_doc_name": "DNI" if t_docu == "1" else "RUC",
+            "nro_documento": nro_documento,
+            "telefono": telefono,
+            "direccion": direccion,
+            "n_ambito": n_ambito,
+            "ambito": str(ambito),
+            "n_ubigeo": n_ubigeo,
+            "ubigeo": str(ubigeo),
+            "color_veh": color_veh,
+            "placa": placa.upper(),
+            "marca": marca,
+            "modelo": modelo,
+            "año": str(año),
+            "asientos": str(asientos),
+            "serie": serie_vehiculo,
+            "id_motivo": "",
+            "motivo_texto": "",
+            "ap_extra": str(ap_extra),
+            "cat_precio": str(precio),
+            "Cat_Saldo": str(total),
+            "Cat_Medio_Digital": "",
+            "Cat_Monto_Digital": "0",
+            "cat_idcertificado_": "0",
+            "cat_anio": "2026",
+            "cat_serie_": "FL",
+            "estado_m": "4",
+            "duplicado": "false",
+            "cat_duplicado": "",
+            "tipo_cpe": "",
+            "jsonResponse__ruta_up": "",
+        }
+
         self._ensure_login()
-        resp = self._client.post("/api/Cat_vender", data=form_data)
+        resp = self._client.post("/api/Test_Cat_vender", data=form_data)
 
         if resp.status_code != 200:
-            return {"success": False, "error": f"HTTP {resp.status_code}"}
+            return {"success": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
 
         try:
-            data = resp.json()
-            return {
-                "success": data.get("success") == 1,
-                "message": data.get("message", ""),
-                "pdf_cat": data.get("pdf_cat"),
-                "pdf_cpe": data.get("pdf_cpe"),
-                "raw": data,
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+            result = resp.json()
+        except Exception:
+            return {"success": False, "error": f"Invalid response: {resp.text[:200]}"}
 
-    def search_cat(self, search_data: dict) -> dict:
-        """Search for an existing CAT certificate."""
-        self._ensure_login()
-        resp = self._client.post("/api/_Search_Cat", data=search_data)
-        data = resp.json()
-        return data
+        if result.get("success") != 1:
+            return {
+                "success": False,
+                "error": result.get("message", "Unknown error"),
+                "raw": result,
+            }
+
+        cert_num = result.get("pdf_cat", "")  # e.g. "FL-003105-2026"
+        return {
+            "success": True,
+            "message": result.get("message", ""),
+            "certificate_number": cert_num,
+            "pdf_cat": result.get("pdf_cat"),
+            "pdf_cpe": result.get("pdf_cpe"),
+            "pdf_cat_url": f"{AFOCAT_BASE}/mPDF/REPORTES/CAT/{result.get('pdf_cat', '')}.pdf" if result.get("pdf_cat") else None,
+            "pdf_cpe_url": f"{AFOCAT_BASE}/mPDF/REPORTES/BOLETAS/{result.get('pdf_cpe', '')}.pdf" if result.get("pdf_cpe") else None,
+        }
 
     def close(self):
-        """Close the HTTP client."""
         self._client.close()
 
 
@@ -145,7 +232,6 @@ _client: AfocatClient | None = None
 
 
 def get_afocat_client() -> AfocatClient:
-    """Get or create the singleton AFOCAT client."""
     global _client
     if _client is None:
         _client = AfocatClient()
