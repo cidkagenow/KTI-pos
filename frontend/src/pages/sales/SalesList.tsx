@@ -19,6 +19,7 @@ import {
   EyeOutlined,
   EditOutlined,
   StopOutlined,
+  CheckOutlined,
   DeleteOutlined,
   PrinterOutlined,
   CloudOutlined,
@@ -335,24 +336,6 @@ export default function SalesList() {
               onClick={() => handleDelete(record)}
             />
           )}
-          {/* Ventas: emitir NV/PROFORMA without print */}
-          {!isAdmin && record.status === 'PREVENTA' && record.doc_type === 'NOTA_VENTA' && (
-            <Button
-              type="link"
-              size="small"
-              icon={<PrinterOutlined />}
-              title="Emitir Nota de Venta"
-              onClick={async () => {
-                try {
-                  await emitirNotaVenta(record.id);
-                  message.success('Nota de Venta emitida');
-                  queryClient.invalidateQueries({ queryKey: ['sales'] });
-                } catch (err: any) {
-                  message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
-                }
-              }}
-            />
-          )}
           {!isAdmin && record.status === 'PREVENTA' && record.doc_type === 'PROFORMA' && (
             <Button
               type="link"
@@ -391,13 +374,31 @@ export default function SalesList() {
               }}
             />
           )}
-          {/* Admin: print NV (EMITIDO → FACTURADO + stock deduction + print) */}
-          {isAdmin && record.status === 'EMITIDO' && record.doc_type === 'NOTA_VENTA' && (
+          {/* Admin: Emitir NV (PREVENTA → EMITIDO, deducts stock, no print) */}
+          {isAdmin && record.status === 'PREVENTA' && record.doc_type === 'NOTA_VENTA' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<CheckOutlined />}
+              title="Emitir Nota de Venta (descuenta stock)"
+              onClick={async () => {
+                try {
+                  await emitirNotaVenta(record.id);
+                  message.success('Nota de Venta emitida');
+                  queryClient.invalidateQueries({ queryKey: ['sales'] });
+                } catch (err: any) {
+                  message.error(err?.response?.data?.detail || 'Error al emitir Nota de Venta');
+                }
+              }}
+            />
+          )}
+          {/* Admin: Imprimir NV (PREVENTA or EMITIDO → EMITIDO + print) */}
+          {isAdmin && (record.status === 'PREVENTA' || record.status === 'EMITIDO') && record.doc_type === 'NOTA_VENTA' && (
             <Button
               type="link"
               size="small"
               icon={<PrinterOutlined />}
-              title="Imprimir Nota de Venta (descuenta stock)"
+              title="Imprimir Nota de Venta"
               onClick={async () => {
                 try {
                   await printNotaVenta(record.id);
@@ -411,38 +412,22 @@ export default function SalesList() {
               }}
             />
           )}
-          {/* Admin: full emitir/facturar + print for all (non-NV EMITIDO) */}
-          {isAdmin && (() => {
+          {/* Admin: full facturar + print for Boleta/Factura/Proforma */}
+          {isAdmin && record.doc_type !== 'NOTA_VENTA' && (() => {
             const isPreventa = record.status === 'PREVENTA';
-            const isEmitidoNV = record.status === 'EMITIDO' && record.doc_type === 'NOTA_VENTA';
-            if (isEmitidoNV) return null; // handled above
-            const isNV = record.doc_type === 'NOTA_VENTA';
             const isPF = record.doc_type === 'PROFORMA';
-            const isNonFiscal = isNV || isPF;
             const cashShort = record.payment_method === 'EFECTIVO' && (record.cash_received ?? 0) < record.total;
-            const disabled = isPreventa && !isNonFiscal && cashShort;
-            const title = disabled ? 'Efectivo insuficiente' : undefined;
+            const disabled = isPreventa && !isPF && cashShort;
             return (
               <Button
                 type="link"
                 size="small"
                 icon={<PrinterOutlined />}
                 disabled={disabled}
-                title={title}
+                title={disabled ? 'Efectivo insuficiente' : undefined}
                 onClick={async () => {
                   if (isPreventa) {
-                    if (isNV) {
-                      // Admin emits + prints NV in one step
-                      try {
-                        await emitirNotaVenta(record.id);
-                        await printNotaVenta(record.id);
-                        message.success('Nota de Venta impresa');
-                        queryClient.invalidateQueries({ queryKey: ['sales'] });
-                      } catch (err: any) {
-                        message.error(err?.response?.data?.detail || 'Error al imprimir Nota de Venta');
-                        return;
-                      }
-                    } else if (isPF) {
+                    if (isPF) {
                       try {
                         await emitirProforma(record.id);
                         message.success('Proforma emitida');

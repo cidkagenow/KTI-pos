@@ -671,9 +671,9 @@ def update_sale(
 def emitir_nota_venta(
     sale_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    _user: User = Depends(require_admin),
 ):
-    """Emit a Nota de Venta: assigns doc_number, sets status=EMITIDO. No stock deduction (that happens at print)."""
+    """Emit a Nota de Venta: assigns doc_number, deducts stock, sets status=EMITIDO. ADMIN only."""
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.items), joinedload(Sale.client), joinedload(Sale.seller), joinedload(Sale.trabajador))
@@ -719,6 +719,48 @@ def emitir_nota_venta(
     sale.status = "EMITIDO"
     sale.issue_date = date.today()
 
+    # Check stock availability
+    insufficient = []
+    for item in sale.items:
+        inv = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+            .first()
+        )
+        available = inv.quantity if inv else 0
+        if item.quantity > available:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
+            insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
+    if insufficient:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stock insuficiente: " + "; ".join(insufficient),
+        )
+
+    # Deduct stock at emit time (affects reports immediately)
+    for item in sale.items:
+        inv = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+            .first()
+        )
+        if inv is None:
+            inv = Inventory(product_id=item.product_id, warehouse_id=sale.warehouse_id, quantity=0)
+            db.add(inv)
+            db.flush()
+        inv.quantity -= item.quantity
+        db.add(InventoryMovement(
+            product_id=item.product_id,
+            warehouse_id=sale.warehouse_id,
+            movement_type="SALE",
+            quantity=-item.quantity,
+            reference_type="SALE",
+            reference_id=sale.id,
+            notes=f"Venta #{sale.series}-{sale.doc_number}",
+            created_by=_user.id,
+        ))
+
     db.commit()
     db.refresh(sale)
     return _sale_to_out(sale)
@@ -741,50 +783,80 @@ def print_nota_venta(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Venta no encontrada")
     if sale.doc_type != "NOTA_VENTA":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo Notas de Venta")
-    if sale.status != "EMITIDO":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La Nota de Venta debe estar EMITIDA para imprimir")
+    if sale.status not in ("PREVENTA", "EMITIDO"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La Nota de Venta debe estar en PREVENTA o EMITIDA para imprimir")
 
-    # Check stock availability
-    insufficient = []
-    for item in sale.items:
-        inv = (
-            db.query(Inventory)
-            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+    # If still PREVENTA, assign doc number now (same as emitir-nv)
+    if sale.status == "PREVENTA":
+        doc_series = (
+            db.query(DocumentSeries)
+            .filter(
+                DocumentSeries.doc_type == "NOTA_VENTA",
+                DocumentSeries.series == sale.series,
+                DocumentSeries.is_active == True,
+            )
+            .with_for_update()
             .first()
         )
-        available = inv.quantity if inv else 0
-        if item.quantity > available:
-            product = db.query(Product).filter(Product.id == item.product_id).first()
-            name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
-            insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
-    if insufficient:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stock insuficiente: " + "; ".join(insufficient),
-        )
+        if doc_series is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Serie de Nota de Venta no encontrada o inactiva",
+            )
+        sale.doc_number = doc_series.next_number
+        doc_series.next_number += 1
+        sale.issue_date = date.today()
 
-    # Deduct stock
-    for item in sale.items:
-        inv = (
-            db.query(Inventory)
-            .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
-            .first()
+    # Stock was already deducted at emit (new behavior).
+    # For NVs emitted under old code (no emit-time deduction), deduct now.
+    existing_movement = (
+        db.query(InventoryMovement)
+        .filter(
+            InventoryMovement.reference_type == "SALE",
+            InventoryMovement.reference_id == sale.id,
+            InventoryMovement.movement_type == "SALE",
         )
-        if inv:
-            inv.quantity -= item.quantity
-        db.add(InventoryMovement(
-            product_id=item.product_id,
-            warehouse_id=sale.warehouse_id,
-            movement_type="SALE",
-            quantity=-item.quantity,
-            reference_type="SALE",
-            reference_id=sale.id,
-            notes=f"Venta #{sale.series}-{sale.doc_number}",
-            created_by=_user.id,
-        ))
+        .first()
+    )
+    if not existing_movement:
+        # Old-style NV: check and deduct stock now
+        insufficient = []
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            available = inv.quantity if inv else 0
+            if item.quantity > available:
+                product = db.query(Product).filter(Product.id == item.product_id).first()
+                name = f"{product.code} - {product.name}" if product else f"ID {item.product_id}"
+                insufficient.append(f"{name}: pide {item.quantity}, stock {available}")
+        if insufficient:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stock insuficiente: " + "; ".join(insufficient),
+            )
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity -= item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="SALE",
+                quantity=-item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Venta #{sale.series}-{sale.doc_number}",
+                created_by=_user.id,
+            ))
 
-    # Mark as printed
-    sale.status = "FACTURADO"
+    sale.status = "EMITIDO"
     db.flush()
     db.commit()
     db.refresh(sale)
@@ -1189,8 +1261,12 @@ def void_sale(
                 detail="No se puede anular esta boleta hoy. El resumen diario ya fue aceptado por SUNAT. Puede anularla a partir de mañana.",
             )
 
-    # Return stock for FACTURADO sales (boleta, factura, printed NV)
-    if sale.status == "FACTURADO" and sale.doc_type != "NOTA_CREDITO":
+    # Return stock for sales where stock was already deducted:
+    # - NV in EMITIDO or FACTURADO (stock deducted at emit)
+    # - Boleta/Factura in FACTURADO (stock deducted at facturar)
+    nv_with_stock = sale.doc_type == "NOTA_VENTA" and sale.status in ("EMITIDO", "FACTURADO")
+    regular_facturado = sale.status == "FACTURADO" and sale.doc_type not in ("NOTA_CREDITO", "NOTA_VENTA")
+    if (nv_with_stock or regular_facturado) and sale.doc_type != "NOTA_CREDITO":
         # BOLETA/FACTURA: return stock that was deducted at facturar
         for item in sale.items:
             inv = (
@@ -1287,7 +1363,27 @@ def delete_sale(
             detail="Solo se pueden eliminar preventas" if _user.role != "ADMIN" and sale.doc_type != "PROFORMA" else "Solo se pueden eliminar ventas en estado PREVENTA o EMITIDO",
         )
 
-    # Preventas/emitidos never deducted stock — hard delete from DB
+    # EMITIDO NVs have stock deducted — return stock before deleting
+    if sale.doc_type == "NOTA_VENTA" and sale.status == "EMITIDO":
+        for item in sale.items:
+            inv = (
+                db.query(Inventory)
+                .filter(Inventory.product_id == item.product_id, Inventory.warehouse_id == sale.warehouse_id)
+                .first()
+            )
+            if inv:
+                inv.quantity += item.quantity
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type="VOID_RETURN",
+                quantity=item.quantity,
+                reference_type="SALE",
+                reference_id=sale.id,
+                notes=f"Eliminación NV #{sale.series}-{sale.doc_number}",
+                created_by=_user.id,
+            ))
+
     for item in sale.items:
         db.delete(item)
     db.delete(sale)

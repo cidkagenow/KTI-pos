@@ -26,7 +26,8 @@ router = APIRouter()
 _lima = func.timezone("America/Lima", Sale.created_at)
 
 # Statuses that count as actual sales for reporting
-SALE_STATUSES = ("FACTURADO",)
+# EMITIDO included: NVs deduct stock at emit, so they count immediately
+SALE_STATUSES = ("FACTURADO", "EMITIDO")
 
 
 @router.get("/dashboard", response_model=DashboardStats)

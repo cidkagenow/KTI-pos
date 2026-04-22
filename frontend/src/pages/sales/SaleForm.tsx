@@ -1051,7 +1051,7 @@ export default function SaleForm() {
                   Guardar como PreVenta
                 </Button>
               )}
-              {(currentDocType === 'NOTA_VENTA' || currentDocType === 'PROFORMA') && isEditing && (
+              {(currentDocType === 'NOTA_VENTA' || currentDocType === 'PROFORMA') && (
                 <Button
                   icon={<SaveOutlined />}
                   onClick={handleSavePreVenta}
@@ -1059,10 +1059,10 @@ export default function SaleForm() {
                   block
                   size="large"
                 >
-                  Guardar
+                  Guardar como PreVenta
                 </Button>
               )}
-              {currentDocType === 'NOTA_VENTA' && (
+              {currentDocType === 'NOTA_VENTA' && isAdmin && (
                 <Button
                   ref={facturarRef}
                   type="primary"
