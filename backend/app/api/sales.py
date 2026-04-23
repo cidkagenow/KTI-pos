@@ -1309,7 +1309,9 @@ def void_sale(
             ))
 
     # If voiding a FACTURADO boleta that was never sent to SUNAT (still PENDIENTE),
-    # mark the SunatDocument as NO_ENVIADA so it doesn't show as "PENDIENTE" forever.
+    # mark the SunatDocument as NO_ENVIADA so it doesn't get sent later.
+    # Facturas are NOT marked NO_ENVIADA — they must still be sent to SUNAT
+    # to avoid gaps in the correlativo, then communicate baja.
     if sale.status == "FACTURADO" and sale.doc_type == "BOLETA":
         pending_doc = (
             db.query(SunatDocument)

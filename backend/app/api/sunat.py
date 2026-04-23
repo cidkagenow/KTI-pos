@@ -477,6 +477,7 @@ def _get_pending_boletas(db: Session, fecha: date):
                 and_(Sale.doc_type == "NOTA_CREDITO", Sale.series.like("B%")),
             ),
         )
+        .order_by(Sale.doc_number)
         .all()
     )
 
@@ -488,6 +489,7 @@ def _get_pending_boletas(db: Session, fecha: date):
             Sale.doc_type == "BOLETA",
             Sale.status == "ANULADO",
         )
+        .order_by(Sale.doc_number)
         .all()
     )
 
@@ -659,12 +661,15 @@ def enviar_resumen_boletas(
 
 
 def _get_pending_baja_facturas(db: Session) -> list[Sale]:
-    """Get ANULADO facturas that don't have an ACEPTADO or PENDIENTE baja."""
+    """Get ANULADO facturas that don't have an ACEPTADO or PENDIENTE baja.
+    Includes ALL anuladas (even PENDIENTE ones) because facturas must be sent
+    to SUNAT to avoid gaps in correlativo, then communicate baja."""
     already_sent_ids = (
         db.query(SunatDocument.sale_id)
         .filter(
             SunatDocument.doc_category == "BAJA",
             SunatDocument.sunat_status.in_(["ACEPTADO", "PENDIENTE"]),
+            SunatDocument.sale_id.isnot(None),
         )
         .subquery()
     )
