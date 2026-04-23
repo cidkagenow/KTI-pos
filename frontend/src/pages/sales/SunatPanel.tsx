@@ -474,9 +474,10 @@ function ResumenBoletasTab() {
   ];
 
   // Exclude boletas anuladas before being sent to SUNAT (NO_ENVIADA) — SUNAT never knew about them
-  const boletas = (boletasData?.data ?? []).filter(
-    (s: Sale) => !(s.status === 'ANULADO' && s.sunat_status === 'NO_ENVIADA'),
-  );
+  // Sort by doc_number ascending for correlativo order
+  const boletas = (boletasData?.data ?? [])
+    .filter((s: Sale) => !(s.status === 'ANULADO' && s.sunat_status === 'NO_ENVIADA'))
+    .sort((a: Sale, b: Sale) => (a.doc_number ?? 0) - (b.doc_number ?? 0));
 
   return (
     <div>
