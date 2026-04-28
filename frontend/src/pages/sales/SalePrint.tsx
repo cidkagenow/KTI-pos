@@ -166,20 +166,6 @@ export default function SalePrint() {
           margin: 1px 0;
           word-wrap: break-word;
         }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
-        }
-        th {
-          text-align: left;
-          border-bottom: 1px solid #000;
-          padding: 2px 0;
-          font-size: 11px;
-        }
-        th:last-child, td:last-child { text-align: right; }
-        th:nth-child(3), td:nth-child(3) { text-align: center; }
-        td { padding: 2px 0; vertical-align: top; }
         .total-section { margin-top: 3px; }
         .total-row {
           display: flex;
@@ -307,34 +293,33 @@ export default function SalePrint() {
 
         <hr className="divider" />
 
-        {/* Items table */}
-        <table>
-          <thead>
-            <tr>
-              <th>Descripcion</th>
-              <th style={{ textAlign: 'center' }}>Cant.</th>
-              <th style={{ textAlign: 'center' }}>Present.</th>
-              <th style={{ textAlign: 'right' }}>Precio</th>
-              <th style={{ textAlign: 'right' }}>Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sale.items.map((item, i) => (
-              <tr key={i}>
-                <td style={{ maxWidth: 120, fontSize: 11 }}>
-                  {item.product_name}
-                  {item.discount_pct > 0 && (
-                    <span style={{ fontSize: 9 }}> (-{item.discount_pct}%)</span>
-                  )}
-                </td>
-                <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                <td style={{ textAlign: 'center', fontSize: 10 }}>{item.presentation || 'UND'}</td>
-                <td style={{ textAlign: 'right' }}>{item.unit_price.toFixed(2)}</td>
-                <td style={{ textAlign: 'right' }}>{item.line_total.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Items - two-line layout per item (matches old system) */}
+        <div style={{ fontSize: 11, marginBottom: 2 }}>
+          <div style={{ textAlign: 'center', marginBottom: 1 }}>descripcion</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ width: '18%' }}>cant.</span>
+            <span style={{ width: '27%', textAlign: 'center' }}>present.</span>
+            <span style={{ width: '27%', textAlign: 'right' }}>precio</span>
+            <span style={{ width: '28%', textAlign: 'right' }}>importe</span>
+          </div>
+        </div>
+        <hr className="divider" />
+        {sale.items.map((item, i) => (
+          <div key={i} style={{ fontSize: 11, marginBottom: 4 }}>
+            <div style={{ wordWrap: 'break-word' }}>
+              {item.product_name}
+              {item.discount_pct > 0 && (
+                <span style={{ fontSize: 9 }}> (-{item.discount_pct}%)</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ width: '18%' }}>{item.quantity}</span>
+              <span style={{ width: '27%', textAlign: 'center' }}>{item.presentation || 'UND'}</span>
+              <span style={{ width: '27%', textAlign: 'right' }}>{item.unit_price.toFixed(2)}</span>
+              <span style={{ width: '28%', textAlign: 'right' }}>{item.line_total.toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
 
         {/* Totals */}
         <div className="total-section">
